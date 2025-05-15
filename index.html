@@ -1,0 +1,2916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inspiro Customer Excellence Transcript Analysis Platform</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <style>
+    body { font-family: monospace; background: #111; color: #eee; padding: 20px; }
+    input[type=file] { margin-bottom: 20px; }
+    pre { 
+      background: #222; 
+      padding: 10px; 
+      white-space: pre-wrap; 
+      border: 1px solid #444; 
+      margin-bottom: 20px;
+      line-height: 1.3;
+      font-size: 13px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .flagged { color: #ff4d4d; font-weight: bold; }
+    .flag-alert { color: #ff4d4d; font-weight: bold; }
+    .positive-flag { color: #4caf50; font-weight: bold; }
+    .positive-highlight { background-color: rgba(76, 175, 80, 0.1); color: #4caf50; font-weight: bold; padding: 2px 4px; border-radius: 2px; }
+    .call-block { 
+      margin-bottom: 40px; 
+      border-bottom: 1px dashed #555; 
+      padding-bottom: 30px;
+      background: #1a1a1a;
+      border-radius: 5px;
+      padding: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .label-section { 
+      margin-top: 15px; 
+      margin-bottom: 15px;
+      padding-left: 15px; 
+      border-left: 3px solid #888; 
+    }
+    .label-section h3 { margin: 5px 0; color: #aaa; }
+    .flagged-word { color: #ff4d4d; font-weight: bold; }
+    .metadata-section {
+      background: #191919;
+      padding: 10px 15px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      border-left: 3px solid #333;
+    }
+    .call-title {
+      font-size: 18px;
+      color: #fff;
+      margin-bottom: 15px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #333;
+    }
+    .timestamp {
+      color: #777;
+      font-weight: normal;
+      display: inline-block;
+      width: 45px;
+    }
+    .speaker {
+      color: #9dccff;
+      font-weight: bold;
+      display: inline-block;
+      width: 70px;
+      text-align: right;
+      padding-right: 10px;
+    }
+    .customer {
+      color: #98fb98;
+    }
+    .message-text {
+      display: inline-block;
+      padding-left: 5px;
+      border-left: 1px solid #333;
+      margin-left: 5px;
+    }
+    .drop-zone { 
+      border: 2px dashed #555; 
+      border-radius: 5px; 
+      padding: 25px; 
+      text-align: center; 
+      margin-bottom: 20px;
+      background: #222;
+      transition: border-color 0.3s;
+    }
+    .drop-zone.active { 
+      border-color: #7799ff; 
+      background: #223; 
+    }
+    .search-container {
+      background: #222;
+      padding: 15px;
+      border: 1px solid #444;
+      margin-bottom: 20px;
+    }
+    #searchInput {
+      padding: 8px; 
+      width: 300px; 
+      margin-right: 10px; 
+      background: #222; 
+      color: #eee; 
+      border: 1px solid #444;
+    }
+    button {
+      padding: 8px 15px; 
+      background: #333; 
+      color: #eee; 
+      border: 1px solid #555; 
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .primary-button {
+      background: #a43ec9;
+      border-color: #a43ec9;
+    }
+    #searchInput:focus, button:hover {
+      outline: none;
+      border-color: #666;
+    }
+    button:hover {
+      background: #444 !important;
+    }
+    .primary-button:hover {
+      background: #b44dd9 !important;
+      border-color: #b44dd9;
+    }
+    .search-options {
+      color: #aaa;
+      margin-top: 10px;
+    }
+    .search-options input[type=checkbox] {
+      margin-right: 5px;
+    }
+    .controls-container {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .compact-transcript {
+      font-family: monospace;
+      font-size: 13px;
+      line-height: 1.2;
+      background: #1c1c1c;
+      border: 1px solid #333;
+      border-radius: 3px;
+      max-height: 400px;
+      overflow-y: auto;
+      padding: 0;
+      margin-top: 10px;
+    }
+    .transcript-entry {
+      padding: 3px 8px;
+      margin: 0;
+      border-bottom: 1px solid #222;
+    }
+    .transcript-entry:nth-child(odd) {
+      background: #181818;
+    }
+    .uploaded-files-container ul {
+      list-style-type: none;
+      padding-left: 0;
+    }
+    .uploaded-files-container li {
+      padding: 5px 10px;
+      background: #1a1a1a;
+      margin-bottom: 5px;
+      border-left: 3px solid #555;
+      font-family: monospace;
+    }
+    .corporate-header {
+      margin-bottom: 20px;
+      border-bottom: 1px solid #333;
+      padding: 15px;
+      background: #1e1e1e;
+      border-radius: 5px;
+    }
+    .corporate-header h1 {
+      color: #eaeaea;
+      font-family: 'Arial', sans-serif;
+    }
+    .accent-color {
+      color: #a43ec9;
+    }
+    .corporate-header p {
+      color: #aaa;
+      font-style: italic;
+      max-width: 800px;
+      line-height: 1.4;
+    }
+    /* Styles for collapsible transcript sections */
+    .transcript-details {
+      margin-bottom: 20px;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .transcript-details summary {
+      list-style: none;
+      cursor: pointer;
+    }
+    .transcript-details summary::-webkit-details-marker {
+      display: none;
+    }
+    .transcript-details[open] summary {
+      margin-bottom: 10px;
+    }
+    .transcript-details summary:hover {
+      background-color: #222;
+    }
+    .transcript-details summary div {
+      transition: background-color 0.2s;
+    }
+    .transcript-details summary:hover div {
+      background-color: #222;
+    }
+  </style>
+</head>
+<body>
+  <div class="corporate-header">
+    <h1 style="font-family: Arial, sans-serif;">
+      <span style="color: #000; font-size: 42px; font-weight: 900;">inspi</span><span style="color: #a43ec9; font-size: 42px; font-weight: 900;">r</span><span style="color: #000; font-size: 42px; font-weight: 900;">o</span> <span style="font-size: 28px; font-weight: bold;">Excellence Dashboard</span>
+    </h1>
+    <p>To cultivate client relationships by treating each customer as royalty. To retain our most important asset – our people, by enriching their lives through unparalleled opportunities. To maximize shareholder value by delivering continuous and profitable growth.</p>
+  </div>
+  
+  <div class="drop-zone" id="dropZone">
+    <p>Drag & drop transcript files here<br>or</p>
+    <label for="fileInput">Select transcript file(s):</label>
+    <input type="file" id="fileInput" accept=".txt,.html,.zip,.csv,.xlsx,.xls" multiple aria-label="Upload transcript files" />
+    
+    <div id="zipPasswordContainer" style="display: none; margin-top: 15px; padding: 10px; background: rgba(164, 62, 201, 0.1); border: 1px solid #a43ec9; border-radius: 5px;">
+      <p style="margin-top: 0; margin-bottom: 10px; color: #ccc;">ZIP file detected. Please enter the password:</p>
+      <label for="zipPassword">ZIP Password:</label>
+      <input type="password" id="zipPassword" placeholder="Enter password for ZIP file" style="padding: 8px; margin-right: 10px; background: #222; color: #eee; border: 1px solid #444; width: 250px;" />
+      <button id="processZipButton" class="primary-button">Process ZIP</button>
+    </div>
+  </div>
+  
+  <div class="controls-container">
+    <div id="status">🟡 Waiting for file...</div>
+    <button id="exportButton" class="primary-button" style="display: none;">Export as JSON</button>
+    <button id="exportExcelButton" class="primary-button" style="display: none;">Export as Excel</button>
+    <button id="dashboardButton" class="primary-button" style="display: none;">Open Dashboard</button>
+    <button id="clearButton" class="primary-button">Clear Data</button>
+  </div>
+  
+  <div class="uploaded-files-container" style="background: #222; padding: 15px; border: 1px solid #444; margin-bottom: 20px; display: none;">
+    <h3 style="margin-top: 0; color: #aaa;">Uploaded Files:</h3>
+    <ul id="uploadedFilesList" style="color: #ccc; margin-bottom: 0;"></ul>
+  </div>
+  
+  <div class="search-container">
+    <input type="text" id="searchInput" placeholder="Search transcripts...">
+    <button id="searchButton" class="primary-button">Search</button>
+    <div class="search-options">
+      <label style="margin-right: 15px;"><input type="checkbox" id="searchAgent" checked> Agent</label>
+      <label style="margin-right: 15px;"><input type="checkbox" id="searchCustomer" checked> Customer</label>
+      <label style="margin-right: 15px;"><input type="checkbox" id="searchSummary" checked> Summary</label>
+      <label><input type="checkbox" id="searchMetadata" checked> Metadata</label>
+    </div>
+  </div>
+  
+  <details id="analytics-panel" style="margin-bottom: 10px;">
+    <summary>📊 Analytics Dashboard</summary>
+    <div class="dashboard">
+      <div id="agentSummary" class="stat-group"></div>
+      <div id="flagSummary" class="stat-group"></div>
+    </div>
+  </details>
+  
+  <details id="positive-calls-panel" style="margin-bottom: 20px;">
+    <summary>🌟 Positive Interactions</summary>
+    <div class="dashboard">
+      <div id="positiveSummary" class="stat-group"></div>
+      <div id="positiveCallsList" class="stat-group"></div>
+    </div>
+  </details>
+
+  <div id="results"></div>
+
+  <script>
+    // Global variables for search and export
+    let parsedCalls = [];
+    let currentSearchTerm = '';
+    let uploadedFiles = [];
+    let currentZipFile = null; // For storing the current ZIP file being processed
+    let contactIdSet = new Set(); // Track unique Contact IDs to prevent duplicates
+
+    const CONTACT_ID_REGEX = /^[a-f0-9\-]{36}$/i;
+    // Positive triggers for identifying good interactions
+    const positiveTriggers = [
+      // Satisfaction indicators
+      "excellent", "awesome", "fantastic", "happy", "satisfied", "appreciate", "helpful", "thanks", "thank you", 
+      
+      // Problem resolution indicators
+      "resolved", "solution", "fixed", "solved", "working", "successful", 
+      
+      // Agent praise indicators
+      "great job", "great service", "good job", "patient", "kind", "understanding",
+      
+      // Customer loyalty indicators
+      "loyal", "recommend", "refer", "continue service", "sign up again",
+      
+      // General positive sentiment
+      "perfect", "wonderful", "brilliant", "superb", "exceptional", "outstanding"
+    ];
+    
+    // Problem/negative triggers
+    const triggers = [
+      // Customer dissatisfaction flags
+      "cancel", "refund", "unhappy", "disappointed", "upset", "frustrated", "angry",
+      
+      // Escalation flags
+      "supervisor", "manager", "escalate", "speak to someone else", "higher up",
+      
+      // Disconnection and technical flags
+      "disconnect", "hang up", "technical issue", "doesn't work", "not working", "error",
+      
+      // Billing and payment flags
+      "bill", "charge", "overcharge", "payment", "cost", "price", "expensive",
+      
+      // Policy and compliance flags
+      "gdpr", "privacy", "policy", "terms", "legal", "compliance", "regulation",
+      
+      // Complaint and service issue flags
+      "complaint", "issue", "problem", "fault", "failure", "malfunction", "broken",
+      
+      // Fraud and security flags
+      "fraud", "scam", "unauthorized", "suspicious", "security", "hack", "identity",
+      
+      // Service request flags
+      "cancel service", "subscription", "upgrade", "downgrade", "change plan"
+    ];
+
+    // Updated metadata field definitions with exact ordering
+    const metadataFieldOrder = [
+      "Contact ID",
+      "Channel",
+      "Contact status",
+      "Initiation timestamp",
+      "System phone number / email address",
+      "Queue",
+      "Agent",
+      "Recording/Transcript",
+      "Customer phone number / email address",
+      "Disconnect timestamp",
+      "Contact duration",
+      "Agent name",
+      "Agent first name",
+      "Agent last name",
+      "Routing profile",
+      "Connected to agent timestamp",
+      "ACW start timestamp",
+      "ACW end timestamp",
+      "Agent interaction duration",
+      "Agent connection attempts",
+      "Number of holds",
+      "Is transferred out",
+      "Initiation method",
+      "Disconnect reason",
+      "First contact flow name",
+      "First contact flow ID",
+      "Enqueue timestamp",
+      "Fraud detection result"
+    ];
+
+    // Define which fields are in the short metadata section (first row)
+    const shortMetadataFields = ["Channel", "Contact status", "Initiation timestamp", "System phone number / email address", "Queue", "Agent", "Recording/Transcript"];
+    
+    // Define which fields are in the long metadata section (second row)
+    const longMetadataFields = [
+      "Customer phone number / email address",
+      "Disconnect timestamp",
+      "Contact duration",
+      "Agent name",
+      "Agent first name",
+      "Agent last name",
+      "Routing profile",
+      "Connected to agent timestamp",
+      "ACW start timestamp",
+      "ACW end timestamp",
+      "Agent interaction duration",
+      "Agent connection attempts",
+      "Number of holds",
+      "Is transferred out",
+      "Initiation method",
+      "Disconnect reason",
+      "First contact flow name",
+      "First contact flow ID",
+      "Enqueue timestamp",
+      "Fraud detection result"
+    ];
+
+    // Set up event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+      // File input handler
+      document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+      
+      // Drag and drop handlers
+      const dropZone = document.getElementById('dropZone');
+      
+      dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.classList.add('active');
+      });
+      
+      dropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.classList.remove('active');
+      });
+      
+      dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.classList.remove('active');
+        
+        const files = e.dataTransfer.files;
+        if (files && files.length > 0) {
+          // Check file types for special handling
+          if (files.length === 1) {
+            const fileName = files[0].name.toLowerCase();
+            
+            // Handle ZIP files
+            if (fileName.endsWith('.zip')) {
+              // Show password field
+              document.getElementById('zipPasswordContainer').style.display = 'block';
+              document.getElementById('zipPassword').focus();
+              currentZipFile = files[0]; // Store the ZIP file for later processing
+              document.getElementById("status").textContent = "Enter password for ZIP file";
+              return;
+            }
+            
+            // Handle Excel/CSV files
+            if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.csv')) {
+              processSpreadsheetFile(files[0]);
+              return;
+            }
+          }
+          
+          // Process multiple files
+          processMultipleFiles(Array.from(files));
+        }
+      });
+      
+      // Search handlers
+      document.getElementById('searchButton').addEventListener('click', performSearch);
+      document.getElementById('searchInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') performSearch();
+      });
+      
+      // Export handlers
+      document.getElementById('exportButton').addEventListener('click', exportToJSON);
+      document.getElementById('exportExcelButton').addEventListener('click', exportToExcel);
+      
+      // Dashboard button
+      document.getElementById('dashboardButton').addEventListener('click', openDashboard);
+      
+      // ZIP processing button
+      document.getElementById('processZipButton').addEventListener('click', processZipWithPassword);
+      
+      // ZIP password field keypress
+      document.getElementById('zipPassword').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          processZipWithPassword();
+        }
+      });
+      
+      // Add clear data button to controls
+      // Check if it already exists first
+      if (!document.getElementById('clearButton')) {
+        const clearButton = document.createElement('button');
+        clearButton.id = 'clearButton';
+        clearButton.textContent = 'Clear Data';
+        clearButton.addEventListener('click', clearAllData);
+        clearButton.className = 'primary-button';
+        document.querySelector('.controls-container').appendChild(clearButton);
+      }
+      
+      // Processes ZIP with entered password
+      function processZipWithPassword() {
+        const password = document.getElementById('zipPassword').value;
+        if (currentZipFile && password) {
+          processZipFile(currentZipFile, password);
+        } else {
+          document.getElementById("status").textContent = "❌ No ZIP file selected or password is empty";
+        }
+      }
+    });
+
+    // File handling functions
+    function handleFileSelect(event) {
+      const files = event.target.files;
+      if (!files || files.length === 0) return;
+      
+      document.getElementById("status").textContent = `⏳ Processing ${files.length} file(s)...`;
+      
+      // Check file types for special handling
+      if (files.length === 1) {
+        const fileName = files[0].name.toLowerCase();
+        
+        // Handle ZIP files
+        if (fileName.endsWith('.zip')) {
+          // Show password field
+          document.getElementById('zipPasswordContainer').style.display = 'block';
+          document.getElementById('zipPassword').focus();
+          currentZipFile = files[0]; // Store the ZIP file for later processing
+          document.getElementById("status").textContent = "Enter password for ZIP file";
+          return;
+        }
+        
+        // Handle Excel/CSV files
+        if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.csv')) {
+          processSpreadsheetFile(files[0]);
+          return;
+        }
+      }
+      
+      // Process multiple files sequentially
+      processMultipleFiles(Array.from(files));
+    }
+    
+    // Process a ZIP file
+    async function processZipFile(zipFile, password) {
+      try {
+        document.getElementById("status").textContent = "⏳ Extracting ZIP file...";
+        
+        // Load the ZIP file
+        const zip = new JSZip();
+        const zipData = await zipFile.arrayBuffer();
+        
+        // Try to extract with password
+        let zipContents;
+        try {
+          zipContents = await zip.loadAsync(zipData, { password });
+        } catch (error) {
+          document.getElementById("status").textContent = "❌ Error: Wrong password or corrupted ZIP";
+          return;
+        }
+        
+        // Get all text files from the ZIP
+        const textFiles = [];
+        
+        // Collect all text files
+        Object.keys(zipContents.files).forEach(path => {
+          const file = zipContents.files[path];
+          if (!file.dir && (path.endsWith('.txt') || path.endsWith('.html'))) {
+            textFiles.push({ path, file });
+          }
+        });
+        
+        if (textFiles.length === 0) {
+          document.getElementById("status").textContent = "❌ No valid text or HTML files found in ZIP";
+          return;
+        }
+        
+        document.getElementById("status").textContent = `⏳ Processing ${textFiles.length} files from ZIP...`;
+        
+        // Process each file in ZIP
+        let fileCount = 0;
+        for (const fileEntry of textFiles) {
+          try {
+            // Get text content from ZIP entry
+            const content = await fileEntry.file.async('text');
+            
+            // Add to uploaded files list
+            uploadedFiles.push(fileEntry.path);
+            
+            // Process the file content
+            if (parsedCalls.length > 0 || fileCount > 0) {
+              appendFile(content, fileEntry.path);
+            } else {
+              parse(content, fileEntry.path);
+            }
+            fileCount++;
+          } catch (error) {
+            console.error(`Error processing ${fileEntry.path}:`, error);
+          }
+        }
+        
+        updateUploadedFilesList();
+        document.getElementById("status").textContent = `✅ Processed ${fileCount} files from ZIP archive`;
+        
+        // Hide the password field
+        document.getElementById('zipPasswordContainer').style.display = 'none';
+        document.getElementById('zipPassword').value = '';
+        
+      } catch (error) {
+        console.error("ZIP processing error:", error);
+        document.getElementById("status").textContent = `❌ Error processing ZIP: ${error.message}`;
+      }
+    }
+    
+    // Process Excel/CSV files
+    async function processSpreadsheetFile(file) {
+      try {
+        document.getElementById("status").textContent = "⏳ Processing spreadsheet file...";
+        
+        const fileName = file.name.toLowerCase();
+        const fileData = await file.arrayBuffer();
+        
+        // Process based on file type
+        if (fileName.endsWith('.csv')) {
+          // Handle CSV using PapaParse
+          const text = await file.text();
+          Papa.parse(text, {
+            header: true,
+            complete: function(results) {
+              // Check if this is a metadata-only CSV (Contact Search Results)
+              if (results.data.length > 0 && results.data[0].hasOwnProperty('Contact ID') && 
+                  !results.data[0].hasOwnProperty('transcript') && !results.data[0].hasOwnProperty('Issue')) {
+                // This appears to be a metadata-only CSV - offer to enhance existing calls
+                enhanceExistingCallsWithCSV(results.data, file.name);
+              } else {
+                // Regular processing for transcript data
+                processSpreadsheetData(results.data, file.name);
+              }
+            },
+            error: function(error) {
+              document.getElementById("status").textContent = `❌ Error parsing CSV: ${error.message}`;
+            }
+          });
+        } else {
+          // Handle Excel files using SheetJS
+          const workbook = XLSX.read(fileData, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const data = XLSX.utils.sheet_to_json(worksheet);
+          
+          // Check if this is a metadata-only sheet
+          if (data.length > 0 && data[0].hasOwnProperty('Contact ID') && 
+              !data[0].hasOwnProperty('transcript') && !data[0].hasOwnProperty('Issue')) {
+            enhanceExistingCallsWithCSV(data, file.name);
+          } else {
+            processSpreadsheetData(data, file.name);
+          }
+        }
+      } catch (error) {
+        console.error("Spreadsheet processing error:", error);
+        document.getElementById("status").textContent = `❌ Error processing file: ${error.message}`;
+      }
+    }
+    
+    // New function to enhance existing calls with metadata from CSV/Excel
+    function enhanceExistingCallsWithCSV(data, fileName) {
+      // Check if we have any existing call data to enhance
+      if (parsedCalls.length === 0) {
+        // No existing calls to enhance - ask user what to do
+        if (confirm("No existing call data found to enhance. Would you like to import this as new call data instead? (Note: No transcript data will be available)")) {
+          processSpreadsheetData(data, fileName);
+        } else {
+          document.getElementById("status").textContent = "❌ Import cancelled. Load call transcript files first.";
+        }
+        return;
+      }
+      
+      // Create a map of existing calls by Contact ID for faster lookup
+      const existingCallMap = new Map();
+      parsedCalls.forEach(call => {
+        const contactId = call.meta["Contact ID"];
+        if (contactId && contactId !== "N/A" && contactId !== "Unknown") {
+          existingCallMap.set(contactId, call);
+        }
+      });
+      
+      // Track enhancement statistics
+      let enhancedCount = 0;
+      let notFoundCount = 0;
+      
+      // Process each row in the CSV data
+      data.forEach(row => {
+        // Normalize the Contact ID field (it might be named differently)
+        const contactId = row['Contact ID'] || row['ContactID'] || row['tact ID'] || row['contact_id'];
+        
+        if (!contactId) return; // Skip rows without a Contact ID
+        
+        // Look for matching call in our existing data
+        const existingCall = existingCallMap.get(contactId);
+        if (existingCall) {
+          enhancedCount++;
+          
+          // Update the existing call's metadata with any new fields from the CSV
+          Object.entries(row).forEach(([key, value]) => {
+            // Skip empty values
+            if (!value || value === "" || value === "N/A") return;
+            
+            // Normalize field name to match our metadata format
+            let normalizedKey = key;
+            
+            // Map common CSV field names to our expected metadata fields
+            if (key === 'tact ID') normalizedKey = 'Contact ID';
+            else if (key === 'System phone number') normalizedKey = 'System phone number / email address';
+            else if (key === 'Customer phone number') normalizedKey = 'Customer phone number / email address';
+            
+            // Only update if the value is meaningful
+            if (value && value !== existingCall.meta[normalizedKey]) {
+              existingCall.meta[normalizedKey] = value;
+            }
+          });
+        } else {
+          notFoundCount++;
+        }
+      });
+      
+      // Update UI with results
+      if (enhancedCount > 0) {
+        document.getElementById("status").textContent = 
+          `✅ Enhanced ${enhancedCount} existing call(s) with metadata from ${fileName}. ${notFoundCount} contact(s) not found.`;
+        
+        // Re-render calls to show updated metadata
+        renderCalls(parsedCalls);
+        
+        // Add to uploaded files list
+        uploadedFiles.push(`${fileName} (metadata enhancement)`);
+        updateUploadedFilesList();
+      } else {
+        document.getElementById("status").textContent = 
+          `⚠️ No matching calls found to enhance. CSV has ${data.length} contact(s), but none match existing Contact IDs.`;
+      }
+    }
+    
+    // Process data from spreadsheet and convert to call format
+    function processSpreadsheetData(data, fileName) {
+      try {
+        // If no data, show error
+        if (!data || data.length === 0) {
+          document.getElementById("status").textContent = "❌ No valid data found in spreadsheet";
+          return;
+        }
+        
+        document.getElementById("status").textContent = `⏳ Converting ${data.length} spreadsheet rows to call format...`;
+        
+        // Check for raw JSON data in our exported format
+        if (data.length === 1 && data[0]["Raw JSON Data (Do not modify)"]) {
+          try {
+            // Try to parse raw JSON data from our export format
+            const rawData = JSON.parse(data[0]["Raw JSON Data (Do not modify)"]);
+            if (Array.isArray(rawData) && rawData.length > 0) {
+              // Successfully parsed raw data
+              processRawJsonData(rawData, fileName);
+              return;
+            }
+          } catch (jsonError) {
+            console.warn("Failed to parse raw JSON data", jsonError);
+            // Continue with normal processing
+          }
+        }
+        
+        // Check if this is our exported format
+        const isOurFormat = data[0] && (
+          data[0].hasOwnProperty('Contact ID') || 
+          data[0].hasOwnProperty('contactId') ||
+          data[0].hasOwnProperty('meta')
+        );
+        
+        let convertedCalls = [];
+        let duplicateCount = 0;
+        
+        if (isOurFormat) {
+          // Our exported format - either from JSON or CSV export
+          for (const row of data) {
+            // Normalize field names from both export formats
+            const contactId = row['Contact ID'] || row.contactId || (row.meta && row.meta['Contact ID']) || "Unknown";
+            
+            // Skip duplicate Contact IDs
+            if (contactId !== "Unknown" && contactIdSet.has(contactId)) {
+              duplicateCount++;
+              continue;
+            }
+            
+            // Not a duplicate - add to tracking set
+            if (contactId !== "Unknown") {
+              contactIdSet.add(contactId);
+            }
+            
+            const agent = row['Agent name'] || row.agent || row['Agent'] || (row.meta && row.meta['Agent name']) || (row.meta && row.meta['Agent']) || "Unknown";
+            const timestamp = row['Initiation timestamp'] || row.timestamp || (row.meta && row.meta['Initiation timestamp']) || new Date().toISOString();
+            const duration = row['Contact duration'] || row.duration || (row.meta && row.meta['Contact duration']) || "0";
+            const flags = row.flags ? (Array.isArray(row.flags) ? row.flags : row.flags.split(';').map(f => f.trim())) : [];
+            const positiveFlags = row.positiveFlags ? (Array.isArray(row.positiveFlags) ? row.positiveFlags : row.positiveFlags.split(';').map(f => f.trim())) : [];
+            const issue = row.issue || "";
+            const outcome = row.outcome || "";
+            const summary = row.summary || "";
+            const positiveScore = row.positiveScore || (positiveFlags.length - flags.length);
+            
+            // Create a meta object
+            let meta = {};
+            if (row.meta && typeof row.meta === 'object') {
+              // Use provided meta if available
+              meta = row.meta;
+            } else {
+              // Create meta from fields
+              meta = {
+                "Contact ID": contactId,
+                "Agent name": agent,
+                "Initiation timestamp": timestamp,
+                "Contact duration": duration,
+                "Channel": row['Channel'] || "Unknown"
+              };
+              
+              // Add any other metadata fields that might be present
+              metadataFieldOrder.forEach(field => {
+                if (row[field] && !meta[field]) {
+                  meta[field] = row[field];
+                }
+              });
+            }
+            
+            // Handle transcript data
+            let transcript = [];
+            if (row.transcript) {
+              // Handle different transcript formats
+              if (Array.isArray(row.transcript)) {
+                // Direct array format
+                transcript = row.transcript.map(entry => {
+                  if (typeof entry === 'object') {
+                    // Make sure the entry has all required fields
+                    return {
+                      speaker: entry.speaker || "Unknown",
+                      timestamp: entry.timestamp || "00:00",
+                      text: entry.text || "",
+                      flags: entry.flags || [],
+                      positiveFlags: entry.positiveFlags || []
+                    };
+                  } else {
+                    // Handle string entries
+                    return {
+                      speaker: "Unknown",
+                      timestamp: "00:00",
+                      text: entry.toString(),
+                      flags: [],
+                      positiveFlags: []
+                    };
+                  }
+                });
+              } else if (typeof row.transcript === 'string') {
+                // Convert string to simple transcript entry
+                transcript = [{
+                  speaker: "Unknown",
+                  timestamp: "00:00",
+                  text: row.transcript,
+                  flags: [],
+                  positiveFlags: []
+                }];
+              }
+            } else if (row.Speaker && row.Message) {
+              // CSV format with flattened transcript
+              transcript = [{
+                speaker: row.Speaker || "Unknown",
+                timestamp: row.Timestamp || "00:00",
+                text: row.Message || "",
+                flags: [],
+                positiveFlags: []
+              }];
+            }
+            
+            convertedCalls.push({
+              meta,
+              transcript,
+              flags,
+              positiveFlags,
+              issue,
+              outcome,
+              summary,
+              positiveScore
+            });
+          }
+        } else {
+          // Generic format - try to map common column names
+          for (const row of data) {
+            // Try to find useful fields with common column names
+            const possibleIdFields = ['id', 'callId', 'contactId', 'contact_id', 'ID', 'Contact ID'];
+            const possibleAgentFields = ['agent', 'agentName', 'agent_name', 'rep', 'employee', 'Agent', 'Agent name'];
+            const possibleTimestampFields = ['timestamp', 'date', 'time', 'callTime', 'call_time', 'Date', 'Time', 'Initiation timestamp'];
+            const possibleTextFields = ['transcript', 'text', 'content', 'message', 'conversation', 'Text', 'Message'];
+            
+            // Try to find id
+            let contactId = null;
+            for (const field of possibleIdFields) {
+              if (row[field]) {
+                contactId = row[field];
+                break;
+              }
+            }
+            
+            // Skip duplicate Contact IDs if a valid ID was found
+            if (contactId && contactIdSet.has(contactId)) {
+              duplicateCount++;
+              continue;
+            }
+            
+            // Not a duplicate - add to tracking set if we have an ID
+            if (contactId) {
+              contactIdSet.add(contactId);
+            } else {
+              contactId = "Unknown";
+            }
+            
+            // Try to find agent
+            let agent = "Unknown";
+            for (const field of possibleAgentFields) {
+              if (row[field]) {
+                agent = row[field];
+                break;
+              }
+            }
+            
+            // Try to find timestamp
+            let timestamp = new Date().toISOString();
+            for (const field of possibleTimestampFields) {
+              if (row[field]) {
+                timestamp = row[field];
+                break;
+              }
+            }
+            
+            // Try to find text/transcript
+            let text = "";
+            for (const field of possibleTextFields) {
+              if (row[field]) {
+                text = row[field];
+                break;
+              }
+            }
+            
+            // Look for fields that might contain flag data
+            const possibleFlagFields = ['flags', 'flag', 'triggers', 'issues', 'problems'];
+            const possiblePositiveFields = ['positiveFlags', 'positive', 'goodTriggers', 'positives'];
+            
+            let flags = [];
+            for (const field of possibleFlagFields) {
+              if (row[field]) {
+                if (Array.isArray(row[field])) {
+                  flags = row[field];
+                } else if (typeof row[field] === 'string') {
+                  flags = row[field].split(/[;,]/).map(f => f.trim()).filter(f => f);
+                }
+                break;
+              }
+            }
+            
+            let positiveFlags = [];
+            for (const field of possiblePositiveFields) {
+              if (row[field]) {
+                if (Array.isArray(row[field])) {
+                  positiveFlags = row[field];
+                } else if (typeof row[field] === 'string') {
+                  positiveFlags = row[field].split(/[;,]/).map(f => f.trim()).filter(f => f);
+                }
+                break;
+              }
+            }
+            
+            // Create a basic meta object
+            const meta = {
+              "Contact ID": contactId,
+              "Agent name": agent,
+              "Initiation timestamp": timestamp,
+              "Contact duration": row.duration || "0:00:00"
+            };
+            
+            // Add any other potential metadata fields
+            Object.entries(row).forEach(([key, value]) => {
+              // Skip fields we've already processed or that are not metadata
+              const skipFields = [...possibleTextFields, ...possibleFlagFields, ...possiblePositiveFields, 
+                'issue', 'outcome', 'summary', 'transcript', 'positiveScore'];
+              
+              if (!skipFields.includes(key) && !meta[key] && value) {
+                meta[key] = value;
+              }
+            });
+            
+            // Create a transcript entry if we have text
+            const transcript = text ? [{
+              speaker: row.speaker || "Agent",
+              timestamp: "00:00",
+              text: text,
+              flags: [],
+              positiveFlags: []
+            }] : [];
+            
+            // Look for specific text fields
+            const issue = row.issue || "";
+            const outcome = row.outcome || "";
+            const summary = row.summary || "";
+            const positiveScore = row.positiveScore || (positiveFlags.length - flags.length);
+            
+            convertedCalls.push({
+              meta,
+              transcript,
+              flags,
+              positiveFlags,
+              issue,
+              outcome,
+              summary,
+              positiveScore
+            });
+          }
+        }
+        
+        // Update status with duplicate information
+        let statusText = `✅ Converted ${convertedCalls.length} rows from spreadsheet`;
+        if (duplicateCount > 0) {
+          statusText += ` (skipped ${duplicateCount} duplicates)`;
+        }
+        document.getElementById("status").textContent = statusText;
+        
+        // Add to uploaded files
+        uploadedFiles.push(fileName);
+        updateUploadedFilesList();
+        
+        // Add the calls
+        if (parsedCalls.length > 0) {
+          // Append to existing calls
+          parsedCalls = [...parsedCalls, ...convertedCalls];
+          document.getElementById("status").textContent = `✅ Added ${convertedCalls.length} call(s) from spreadsheet. Total: ${parsedCalls.length}`;
+          if (duplicateCount > 0) {
+            document.getElementById("status").textContent += ` (skipped ${duplicateCount} duplicates)`;
+          }
+        } else {
+          // First calls being added
+          parsedCalls = convertedCalls;
+          document.getElementById("status").textContent = `✅ Loaded ${convertedCalls.length} call(s) from spreadsheet`;
+          if (duplicateCount > 0) {
+            document.getElementById("status").textContent += ` (skipped ${duplicateCount} duplicates)`;
+          }
+        }
+        
+        // Show action buttons
+        document.getElementById('exportButton').style.display = 'inline-block';
+        document.getElementById('exportExcelButton').style.display = 'inline-block';
+        document.getElementById('dashboardButton').style.display = 'inline-block';
+        
+        // Update analytics and render
+        updateAnalytics();
+        renderCalls(parsedCalls);
+        
+      } catch (error) {
+        console.error("Error processing spreadsheet data:", error);
+        document.getElementById("status").textContent = `❌ Error converting spreadsheet data: ${error.message}`;
+      }
+    }
+    
+    // New function to handle raw JSON data from Excel exports
+    function processRawJsonData(rawData, fileName) {
+      try {
+        if (!Array.isArray(rawData) || rawData.length === 0) {
+          document.getElementById("status").textContent = "❌ Invalid raw data format";
+          return;
+        }
+        
+        let convertedCalls = [];
+        let duplicateCount = 0;
+        
+        for (const call of rawData) {
+          // Get Contact ID and check for duplicates
+          const contactId = call.contactId || (call.meta && call.meta['Contact ID']) || "Unknown";
+          
+          if (contactId !== "Unknown" && contactIdSet.has(contactId)) {
+            duplicateCount++;
+            continue;
+          }
+          
+          // Not a duplicate - add to tracking set
+          if (contactId !== "Unknown") {
+            contactIdSet.add(contactId);
+          }
+          
+          // Process transcript data
+          let transcript = [];
+          if (call.transcript && Array.isArray(call.transcript)) {
+            transcript = call.transcript.map(entry => ({
+              speaker: entry.speaker || "Unknown",
+              timestamp: entry.timestamp || "00:00",
+              text: entry.text || "",
+              flags: entry.flags || [],
+              positiveFlags: entry.positiveFlags || []
+            }));
+          }
+          
+          // Add to converted calls
+          convertedCalls.push({
+            meta: call.meta || {
+              "Contact ID": contactId,
+              "Agent name": call.agent || "Unknown",
+              "Initiation timestamp": call.timestamp || new Date().toISOString(),
+              "Contact duration": call.duration || "0:00:00"
+            },
+            transcript,
+            flags: call.flags || [],
+            positiveFlags: call.positiveFlags || [],
+            issue: call.issue || "",
+            outcome: call.outcome || "",
+            summary: call.summary || "",
+            positiveScore: call.positiveScore || 0
+          });
+        }
+        
+        // Update status
+        document.getElementById("status").textContent = `✅ Imported ${convertedCalls.length} call(s) from raw data`;
+        if (duplicateCount > 0) {
+          document.getElementById("status").textContent += ` (skipped ${duplicateCount} duplicates)`;
+        }
+        
+        // Add to uploaded files
+        uploadedFiles.push(fileName);
+        updateUploadedFilesList();
+        
+        // Add the calls
+        if (parsedCalls.length > 0) {
+          // Append to existing calls
+          parsedCalls = [...parsedCalls, ...convertedCalls];
+        } else {
+          // First calls being added
+          parsedCalls = convertedCalls;
+        }
+        
+        // Show action buttons
+        document.getElementById('exportButton').style.display = 'inline-block';
+        document.getElementById('exportExcelButton').style.display = 'inline-block';
+        document.getElementById('dashboardButton').style.display = 'inline-block';
+        
+        // Update analytics and render
+        updateAnalytics();
+        renderCalls(parsedCalls);
+        
+      } catch (error) {
+        console.error("Error processing raw JSON data:", error);
+        document.getElementById("status").textContent = `❌ Error processing raw data: ${error.message}`;
+      }
+    }
+    
+    // Process multiple files sequentially
+    async function processMultipleFiles(files) {
+      let processedCount = 0;
+      const totalFiles = files.length;
+      
+      // Process each file
+      for (const file of files) {
+        try {
+          await processFile(file);
+          processedCount++;
+          document.getElementById("status").textContent = `⏳ Processed ${processedCount}/${totalFiles} files...`;
+        } catch (error) {
+          console.error(`Error processing file ${file.name}:`, error);
+        }
+      }
+      
+      document.getElementById("status").textContent = `✅ Completed processing ${processedCount}/${totalFiles} files`;
+    }
+    
+    // Process a single file
+    function processFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+          const content = e.target.result;
+          
+          // Track the uploaded file
+          uploadedFiles.push(file.name);
+          updateUploadedFilesList();
+          
+          // If we already have parsed calls, append to them instead of replacing
+          if (parsedCalls.length > 0) {
+            appendFile(content, file.name);
+          } else {
+            parse(content, file.name);
+          }
+          
+          resolve();
+        };
+        
+        reader.onerror = function(e) {
+          reject(new Error(`Error reading file ${file.name}: ${e.target.error}`));
+        };
+        
+        reader.readAsText(file);
+      });
+    }
+    
+    function updateUploadedFilesList() {
+      const container = document.querySelector('.uploaded-files-container');
+      const listElement = document.getElementById('uploadedFilesList');
+      
+      if (uploadedFiles.length > 0) {
+        // Show the container
+        container.style.display = 'block';
+        
+        // Update the list
+        listElement.innerHTML = uploadedFiles.map(file => 
+          `<li>${file}</li>`
+        ).join('');
+      } else {
+        container.style.display = 'none';
+      }
+    }
+
+    // Append new file content to existing calls
+    function appendFile(text, filename = "unknown.txt") {
+      const newCalls = parseContent(text);
+      
+      if (newCalls.length > 0) {
+        // Append the new calls to existing ones
+        parsedCalls = [...parsedCalls, ...newCalls];
+        
+        // Document title might be overwritten by other operations
+        document.title = "Inspiro Customer Excellence Transcript Analysis Platform";
+        
+        // Don't update status if processing multiple files (handled by the caller)
+        if (!filename.includes('zip:')) {
+          document.getElementById("status").textContent = `✅ Added ${newCalls.length} new call(s) from ${filename}. Total: ${parsedCalls.length}`;
+        }
+        
+        // Show dashboard button
+        document.getElementById('dashboardButton').style.display = 'inline-block';
+        // Update the UI
+        updateAnalytics();
+        renderCalls(parsedCalls);
+        return newCalls.length;
+      } else {
+        if (!filename.includes('zip:')) {
+          document.getElementById("status").textContent = `⚠️ No valid calls found in ${filename}.`;
+        }
+        return 0;
+      }
+    }
+    
+    // Main parse function
+    function parse(text, filename = "unknown.txt") {
+      const calls = parseContent(text);
+      
+      // Store globally
+      parsedCalls = calls;
+      
+      // Don't update status if processing multiple files (handled by the caller)
+      if (!filename.includes('zip:')) {
+        document.getElementById("status").textContent = `✅ Parsed ${calls.length} call(s) from ${filename}.`;
+      }
+      
+      // Show action buttons
+      document.getElementById('exportButton').style.display = 'inline-block';
+      document.getElementById('exportExcelButton').style.display = 'inline-block';
+      document.getElementById('dashboardButton').style.display = 'inline-block';
+      
+      // Update analytics and render
+      updateAnalytics();
+      renderCalls(calls);
+      
+      return calls.length;
+    }
+    
+    // Common parsing logic - extracts calls from text content
+    function parseContent(text) {
+      const lines = text.split(/\r?\n/).map(l => l.trim());
+      const calls = [];
+      let i = 0;
+      let duplicateCount = 0;
+
+      while (i < lines.length) {
+        // Start parsing when we find a Contact ID (our primary landmark)
+        if (CONTACT_ID_REGEX.test(lines[i])) {
+          // Get the Contact ID for duplicate checking
+          const contactId = lines[i];
+          
+          // Check if this is a duplicate - if so, skip it
+          if (contactIdSet.has(contactId)) {
+            // Skip to next contact
+            duplicateCount++;
+            while (i < lines.length && !CONTACT_ID_REGEX.test(lines[i]) || i === lines.indexOf(contactId)) {
+              i++;
+            }
+            continue;
+          }
+          
+          // Not a duplicate, add to our set
+          contactIdSet.add(contactId);
+          
+          // Initialize metadata object with all fields set to N/A
+          const meta = {};
+          metadataFieldOrder.forEach(field => {
+            meta[field] = "N/A";
+          });
+          
+          // Set the Contact ID
+          meta["Contact ID"] = contactId;
+          i++; // Move past the contact ID
+          
+          // Skip empty lines
+          while (i < lines.length && !lines[i]) i++;
+          
+          // Process short metadata (first tab-delimited row)
+          if (i < lines.length) {
+            const shortMetaValues = lines[i++].split("\t");
+            
+            // Map values to their respective fields using exact indices
+            for (let j = 0; j < shortMetadataFields.length && j < shortMetaValues.length; j++) {
+              meta[shortMetadataFields[j]] = shortMetaValues[j] || "N/A";
+            }
+            
+            // Skip empty lines
+            while (i < lines.length && !lines[i]) i++;
+            
+            // Process long metadata (second tab-delimited row)
+            if (i < lines.length) {
+              const longMetaValues = lines[i++].split("\t");
+              
+              // Map values to their respective fields using exact indices
+              for (let j = 0; j < longMetadataFields.length && j < longMetaValues.length; j++) {
+                meta[longMetadataFields[j]] = longMetaValues[j] || "N/A";
+              }
+            }
+          }
+          
+          // Process transcript and other sections
+          const transcript = [];
+          const flags = [];
+          const positiveFlags = [];
+          let issue = "", outcome = "", summary = "";
+          let currentLabel = "";
+          let categories = "";
+          
+          // Track section markers
+          let inTranscriptSection = false;
+          let foundTranscriptMarker = false;
+          
+          while (i < lines.length && !CONTACT_ID_REGEX.test(lines[i])) {
+            const line = lines[i];
+            
+            // Skip empty lines
+            if (!line) { 
+              i++; 
+              continue; 
+            }
+            
+            // Look for the transcript marker
+            if (!foundTranscriptMarker && (line === "Transcript" || line.trim() === "Transcript")) {
+              foundTranscriptMarker = true;
+              i++;
+              continue;
+            }
+            
+            // Check for Categories section header
+            if (line === "Categories" || line.trim() === "Categories") {
+              currentLabel = "categories";
+              i++;
+              continue;
+            }
+            
+            // If we've found the transcript marker, look for the start of the actual transcript
+            if (foundTranscriptMarker && !inTranscriptSection) {
+              if (line === "Agent" || line === "Customer" || line === "System" || 
+                  line.trim() === "Agent" || line.trim() === "Customer" || line.trim() === "System") {
+                inTranscriptSection = true;
+                // Exit categories collection if we were in that section
+                if (currentLabel === "categories") {
+                  currentLabel = "";
+                }
+                // Don't continue here - process this line as the start of the transcript
+              } else {
+                // If we're in categories section, collect the content
+                if (currentLabel === "categories") {
+                  categories += line + ", ";
+                }
+                // Still looking for the start of the transcript
+                i++;
+                continue;
+              }
+            }
+            
+            // Process transcript entries
+            if (inTranscriptSection) {
+              // Exit categories collection if we were in that section
+              if (currentLabel === "categories") {
+                currentLabel = "";
+              }
+              
+              // Check if this is a speaker line (Agent, Customer, System)
+              const isSpeakerLine = line === "Agent" || line === "Customer" || line === "System" || 
+                                  line.trim() === "Agent" || line.trim() === "Customer" || line.trim() === "System";
+              
+              if (isSpeakerLine && i + 2 < lines.length) {
+                const speaker = line.trim();
+                
+                // Next line should be timestamp
+                const timestampLine = lines[i + 1];
+                const timeMatch = timestampLine.match(/^\d{2}:\d{2}/);
+                
+                if (timeMatch) {
+                  // We have a valid speaker and timestamp, now get the text
+                  const text = lines[i + 2] || "";
+                  
+                  // Check for negative flags
+                  const hit = triggers.filter(t => text.toLowerCase().includes(t));
+                  
+                  // Check for positive flags
+                  const positiveHit = positiveTriggers.filter(t => text.toLowerCase().includes(t));
+                  
+                  transcript.push({ 
+                    speaker, 
+                    timestamp: timestampLine, 
+                    text, 
+                    flags: hit,
+                    positiveFlags: positiveHit
+                  });
+                  
+                  flags.push(...hit);
+                  positiveFlags.push(...positiveHit);
+                  
+                  // Skip past text line
+                  i += 3;
+                  continue;
+                }
+              }
+              
+              // If we didn't match the structure above, continue looking
+              i++;
+              continue;
+            }
+            
+            // Handle other sections
+            const lower = line.toLowerCase();
+            if (["audio", "summary"].includes(lower)) {
+              currentLabel = lower === "summary" ? "summary" : "";
+              i++;
+              continue;
+            }
+            
+            if (["issue", "outcome"].includes(lower)) {
+              currentLabel = lower;
+              i++;
+              continue;
+            }
+            
+            // Process content in labeled sections
+            if (currentLabel) {
+              const clean = line.replace(/^Generated by AI\s*/i, "").trim();
+              if (currentLabel === "issue") issue += clean + " ";
+              else if (currentLabel === "outcome") outcome += clean + " ";
+              else if (currentLabel === "summary") summary += clean + " ";
+              else if (currentLabel === "categories") categories += clean + ", ";
+              i++;
+              continue;
+            }
+            
+            // Default action - move to next line
+            i++;
+          }
+
+          // Store categories in metadata (trim trailing comma and space)
+          if (categories) {
+            meta["Categories"] = categories.replace(/,\s*$/, "").trim();
+          }
+
+          calls.push({ 
+            meta, 
+            transcript, 
+            flags: [...new Set(flags)],
+            positiveFlags: [...new Set(positiveFlags)], 
+            issue: issue.trim(), 
+            outcome: outcome.trim(), 
+            summary: summary.trim(),
+            positiveScore: positiveFlags.length - flags.length // Calculate a positivity score
+          });
+        } else {
+          i++;
+        }
+      }
+      
+      // Update status with information about duplicates
+      if (duplicateCount > 0) {
+        const statusElement = document.getElementById("status");
+        if (statusElement.textContent.includes('Parsed')) {
+          statusElement.textContent = statusElement.textContent.replace(
+            'Parsed', 
+            `Parsed ${calls.length} call(s), skipped ${duplicateCount} duplicate(s)`
+          );
+        }
+      }
+      
+      return calls;
+    }
+    
+    // Update analytics based on current calls
+    function updateAnalytics() {
+      const agentStats = {};
+      const flagCounts = {};
+      const positiveFlagCounts = {};
+      const topPositiveCalls = [];
+      let totalDuration = 0;
+      let callsWithDuration = 0;
+      
+      // Additional analytics
+      const hourDistribution = new Array(24).fill(0);
+      const dayDistribution = new Array(7).fill(0);
+      const monthDistribution = new Array(12).fill(0);
+      const channelDistribution = {};
+      const queueDistribution = {};
+      const wordFrequency = {};
+      
+      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+      parsedCalls.forEach(call => {
+        const agent = call.meta["Agent"] || call.meta["Agent name"] || "Unknown";
+        if (!agentStats[agent]) agentStats[agent] = { 
+          total: 0, 
+          flagged: 0, 
+          flags: {},
+          positiveFlags: {},
+          positive: 0,
+          totalDuration: 0,
+          callsWithDuration: 0
+        };
+        
+        agentStats[agent].total++;
+        if (call.flags.length) agentStats[agent].flagged++;
+        if (call.positiveFlags.length) agentStats[agent].positive++;
+
+        // Track negative flags
+        call.flags.forEach(flag => {
+          agentStats[agent].flags[flag] = (agentStats[agent].flags[flag] || 0) + 1;
+          flagCounts[flag] = (flagCounts[flag] || 0) + 1;
+        });
+        
+        // Track positive flags
+        call.positiveFlags.forEach(flag => {
+          agentStats[agent].positiveFlags[flag] = (agentStats[agent].positiveFlags[flag] || 0) + 1;
+          positiveFlagCounts[flag] = (positiveFlagCounts[flag] || 0) + 1;
+        });
+        
+        // Track duration if available
+        const durationStr = call.meta["Contact duration"] || "0:00:00";
+        const durationMatch = durationStr.match(/(\d+):(\d+):(\d+)/);
+        if (durationMatch) {
+          const hours = parseInt(durationMatch[1] || 0);
+          const minutes = parseInt(durationMatch[2] || 0);
+          const seconds = parseInt(durationMatch[3] || 0);
+          const durationSeconds = hours * 3600 + minutes * 60 + seconds;
+          
+          if (durationSeconds > 0) {
+            agentStats[agent].totalDuration += durationSeconds;
+            agentStats[agent].callsWithDuration++;
+            
+            totalDuration += durationSeconds;
+            callsWithDuration++;
+          }
+        }
+        
+        // Track time distribution
+        try {
+          const timestamp = call.meta["Initiation timestamp"];
+          if (timestamp) {
+            const date = new Date(timestamp);
+            if (!isNaN(date.getTime())) {
+              // Hour distribution
+              const hour = date.getHours();
+              hourDistribution[hour]++;
+              
+              // Day of week distribution
+              const day = date.getDay();
+              dayDistribution[day]++;
+              
+              // Month distribution
+              const month = date.getMonth();
+              monthDistribution[month]++;
+            }
+          }
+        } catch (e) {
+          console.log("Error parsing date:", e);
+        }
+        
+        // Track channel and queue distribution
+        const channel = call.meta["Channel"] || "Unknown";
+        channelDistribution[channel] = (channelDistribution[channel] || 0) + 1;
+        
+        const queue = call.meta["Queue"] || "Unknown";
+        queueDistribution[queue] = (queueDistribution[queue] || 0) + 1;
+        
+        // Count word frequency in transcripts
+        call.transcript.forEach(entry => {
+          const text = entry.text.toLowerCase();
+          const words = text.split(/\s+/).filter(word => 
+            word.length > 3 && 
+            ![
+              // Common filler words and pronouns
+              "this", "that", "what", "with", "have", "your", "from", "there", "would", "could", "about", "which",
+              "just", "like", "it's", "yeah", "don't", "going", "gonna", "you're", "thank", "then", "know", "because",
+              "they", "well", "need", "give", "take", "back", "right", "name", "alright", "when", "want", "here",
+              "make", "let's", "will", "okay", "actually", "sorry", "able", "sure", "were", "been", "does", "doing", 
+              "should", "can't", "can't", "didn't", "isn't", "that's", "i'll", "we'll", "wasn't", "they're",
+              "where", "their", "them", "these", "those", "some", "myself", "yourself", "himself", "herself",
+              // Common corporate jargon and fillers
+              "please", "account", "information", "customer", "service", "contact", "number", "email", "phone", 
+              "call", "calling", "assistance"
+            ].includes(word)
+          );
+          
+          words.forEach(word => {
+            wordFrequency[word] = (wordFrequency[word] || 0) + 1;
+          });
+        });
+        
+        // Track top positive calls for display
+        if (call.positiveScore > 0) {
+          topPositiveCalls.push({
+            agent: agent,
+            id: call.meta["Contact ID"],
+            score: call.positiveScore,
+            positiveFlags: call.positiveFlags,
+            date: call.meta["Initiation timestamp"] || "Unknown",
+            summary: call.summary,
+            duration: durationStr
+          });
+        }
+      });
+      
+      // Sort positive calls by score
+      topPositiveCalls.sort((a, b) => b.score - a.score);
+
+      // Update agent summary
+      const agentDiv = document.getElementById("agentSummary");
+      agentDiv.innerHTML = "<h3>📞 Agent Call Summary</h3>" + Object.entries(agentStats).map(([agent, stat]) => {
+        const avgDuration = stat.callsWithDuration > 0 ? formatDuration(stat.totalDuration / stat.callsWithDuration) : "N/A";
+        return `<div><strong>${agent}</strong> — ${stat.total} calls (${stat.flagged} flagged, <span class="positive-flag">${stat.positive} positive</span>) — Avg Duration: <span style="color:#aaa;">${avgDuration}</span> — Flags: ${Object.entries(stat.flags).map(([f, n]) => `<span class='flagged'>${f} (${n})</span>`).join(", ") || "None"}</div>`;
+      }).join("");
+
+      // Add global stats
+      if (parsedCalls.length > 0) {
+        const avgDuration = callsWithDuration > 0 ? formatDuration(totalDuration / callsWithDuration) : "N/A";
+        const globalStats = document.createElement("div");
+        globalStats.style.marginTop = "15px";
+        globalStats.style.padding = "10px";
+        globalStats.style.backgroundColor = "#1e1e1e";
+        globalStats.style.borderRadius = "4px";
+        globalStats.innerHTML = `
+          <div><strong>Overall Stats</strong></div>
+          <div>Total Calls: ${parsedCalls.length}</div>
+          <div>Average Call Duration: ${avgDuration}</div>
+          <div>Total Talk Time: ${formatDuration(totalDuration)}</div>
+        `;
+        agentDiv.appendChild(globalStats);
+      }
+      
+      // Create advanced distribution analytics
+      if (parsedCalls.length > 0) {
+        const advancedAnalytics = document.createElement("div");
+        advancedAnalytics.id = "advancedAnalytics";
+        advancedAnalytics.style.marginTop = "20px";
+        
+        // Create time distribution section
+        const timeDistributionHTML = `
+          <details style="margin-bottom: 15px;">
+            <summary style="cursor: pointer; font-weight: bold; padding: 5px; background: #1e1e1e; border-radius: 4px;">
+              📊 Call Time Distribution
+            </summary>
+            <div style="padding: 10px; background: #191919; margin-top: 5px; border-radius: 4px;">
+              <div style="margin-bottom: 15px;">
+                <div style="margin-bottom: 5px; color: #aaa;">Hourly Distribution</div>
+                <div style="display: flex; height: 100px; align-items: flex-end; margin-bottom: 5px;">
+                  ${hourDistribution.map((count, hour) => {
+                    const maxCount = Math.max(...hourDistribution);
+                    const height = maxCount > 0 ? Math.max(5, (count / maxCount) * 100) : 0;
+                    return `<div style="flex: 1; margin: 0 1px; background: rgba(164, 62, 201, ${height/100}); height: ${height}%;" title="${hour}:00 - ${count} calls"></div>`;
+                  }).join('')}
+                </div>
+                <div style="display: flex; font-size: 10px; color: #777;">
+                  ${[0, 6, 12, 18, 23].map(hour => 
+                    `<div style="flex: ${hour === 0 ? 0.5 : hour === 23 ? 0.5 : 1}; text-align: ${hour === 0 ? 'left' : hour === 23 ? 'right' : 'center'};">${hour}</div>`
+                  ).join('')}
+                </div>
+              </div>
+              
+              <div style="margin-bottom: 15px;">
+                <div style="margin-bottom: 5px; color: #aaa;">Day of Week Distribution</div>
+                <div style="display: flex; height: 80px; align-items: flex-end; margin-bottom: 5px;">
+                  ${dayDistribution.map((count, day) => {
+                    const maxCount = Math.max(...dayDistribution);
+                    const height = maxCount > 0 ? Math.max(5, (count / maxCount) * 100) : 0;
+                    return `<div style="flex: 1; margin: 0 1px; background: rgba(76, 175, 80, ${height/100}); height: ${height}%;" title="${dayNames[day]} - ${count} calls"></div>`;
+                  }).join('')}
+                </div>
+                <div style="display: flex; font-size: 10px; color: #777; text-align: center;">
+                  ${dayNames.map(day => `<div style="flex: 1;">${day.substring(0,3)}</div>`).join('')}
+                </div>
+              </div>
+            </div>
+          </details>
+        `;
+        
+        // Create channel and queue distribution
+        const channelQueueHTML = `
+          <details style="margin-bottom: 15px;">
+            <summary style="cursor: pointer; font-weight: bold; padding: 5px; background: #1e1e1e; border-radius: 4px;">
+              📊 Channel & Queue Analysis
+            </summary>
+            <div style="padding: 10px; background: #191919; margin-top: 5px; border-radius: 4px;">
+              <div style="display: flex; margin-bottom: 15px;">
+                <div style="flex: 1;">
+                  <div style="margin-bottom: 5px; color: #aaa;">Channels</div>
+                  ${Object.entries(channelDistribution).sort((a, b) => b[1] - a[1]).map(([channel, count]) => 
+                    `<div style="margin-bottom: 3px;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="flex: 1;">${channel}</div>
+                        <div style="width: 50px; text-align: right;">${count}</div>
+                        <div style="width: 50px; text-align: right;">${Math.round(count/parsedCalls.length*100)}%</div>
+                      </div>
+                    </div>`
+                  ).join('')}
+                </div>
+                <div style="flex: 1; margin-left: 20px;">
+                  <div style="margin-bottom: 5px; color: #aaa;">Queues</div>
+                  ${Object.entries(queueDistribution).sort((a, b) => b[1] - a[1]).map(([queue, count]) => 
+                    `<div style="margin-bottom: 3px;">
+                      <div style="display: flex; align-items: center;">
+                        <div style="flex: 1;">${queue}</div>
+                        <div style="width: 50px; text-align: right;">${count}</div>
+                        <div style="width: 50px; text-align: right;">${Math.round(count/parsedCalls.length*100)}%</div>
+                      </div>
+                    </div>`
+                  ).join('')}
+                </div>
+              </div>
+            </div>
+          </details>
+        `;
+        
+        // Create frequent words section (excluding common words)
+        const topWords = Object.entries(wordFrequency)
+          .filter(([word]) => word.length > 3 && !triggers.includes(word) && !positiveTriggers.includes(word))
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 20);
+          
+        const wordFrequencyHTML = `
+          <details style="margin-bottom: 15px;">
+            <summary style="cursor: pointer; font-weight: bold; padding: 5px; background: #1e1e1e; border-radius: 4px;">
+              🔍 Common Topics & Keywords
+            </summary>
+            <div style="padding: 10px; background: #191919; margin-top: 5px; border-radius: 4px;">
+              <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                ${topWords.map(([word, count]) => {
+                  const fontSize = Math.max(12, Math.min(18, 12 + (count / Math.max(...topWords.map(w => w[1]))) * 6));
+                  const opacity = 0.5 + (count / Math.max(...topWords.map(w => w[1]))) * 0.5;
+                  return `<div style="padding: 3px 8px; background: rgba(255,255,255,${opacity*0.1}); border-radius: 10px; font-size: ${fontSize}px;" title="${count} occurrences">${word}</div>`;
+                }).join('')}
+              </div>
+            </div>
+          </details>
+        `;
+        
+        advancedAnalytics.innerHTML = `
+          <h3>📊 Advanced Analytics</h3>
+          ${timeDistributionHTML}
+          ${channelQueueHTML}
+          ${wordFrequencyHTML}
+        `;
+        
+        // Add to UI
+        // Remove existing advanced analytics if it exists to prevent duplication
+        const existingAnalytics = document.getElementById('advancedAnalytics');
+        if (existingAnalytics) {
+          existingAnalytics.remove();
+        }
+        document.getElementById('analytics-panel').appendChild(advancedAnalytics);
+      }
+
+      // Update negative flags summary
+      const flagDiv = document.getElementById("flagSummary");
+      flagDiv.innerHTML = "<h3>🚩 Top Flags</h3>" + Object.entries(flagCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([flag, count]) => `<div><span class='flagged'>${flag}</span>: ${count} hit(s)</div>`).join("");
+      
+      // Update positive calls section
+      const positiveDiv = document.getElementById("positiveSummary");
+      positiveDiv.innerHTML = "<h3>🟢 Top Positive Flags</h3>" + Object.entries(positiveFlagCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([flag, count]) => `<div><span class='positive-flag'>${flag}</span>: ${count} hit(s)</div>`).join("");
+      
+      // Show top positive calls
+      const positiveCallsDiv = document.getElementById("positiveCallsList");
+      positiveCallsDiv.innerHTML = "<h3>⭐ Top Positive Calls</h3>" + 
+        (topPositiveCalls.length > 0 ? 
+          topPositiveCalls.slice(0, 5).map(call => 
+            `<div style="margin-bottom: 10px; padding: 10px; background: rgba(76, 175, 80, 0.05); border-left: 3px solid #4caf50;">
+              <div><strong>${call.agent}</strong> — ${new Date(call.date).toLocaleString() || "Unknown date"} — Duration: ${call.duration}</div>
+              <div>Positive Score: <span class="positive-flag">${call.score}</span></div>
+              <div>Positive Flags: ${call.positiveFlags.map(f => `<span class="positive-flag">${f}</span>`).join(", ")}</div>
+              ${call.summary ? `<div>Summary: ${call.summary}</div>` : ''}
+            </div>`
+          ).join("") :
+          "<div>No positive calls detected yet.</div>"
+        );
+    }
+
+    // Render calls to UI
+    function renderCalls(calls) {
+      const resultsDiv = document.getElementById("results");
+      resultsDiv.innerHTML = ""; // Clear the results div
+      
+      calls.forEach((call, idx) => {
+        const block = document.createElement("div");
+        block.classList.add("call-block");
+
+        // Format metadata in collapsible section with better styling
+        const metaSection = document.createElement("div");
+        metaSection.className = "metadata-section";
+        
+        // Create a more organized metadata display
+        const importantMeta = ["Contact ID", "Agent", "Agent name", "Channel", "Contact status", 
+                              "Initiation timestamp", "Disconnect timestamp", "Contact duration"];
+        
+        // Display important metadata first
+        let metaHtml = '';
+        importantMeta.forEach(key => {
+          if (call.meta[key]) {
+            metaHtml += `<div><strong>${key}:</strong> ${highlightMatches(call.meta[key].toString(), currentSearchTerm)}</div>`;
+          }
+        });
+        
+        // Add collapsible section for additional metadata
+        metaHtml += `<details style="margin-top: 10px;">
+          <summary style="cursor: pointer; color: #aaa;">Additional Metadata</summary>
+          <div style="padding-top: 10px;">`;
+        
+        Object.entries(call.meta).forEach(([k, v]) => {
+          if (!importantMeta.includes(k)) {
+            metaHtml += `<div><strong>${k}:</strong> ${highlightMatches(v.toString(), currentSearchTerm)}</div>`;
+          }
+        });
+        
+        metaHtml += `</div></details>`;
+        metaSection.innerHTML = metaHtml;
+
+        // Format transcript with compact styling
+        const formattedTranscript = document.createElement('div');
+        formattedTranscript.className = 'compact-transcript';
+
+        call.transcript.forEach(t => {
+          const entry = document.createElement('div');
+          entry.className = 'transcript-entry';
+          
+          const speakerClass = t.speaker.toLowerCase().includes('customer') ? 'customer' : 'speaker';
+          
+          entry.innerHTML = `
+            <span class="timestamp">${t.timestamp}</span>
+            <span class="${speakerClass}">${t.speaker}</span>
+            <span class="message-text">${highlightFlags(highlightMatches(t.text, currentSearchTerm), t.flags, t.positiveFlags || [])}</span>
+          `;
+          
+          formattedTranscript.appendChild(entry);
+        });
+
+        // Put it all together with better organization
+        // Calculate agent stats
+        const agentName = call.meta["Agent name"] || call.meta["Agent"] || "Unknown";
+        const agentStats = parsedCalls.filter(c => 
+          (c.meta["Agent name"] === agentName || c.meta["Agent"] === agentName)
+        ).length;
+        
+        // Create the call block with title and metadata
+        block.innerHTML = `
+          <div class="call-title">Call ${idx + 1} - ${agentName} (${agentStats} calls total)</div>
+          ${metaSection.outerHTML}
+        `;
+
+        // Add summary if available
+        if (call.summary) {
+          block.innerHTML += `<div class='label-section'><h3>📌 Summary:</h3><div style="padding: 5px;">${highlightMatches(call.summary.trim(), currentSearchTerm)}</div></div>`;
+        }
+        
+        // Add Categories display if available
+        if (call.meta["Categories"] && call.meta["Categories"] !== "N/A") {
+          block.innerHTML += `<div class='label-section'><h3>🔖 Categories:</h3><div><span style="color: #4caf50; font-weight: bold;">${call.meta["Categories"]}</span></div></div>`;
+        }
+        
+        // Add flags and positive indicators on the same line
+        const hasFlags = call.flags.length > 0;
+        const hasPositiveFlags = call.positiveFlags.length > 0;
+        
+        if (hasFlags || hasPositiveFlags) {
+          block.innerHTML += `
+            <div style="display: flex; flex-wrap: wrap; gap: 15px; margin: 15px 0;">
+              ${hasPositiveFlags ? 
+                `<div class='label-section' style="flex: 1; min-width: 200px;"><h3>✅ Positive Indicators:</h3><div><span class='positive-flag'>${call.positiveFlags.join(", ")}</span></div></div>` 
+                : ''}
+              ${hasFlags ? 
+                `<div class='label-section' style="flex: 1; min-width: 200px;"><h3>🚩 Flags:</h3><div><span class='flag-alert'>${call.flags.join(", ")}</span></div></div>` 
+                : ''}
+            </div>
+          `;
+        }
+        
+        // Add issue if available
+        if (call.issue) {
+          block.innerHTML += `<div class='label-section'><h3>🔹 Issue:</h3><div style="padding: 5px;">${highlightMatches(call.issue.trim(), currentSearchTerm)}</div></div>`;
+        }
+        
+        // Add outcome if available
+        if (call.outcome) {
+          block.innerHTML += `<div class='label-section'><h3>🔸 Outcome:</h3><div style="padding: 5px;">${highlightMatches(call.outcome.trim(), currentSearchTerm)}</div></div>`;
+        }
+        
+        // Get snippets of first and last messages for the summary
+        let firstMessage = '';
+        let lastMessage = '';
+        let speakersInvolved = new Set();
+        
+        if (call.transcript.length > 0) {
+          // Get first message snippet
+          const firstEntry = call.transcript[0];
+          firstMessage = firstEntry.text.length > 60 ? 
+            firstEntry.text.substring(0, 57) + '...' : 
+            firstEntry.text;
+            
+          // Get last message snippet
+          const lastEntry = call.transcript[call.transcript.length - 1];
+          lastMessage = lastEntry.text.length > 60 ? 
+            lastEntry.text.substring(0, 57) + '...' : 
+            lastEntry.text;
+            
+          // Track all speakers in the conversation
+          call.transcript.forEach(entry => {
+            speakersInvolved.add(entry.speaker);
+          });
+        }
+        
+        // Format the speaker list
+        const speakersList = Array.from(speakersInvolved).join(', ');
+        
+        // Create transcript details element
+        const transcriptDetails = document.createElement('details');
+        transcriptDetails.className = 'transcript-details';
+        
+        // Add a summary that shows when collapsed
+        const transcriptSummary = document.createElement('summary');
+        transcriptSummary.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #191919; border-radius: 4px; cursor: pointer;">
+            <div>
+              <span style="font-weight: bold; color: #aaa;">Transcript:</span>
+              <span style="color: #777; font-size: 13px; margin-left: 5px;">${speakersList}</span>
+            </div>
+            <div style="font-size: 13px; color: #777;">Click to ${call.transcript.length > 5 ? 'expand/collapse' : 'view'} ${call.transcript.length} messages</div>
+          </div>
+          ${firstMessage && lastMessage ? 
+            `<div style="margin-top: 5px; padding: 5px 10px; font-size: 13px; color: #bbb; border-bottom: 1px solid #333; border-top: 1px solid #333; background: #191919;">
+              <div><span style="color: #9dccff;">First:</span> "${firstMessage}"</div>
+              <div style="margin-top: 5px;"><span style="color: #98fb98;">Last:</span> "${lastMessage}"</div>
+            </div>` 
+            : ''}
+        `;
+        
+        transcriptDetails.appendChild(transcriptSummary);
+        transcriptDetails.appendChild(formattedTranscript);
+        
+        // Add transcript as the last element
+        block.appendChild(transcriptDetails);
+
+        // Add block to results
+        resultsDiv.appendChild(block);
+      });
+    }
+
+    // Helper to highlight search matches
+    function highlightMatches(text, searchTerm) {
+      if (!searchTerm || !text) return text;
+      
+      const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+      return text.replace(regex, '<span style="background-color: #553300; color: #fff; padding: 2px;">$1</span>');
+    }
+
+    function highlightFlags(text, flags, positiveFlags) {
+      let result = text;
+      
+      // Highlight negative flags
+      flags.forEach(f => {
+        const regex = new RegExp(`\\b(${f})\\b`, "gi");
+        result = result.replace(regex, "<span class='flagged-word'>$1</span>");
+      });
+      
+      // Highlight positive flags
+      positiveFlags.forEach(f => {
+        const regex = new RegExp(`\\b(${f})\\b`, "gi");
+        result = result.replace(regex, "<span class='positive-highlight'>$1</span>");
+      });
+      
+      return result;
+    }
+    
+    // Search functionality
+    function performSearch() {
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+      currentSearchTerm = searchTerm;
+      
+      if (!searchTerm) {
+        renderCalls(parsedCalls); // Reset to show all calls if search is empty
+        document.getElementById("status").textContent = `✅ Showing all ${parsedCalls.length} call(s).`;
+        return;
+      }
+      
+      // Get search options
+      const searchAgent = document.getElementById('searchAgent').checked;
+      const searchCustomer = document.getElementById('searchCustomer').checked;
+      const searchSummary = document.getElementById('searchSummary').checked;
+      const searchMetadata = document.getElementById('searchMetadata').checked;
+      
+      const filteredCalls = parsedCalls.filter(call => {
+        // Search in transcript
+        if (searchAgent || searchCustomer) {
+          const hasMatchInTranscript = call.transcript.some(entry => {
+            if (!searchAgent && entry.speaker.toLowerCase().includes('agent')) return false;
+            if (!searchCustomer && entry.speaker.toLowerCase().includes('customer')) return false;
+            return entry.text.toLowerCase().includes(searchTerm);
+          });
+          if (hasMatchInTranscript) return true;
+        }
+        
+        // Search in summary
+        if (searchSummary && call.summary && call.summary.toLowerCase().includes(searchTerm)) {
+          return true;
+        }
+        
+        // Search in metadata
+        if (searchMetadata) {
+          for (const [key, value] of Object.entries(call.meta)) {
+            if (value && value.toString().toLowerCase().includes(searchTerm)) {
+              return true;
+            }
+          }
+        }
+        
+        return false;
+      });
+      
+      document.getElementById("status").textContent = `🔍 Found ${filteredCalls.length} matching call(s).`;
+      renderCalls(filteredCalls);
+    }
+    
+    // Export to JSON
+    function exportToJSON() {
+      if (!parsedCalls.length) {
+        document.getElementById("status").textContent = "⚠️ No data to export.";
+        return;
+      }
+      
+      try {
+        // Create a comprehensive version for export with full metadata and transcript
+        const exportData = parsedCalls.map(call => ({
+          contactId: call.meta["Contact ID"] || "Unknown",
+          agent: call.meta["Agent name"] || call.meta["Agent"] || "Unknown",
+          timestamp: call.meta["Initiation timestamp"] || "Unknown",
+          duration: call.meta["Contact duration"] || "Unknown",
+          meta: call.meta, // Include all metadata
+          flags: call.flags || [],
+          positiveFlags: call.positiveFlags || [],
+          positiveScore: call.positiveScore || 0,
+          summary: call.summary || "",
+          issue: call.issue || "",
+          outcome: call.outcome || "",
+          transcript: call.transcript.map(t => ({
+            speaker: t.speaker,
+            timestamp: t.timestamp,
+            text: t.text,
+            flags: t.flags || [],
+            positiveFlags: t.positiveFlags || []
+          }))
+        }));
+        
+        // Create and download the file
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        
+        // Create filename based on date/time
+        const date = new Date();
+        const filename = `transcript-export-${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}.json`;
+        
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        document.getElementById("status").textContent = `✅ Exported ${parsedCalls.length} call(s) to JSON.`;
+      } catch (error) {
+        console.error("Export error:", error);
+        document.getElementById("status").textContent = `❌ Export error: ${error.message}`;
+      }
+    }
+
+    // Open the analytics dashboard in a new window
+    function openDashboard() {
+      if (!parsedCalls.length) {
+        document.getElementById("status").textContent = "⚠️ No data available for dashboard.";
+        return;
+      }
+      
+      try {
+        // Store the current data in localStorage for the dashboard to access
+        localStorage.setItem('inspiroCallData', JSON.stringify(parsedCalls));
+        document.getElementById("status").textContent = "✅ Data prepared for dashboard";
+        
+        // Open the dashboard in a new window
+        window.open('dashboard.html', '_blank');
+      } catch (error) {
+        console.error("Error saving data to localStorage:", error);
+        document.getElementById("status").textContent = "❌ Error preparing dashboard data: " + error.message;
+      }
+    }
+    
+    // Export to Excel using xlsx library for a proper Excel file with multiple sheets
+    function exportToExcel() {
+      if (!parsedCalls.length) {
+        document.getElementById("status").textContent = "⚠️ No data to export.";
+        return;
+      }
+      
+      try {
+        // Create a workbook with multiple sheets for comprehensive data
+        const wb = XLSX.utils.book_new();
+        
+        // 1. Create calls metadata sheet
+        const metadataRows = parsedCalls.map((call, index) => {
+          // Create a full row with all metadata
+          const row = {
+            'Call ID': index + 1,
+            'Contact ID': call.meta["Contact ID"] || "Unknown",
+            'Agent': call.meta["Agent name"] || call.meta["Agent"] || "Unknown",
+            'Channel': call.meta["Channel"] || "Unknown",
+            'Timestamp': call.meta["Initiation timestamp"] || "Unknown",
+            'Duration': call.meta["Contact duration"] || "Unknown",
+            'Queue': call.meta["Queue"] || "Unknown",
+            'Contact Status': call.meta["Contact status"] || "Unknown",
+            'Issue': call.issue || "",
+            'Outcome': call.outcome || "",
+            'Summary': call.summary || "",
+            'Flags': call.flags.join("; ") || "",
+            'Positive Flags': call.positiveFlags.join("; ") || "",
+            'Positive Score': call.positiveScore || 0,
+            'Transcript Count': call.transcript.length || 0
+          };
+          
+          // Add any other metadata fields present
+          Object.entries(call.meta).forEach(([key, value]) => {
+            // Only add if not already included in standard fields
+            if (!row.hasOwnProperty(key) && key !== "Contact ID") {
+              row[key] = value;
+            }
+          });
+          
+          return row;
+        });
+        
+        const metadataSheet = XLSX.utils.json_to_sheet(metadataRows);
+        XLSX.utils.book_append_sheet(wb, metadataSheet, "Call Metadata");
+        
+        // 2. Create transcript sheet with detailed conversation data
+        const transcriptRows = [];
+        parsedCalls.forEach((call, callIndex) => {
+          // Add each transcript entry as a row with full context
+          call.transcript.forEach((entry, entryIndex) => {
+            transcriptRows.push({
+              'Call ID': callIndex + 1,
+              'Contact ID': call.meta["Contact ID"] || "Unknown",
+              'Entry Index': entryIndex + 1,
+              'Speaker': entry.speaker,
+              'Timestamp': entry.timestamp,
+              'Text': entry.text,
+              'Flags': Array.isArray(entry.flags) ? entry.flags.join('; ') : "",
+              'Positive Flags': Array.isArray(entry.positiveFlags) ? entry.positiveFlags.join('; ') : ""
+            });
+          });
+        });
+        
+        const transcriptSheet = XLSX.utils.json_to_sheet(transcriptRows);
+        XLSX.utils.book_append_sheet(wb, transcriptSheet, "Transcripts");
+        
+        // 3. Create analytics sheet
+        const analyticsRows = [];
+        
+        // Agent stats
+        const agentStats = {};
+        const flagCounts = {};
+        const positiveFlagCounts = {};
+        let totalDuration = 0;
+        let callsWithDuration = 0;
+        
+        parsedCalls.forEach(call => {
+          const agent = call.meta["Agent name"] || call.meta["Agent"] || "Unknown";
+          
+          // Initialize agent stats if needed
+          if (!agentStats[agent]) {
+            agentStats[agent] = {
+              total: 0,
+              flagged: 0,
+              positive: 0,
+              avgPositiveScore: 0,
+              totalFlags: 0,
+              totalPositiveFlags: 0,
+              totalDuration: 0,
+              callsWithDuration: 0
+            };
+          }
+          
+          // Update agent stats
+          agentStats[agent].total++;
+          if (call.flags.length > 0) agentStats[agent].flagged++;
+          if (call.positiveFlags.length > 0) agentStats[agent].positive++;
+          agentStats[agent].avgPositiveScore += call.positiveScore || 0;
+          agentStats[agent].totalFlags += call.flags.length;
+          agentStats[agent].totalPositiveFlags += call.positiveFlags.length;
+          
+          // Parse and add duration if available
+          const durationStr = call.meta["Contact duration"] || "0:00:00";
+          const durationMatch = durationStr.match(/(\d+):(\d+):(\d+)/);
+          if (durationMatch) {
+            const hours = parseInt(durationMatch[1] || 0);
+            const minutes = parseInt(durationMatch[2] || 0);
+            const seconds = parseInt(durationMatch[3] || 0);
+            const durationSeconds = hours * 3600 + minutes * 60 + seconds;
+            
+            if (durationSeconds > 0) {
+              agentStats[agent].totalDuration += durationSeconds;
+              agentStats[agent].callsWithDuration++;
+              
+              totalDuration += durationSeconds;
+              callsWithDuration++;
+            }
+          }
+          
+          // Update flag counts
+          call.flags.forEach(flag => {
+            flagCounts[flag] = (flagCounts[flag] || 0) + 1;
+          });
+          
+          // Update positive flag counts
+          call.positiveFlags.forEach(flag => {
+            positiveFlagCounts[flag] = (positiveFlagCounts[flag] || 0) + 1;
+          });
+        });
+        
+        // Add agent stats to analytics
+        Object.entries(agentStats).forEach(([agent, stats]) => {
+          analyticsRows.push({
+            'Type': 'Agent Stats',
+            'Name': agent,
+            'Total Calls': stats.total,
+            'Flagged Calls': stats.flagged,
+            'Positive Calls': stats.positive,
+            'Flag Rate': stats.total ? (stats.flagged / stats.total * 100).toFixed(2) + '%' : '0%',
+            'Positive Rate': stats.total ? (stats.positive / stats.total * 100).toFixed(2) + '%' : '0%',
+            'Avg Positive Score': stats.total ? (stats.avgPositiveScore / stats.total).toFixed(2) : '0',
+            'Total Flags': stats.totalFlags,
+            'Total Positive Flags': stats.totalPositiveFlags,
+            'Avg Call Duration': stats.callsWithDuration ? formatDuration(stats.totalDuration / stats.callsWithDuration) : "N/A"
+          });
+        });
+        
+        // Add overall stats
+        analyticsRows.push({
+          'Type': 'Overall Stats',
+          'Name': 'All Calls',
+          'Total Calls': parsedCalls.length,
+          'Avg Call Duration': callsWithDuration ? formatDuration(totalDuration / callsWithDuration) : "N/A",
+          'Total Duration': formatDuration(totalDuration)
+        });
+        
+        // Add flag stats to analytics
+        Object.entries(flagCounts).forEach(([flag, count]) => {
+          analyticsRows.push({
+            'Type': 'Negative Flag',
+            'Name': flag,
+            'Count': count,
+            'Percentage': parsedCalls.length ? (count / parsedCalls.length * 100).toFixed(2) + '%' : '0%'
+          });
+        });
+        
+        // Add positive flag stats to analytics
+        Object.entries(positiveFlagCounts).forEach(([flag, count]) => {
+          analyticsRows.push({
+            'Type': 'Positive Flag',
+            'Name': flag,
+            'Count': count,
+            'Percentage': parsedCalls.length ? (count / parsedCalls.length * 100).toFixed(2) + '%' : '0%'
+          });
+        });
+        
+        const analyticsSheet = XLSX.utils.json_to_sheet(analyticsRows);
+        XLSX.utils.book_append_sheet(wb, analyticsSheet, "Analytics");
+        
+        // 4. Create individual sheets for call data to avoid 32767 character limit
+        parsedCalls.forEach((call, index) => {
+          // Simplified call data that avoids exceeding Excel limits
+          const callSummary = [
+            ["Call ID", index + 1],
+            ["Contact ID", call.meta["Contact ID"] || "Unknown"],
+            ["Agent", call.meta["Agent name"] || call.meta["Agent"] || "Unknown"],
+            ["Timestamp", call.meta["Initiation timestamp"] || "Unknown"],
+            ["Duration", call.meta["Contact duration"] || "Unknown"],
+            ["Channel", call.meta["Channel"] || "Unknown"],
+            ["Flags", call.flags.join("; ") || "None"],
+            ["Positive Flags", call.positiveFlags.join("; ") || "None"],
+            ["Summary", call.summary || ""]
+          ];
+          
+          // Additional metadata fields
+          Object.entries(call.meta).forEach(([key, value]) => {
+            // Skip fields we already included
+            if (!["Contact ID", "Agent name", "Agent", "Initiation timestamp", "Contact duration", "Channel"].includes(key)) {
+              callSummary.push([key, value]);
+            }
+          });
+          
+          // Add transcript count
+          callSummary.push(["Transcript Entries", call.transcript.length]);
+          callSummary.push(["", ""]);
+          
+          // Add transcript entries (limited to avoid hitting the limit)
+          callSummary.push(["Transcript", ""]);
+          callSummary.push(["Speaker", "Time", "Text"]);
+          
+          // Only include the first 100 entries to avoid hitting Excel limits
+          const maxEntries = Math.min(100, call.transcript.length);
+          for (let i = 0; i < maxEntries; i++) {
+            const entry = call.transcript[i];
+            callSummary.push([
+              entry.speaker,
+              entry.timestamp,
+              entry.text.substring(0, 1000) // Limit text length to avoid Excel issues
+            ]);
+          }
+          
+          if (call.transcript.length > maxEntries) {
+            callSummary.push(["...", "...", `(${call.transcript.length - maxEntries} more entries not shown)`]);
+          }
+          
+          // Create sheet for this call
+          const callSheet = XLSX.utils.aoa_to_sheet(callSummary);
+          const sheetName = `Call_${index + 1}`.substring(0, 31); // Excel sheet names are limited to 31 chars
+          XLSX.utils.book_append_sheet(wb, callSheet, sheetName);
+        });
+        
+        // Create filename based on date/time
+        const date = new Date();
+        const filename = `transcript-export-${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}.xlsx`;
+        
+        // Write the Excel file
+        XLSX.writeFile(wb, filename);
+        
+        document.getElementById("status").textContent = `✅ Exported ${parsedCalls.length} call(s) to Excel with detailed data sheets.`;
+      } catch (error) {
+        console.error("Excel export error:", error);
+        document.getElementById("status").textContent = `❌ Excel export error: ${error.message}`;
+      }
+    }
+
+    // Helper function to format duration in seconds to HH:MM:SS
+    function formatDuration(seconds) {
+      seconds = Math.round(seconds);
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const secs = seconds % 60;
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    // Function to clear all data
+    function clearAllData() {
+      parsedCalls = [];
+      contactIdSet.clear();
+      currentSearchTerm = '';
+      uploadedFiles = [];
+      
+      // Update UI
+      renderCalls([]);
+      updateAnalytics();
+      document.getElementById('uploadedFilesList').innerHTML = '';
+      document.querySelector('.uploaded-files-container').style.display = 'none';
+      
+      // Hide action buttons
+      document.getElementById('exportButton').style.display = 'none';
+      document.getElementById('exportExcelButton').style.display = 'none';
+      document.getElementById('dashboardButton').style.display = 'none';
+      
+      document.getElementById("status").textContent = "🟡 Data cleared. Waiting for file...";
+    }
+
+    // Add a utility function to verify if a spreadsheet is a metadata-only format
+    function isMetadataOnlyFormat(data) {
+      if (!data || data.length === 0) return false;
+      
+      // Check for common metadata fields
+      const hasMetadataFields = data[0].hasOwnProperty('Contact ID') || 
+                               data[0].hasOwnProperty('ContactID') || 
+                               data[0].hasOwnProperty('tact ID');
+      
+      // Check for absence of transcript fields
+      const lacksTranscriptFields = !data[0].hasOwnProperty('transcript') && 
+                                   !data[0].hasOwnProperty('Issue') &&
+                                   !data[0].hasOwnProperty('Outcome');
+      
+      return hasMetadataFields && lacksTranscriptFields;
+    }
+
+    // Attempt to parse alternative format
+    function parseAlternativeFormat(text) {
+      console.log("Attempting to parse alternative format");
+      const lines = text.split(/\r?\n/).map(l => l.trim());
+      const potentialCallBoundaries = [];
+      
+      // Find potential call boundaries by looking for timestamp patterns
+      for (let i = 0; i < lines.length; i++) {
+        if (/^\d{2}:\d{2}:?\d{0,2}$/.test(lines[i]) || /^\d{1,2}\/\d{1,2}\/\d{2,4}\s+\d{1,2}:\d{2}/.test(lines[i])) {
+          potentialCallBoundaries.push(i);
+        }
+      }
+      
+      console.log(`Found ${potentialCallBoundaries.length} potential call boundaries`);
+      
+      if (potentialCallBoundaries.length === 0) {
+        // Try another approach - look for Agent/Customer patterns
+        return createSyntheticCall(text);
+      }
+      
+      // Process each potential call
+      const calls = [];
+      
+      for (let i = 0; i < potentialCallBoundaries.length; i++) {
+        const startIdx = potentialCallBoundaries[i];
+        const endIdx = (i < potentialCallBoundaries.length - 1) ? 
+                        potentialCallBoundaries[i + 1] : 
+                        lines.length;
+        
+        // Extract the call section
+        const callLines = lines.slice(startIdx, endIdx);
+        
+        // Process this call section
+        const call = processPotentialCall(callLines, i);
+        if (call) calls.push(call);
+      }
+      
+      console.log(`Alternative parsing found ${calls.length} calls`);
+      return calls;
+    }
+    
+    // Process a potential call section from alternative format
+    function processPotentialCall(callLines, callIndex) {
+      if (callLines.length < 2) return null;
+      
+      // Initialize metadata with generic values
+      const meta = {
+        "Contact ID": `synthetic-call-${Date.now()}-${callIndex}`,
+        "Agent name": "Unknown",
+        "Agent": "Unknown",
+        "Channel": "Unknown",
+        "Contact status": "Unknown",
+        "Initiation timestamp": "Unknown",
+        "Contact duration": "Unknown"
+      };
+      
+      // Initialize other call data
+      const transcript = [];
+      const flags = [];
+      const positiveFlags = [];
+      let currentSection = "";
+      let issue = "";
+      let outcome = "";
+      let summary = "";
+      let categories = "";
+      
+      let inCategoriesSection = false;
+      
+      // Process lines to extract data
+      for (let i = 0; i < callLines.length; i++) {
+        const line = callLines[i].trim();
+        if (!line) continue;
+        
+        // Check for metadata patterns
+        if (i < 5) { // Only check the first few lines for metadata
+          // Try to extract agent name
+          const agentMatch = line.match(/Agent:?\s*([^:]+)$/i);
+          if (agentMatch) {
+            meta["Agent name"] = agentMatch[1].trim();
+            meta["Agent"] = agentMatch[1].trim();
+            continue;
+          }
+          
+          // Try to extract timestamp
+          const timestampMatch = line.match(/(\d{1,2}\/\d{1,2}\/\d{2,4}\s+\d{1,2}:\d{2})/);
+          if (timestampMatch) {
+            meta["Initiation timestamp"] = timestampMatch[1];
+            continue;
+          }
+          
+          // Try to extract duration
+          const durationMatch = line.match(/Duration:?\s*(\d+:?\d+:?\d+)/i);
+          if (durationMatch) {
+            meta["Contact duration"] = durationMatch[1];
+            continue;
+          }
+        }
+        
+        // Check for section headers
+        const lowerLine = line.toLowerCase();
+        
+        if (lowerLine === "transcript") {
+          currentSection = "transcript";
+          continue;
+        } else if (lowerLine === "summary") {
+          currentSection = "summary";
+          continue;
+        } else if (lowerLine === "issue") {
+          currentSection = "issue";
+          continue;
+        } else if (lowerLine === "outcome") {
+          currentSection = "outcome";
+          continue;
+        } else if (lowerLine === "categories") {
+          currentSection = "categories";
+          continue;
+        }
+        
+        // Process content based on current section
+        if (currentSection === "transcript") {
+          // Look for speaker pattern: "Speaker: Text"
+          const speakerMatch = line.match(/^(Agent|Customer|System):\s*(.+)$/i);
+          if (speakerMatch) {
+            const speaker = speakerMatch[1];
+            const text = speakerMatch[2];
+            
+            // Default timestamp
+            const timestamp = "00:00";
+            
+            // Check for flags
+            const negativeTriggers = triggers.filter(t => text.toLowerCase().includes(t));
+            const positiveHits = positiveTriggers.filter(t => text.toLowerCase().includes(t));
+            
+            transcript.push({
+              speaker,
+              timestamp,
+              text,
+              flags: negativeTriggers,
+              positiveFlags: positiveHits
+            });
+            
+            flags.push(...negativeTriggers);
+            positiveFlags.push(...positiveHits);
+            continue;
+          }
+          
+          // Check for Agent/Customer alternating pattern
+          if (line === "Agent" || line === "Customer" || line === "System") {
+            const speaker = line;
+            if (i + 1 < callLines.length) {
+              const text = callLines[i + 1];
+              i++; // Skip the next line since we've processed it
+              
+              // Default timestamp
+              const timestamp = "00:00";
+              
+              // Check for flags
+              const negativeTriggers = triggers.filter(t => text.toLowerCase().includes(t));
+              const positiveHits = positiveTriggers.filter(t => text.toLowerCase().includes(t));
+              
+              transcript.push({
+                speaker,
+                timestamp,
+                text,
+                flags: negativeTriggers,
+                positiveFlags: positiveHits
+              });
+              
+              flags.push(...negativeTriggers);
+              positiveFlags.push(...positiveHits);
+            }
+            continue;
+          }
+        } else if (currentSection === "summary") {
+          summary += line + " ";
+        } else if (currentSection === "issue") {
+          issue += line + " ";
+        } else if (currentSection === "outcome") {
+          outcome += line + " ";
+        } else if (currentSection === "categories") {
+          categories += line + ", ";
+        }
+      }
+      
+      // Store categories in metadata (trim trailing comma and space)
+      if (categories) {
+        meta["Categories"] = categories.replace(/,\s*$/, "").trim();
+      }
+      
+      // Only return a call if we have some transcript or metadata
+      if (transcript.length > 0 || summary || issue || outcome) {
+        return {
+          meta,
+          transcript,
+          flags: [...new Set(flags)],
+          positiveFlags: [...new Set(positiveFlags)],
+          issue: issue.trim(),
+          outcome: outcome.trim(),
+          summary: summary.trim(),
+          positiveScore: positiveFlags.length - flags.length
+        };
+      }
+      
+      return null;
+    }
+
+    // Create a synthetic call by analyzing transcript content when no structure is found
+    function createSyntheticCall(text) {
+      console.log("Creating synthetic call from raw text");
+      
+      // Initialize metadata with generic values
+      const meta = {
+        "Contact ID": `synthetic-call-${Date.now()}`,
+        "Agent name": "Unknown",
+        "Agent": "Unknown",
+        "Channel": "Unknown",
+        "Contact status": "Unknown",
+        "Initiation timestamp": new Date().toISOString(),
+        "Contact duration": "Unknown"
+      };
+      
+      // Initialize other call data
+      const transcript = [];
+      const flags = [];
+      const positiveFlags = [];
+      let issue = "";
+      let outcome = "";
+      let summary = "";
+      let categories = "";
+      
+      // Split into lines
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l);
+      
+      // Try to identify sections based on keywords
+      let currentSection = "";
+      let speakerPattern = null;
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        // Check for section headers
+        const lowerLine = line.toLowerCase();
+        
+        if (lowerLine === "transcript") {
+          currentSection = "transcript";
+          continue;
+        } else if (lowerLine === "summary") {
+          currentSection = "summary";
+          continue;
+        } else if (lowerLine === "issue") {
+          currentSection = "issue";
+          continue;
+        } else if (lowerLine === "outcome") {
+          currentSection = "outcome";
+          continue;
+        } else if (lowerLine === "categories") {
+          currentSection = "categories";
+          continue;
+        }
+        
+        // Check for Agent/Customer keywords to identify transcript sections
+        if (!currentSection && (line.includes("Agent:") || line.includes("Customer:") || 
+            line === "Agent" || line === "Customer")) {
+          currentSection = "transcript";
+        }
+        
+        // Process content based on current section
+        if (currentSection === "transcript") {
+          // Look for speaker pattern: "Speaker: Text"
+          const speakerMatch = line.match(/^(Agent|Customer|System):\s*(.+)$/i);
+          if (speakerMatch) {
+            if (!speakerPattern) speakerPattern = "colon";
+            
+            const speaker = speakerMatch[1];
+            const text = speakerMatch[2];
+            
+            // Default timestamp
+            const timestamp = "00:00";
+            
+            // Check for flags
+            const negativeTriggers = triggers.filter(t => text.toLowerCase().includes(t));
+            const positiveHits = positiveTriggers.filter(t => text.toLowerCase().includes(t));
+            
+            transcript.push({
+              speaker,
+              timestamp,
+              text,
+              flags: negativeTriggers,
+              positiveFlags: positiveHits
+            });
+            
+            flags.push(...negativeTriggers);
+            positiveFlags.push(...positiveHits);
+            continue;
+          }
+          
+          // Check for Agent/Customer alternating pattern
+          if (line === "Agent" || line === "Customer" || line === "System") {
+            if (!speakerPattern) speakerPattern = "alternating";
+            
+            const speaker = line;
+            if (i + 1 < lines.length) {
+              const text = lines[i + 1];
+              i++; // Skip the next line since we've processed it
+              
+              // Default timestamp
+              const timestamp = "00:00";
+              
+              // Check for flags
+              const negativeTriggers = triggers.filter(t => text.toLowerCase().includes(t));
+              const positiveHits = positiveTriggers.filter(t => text.toLowerCase().includes(t));
+              
+              transcript.push({
+                speaker,
+                timestamp,
+                text,
+                flags: negativeTriggers,
+                positiveFlags: positiveHits
+              });
+              
+              flags.push(...negativeTriggers);
+              positiveFlags.push(...positiveHits);
+            }
+            continue;
+          }
+          
+          // If we don't recognize the structure yet, try to infer
+          if (!speakerPattern) {
+            // If contains "-" or ":" between words, might be a speaker delimiter
+            if (line.match(/\w+[\s]*[-:>][\s]*\w+/)) {
+              const parts = line.split(/[-:>]/).map(p => p.trim());
+              if (parts.length >= 2) {
+                const speaker = parts[0].includes("Agent") ? "Agent" : 
+                              parts[0].includes("Customer") ? "Customer" : parts[0];
+                const text = parts.slice(1).join(" ");
+                
+                const timestamp = "00:00";
+                
+                // Check for flags
+                const negativeTriggers = triggers.filter(t => text.toLowerCase().includes(t));
+                const positiveHits = positiveTriggers.filter(t => text.toLowerCase().includes(t));
+                
+                transcript.push({
+                  speaker,
+                  timestamp,
+                  text,
+                  flags: negativeTriggers,
+                  positiveFlags: positiveHits
+                });
+                
+                flags.push(...negativeTriggers);
+                positiveFlags.push(...positiveHits);
+                continue;
+              }
+            }
+          }
+          
+          // If still no structured speaker pattern, just add as generic text
+          if (currentSection === "transcript" && !transcript.length) {
+            transcript.push({
+              speaker: "Unknown",
+              timestamp: "00:00",
+              text: line,
+              flags: [],
+              positiveFlags: []
+            });
+          }
+        } else if (currentSection === "summary") {
+          summary += line + " ";
+        } else if (currentSection === "issue") {
+          issue += line + " ";
+        } else if (currentSection === "outcome") {
+          outcome += line + " ";
+        } else if (currentSection === "categories") {
+          categories += line + ", ";
+        } else if (!currentSection) {
+          // If we haven't determined a section yet, check the line for metadata
+          
+          // Try to extract agent name
+          const agentMatch = line.match(/Agent:?\s*([^:]+)$/i);
+          if (agentMatch) {
+            meta["Agent name"] = agentMatch[1].trim();
+            meta["Agent"] = agentMatch[1].trim();
+            continue;
+          }
+          
+          // Try to extract timestamp
+          const timestampMatch = line.match(/(\d{1,2}\/\d{1,2}\/\d{2,4}\s+\d{1,2}:\d{2})/);
+          if (timestampMatch) {
+            meta["Initiation timestamp"] = timestampMatch[1];
+            continue;
+          }
+          
+          // Try to extract duration
+          const durationMatch = line.match(/Duration:?\s*(\d+:?\d+:?\d+)/i);
+          if (durationMatch) {
+            meta["Contact duration"] = durationMatch[1];
+            continue;
+          }
+        }
+      }
+      
+      // If we haven't found structured transcript, check for conversation indicators
+      if (transcript.length === 0) {
+        // Look for potential conversation indicators like Q&A format
+        let currentSpeaker = "Unknown";
+        
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          
+          // Try to detect Q&A patterns
+          if (line.startsWith("Q:") || line.startsWith("Question:")) {
+            currentSpeaker = "Customer";
+            const text = line.replace(/^Q:/, "").replace(/^Question:/, "").trim();
+            
+            // Check for flags
+            const negativeTriggers = triggers.filter(t => text.toLowerCase().includes(t));
+            const positiveHits = positiveTriggers.filter(t => text.toLowerCase().includes(t));
+            
+            transcript.push({
+              speaker: currentSpeaker,
+              timestamp: "00:00",
+              text,
+              flags: negativeTriggers,
+              positiveFlags: positiveHits
+            });
+            
+            flags.push(...negativeTriggers);
+            positiveFlags.push(...positiveHits);
+          } else if (line.startsWith("A:") || line.startsWith("Answer:")) {
+            currentSpeaker = "Agent";
+            const text = line.replace(/^A:/, "").replace(/^Answer:/, "").trim();
+            
+            // Check for flags
+            const negativeTriggers = triggers.filter(t => text.toLowerCase().includes(t));
+            const positiveHits = positiveTriggers.filter(t => text.toLowerCase().includes(t));
+            
+            transcript.push({
+              speaker: currentSpeaker,
+              timestamp: "00:00",
+              text,
+              flags: negativeTriggers,
+              positiveFlags: positiveHits
+            });
+            
+            flags.push(...negativeTriggers);
+            positiveFlags.push(...positiveHits);
+          }
+        }
+      }
+      
+      // If still no structured content, analyze it as a single call transcript
+      if (transcript.length === 0 && lines.length > 0) {
+        // Join all lines and then split by typical dialogue indicators
+        const fullText = lines.join(" ");
+        const dialogueSplits = fullText.split(/(?:[.!?])\s+/);
+        
+        // Alternate between Customer and Agent for each split
+        let currentSpeaker = "Customer";
+        
+        for (const dialoguePart of dialogueSplits) {
+          if (dialoguePart.trim().length < 5) continue; // Skip very short parts
+          
+          // Check for flags
+          const negativeTriggers = triggers.filter(t => dialoguePart.toLowerCase().includes(t));
+          const positiveHits = positiveTriggers.filter(t => dialoguePart.toLowerCase().includes(t));
+          
+          transcript.push({
+            speaker: currentSpeaker,
+            timestamp: "00:00",
+            text: dialoguePart.trim(),
+            flags: negativeTriggers,
+            positiveFlags: positiveHits
+          });
+          
+          flags.push(...negativeTriggers);
+          positiveFlags.push(...positiveHits);
+          
+          // Switch speaker
+          currentSpeaker = currentSpeaker === "Customer" ? "Agent" : "Customer";
+        }
+      }
+      
+      // Store categories in metadata (trim trailing comma and space)
+      if (categories) {
+        meta["Categories"] = categories.replace(/,\s*$/, "").trim();
+      }
+      
+      // Create a single call object
+      const call = {
+        meta,
+        transcript,
+        flags: [...new Set(flags)],
+        positiveFlags: [...new Set(positiveFlags)],
+        issue: issue.trim(),
+        outcome: outcome.trim(),
+        summary: summary.trim(),
+        positiveScore: positiveFlags.length - flags.length
+      };
+      
+      return [call];
+    }
+  </script>
+</body>
+</html>
