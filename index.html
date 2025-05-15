@@ -244,6 +244,7 @@
     <div id="status">🟡 Waiting for file...</div>
     <button id="exportButton" class="primary-button" style="display: none;">Export as JSON</button>
     <button id="exportExcelButton" class="primary-button" style="display: none;">Export as Excel</button>
+    <button id="exportAuditButton" class="primary-button" style="display: none;">Export as Audit Template</button>
     <button id="dashboardButton" class="primary-button" style="display: none;">Open Dashboard</button>
     <button id="clearButton" class="primary-button">Clear Data</button>
   </div>
@@ -457,6 +458,7 @@
       // Export handlers
       document.getElementById('exportButton').addEventListener('click', exportToJSON);
       document.getElementById('exportExcelButton').addEventListener('click', exportToExcel);
+      document.getElementById('exportAuditButton').addEventListener('click', exportToAuditTemplate);
       
       // Dashboard button
       document.getElementById('dashboardButton').addEventListener('click', openDashboard);
@@ -1034,6 +1036,7 @@
         // Show action buttons
         document.getElementById('exportButton').style.display = 'inline-block';
         document.getElementById('exportExcelButton').style.display = 'inline-block';
+        document.getElementById('exportAuditButton').style.display = 'inline-block';
         document.getElementById('dashboardButton').style.display = 'inline-block';
         
         // Update analytics and render
@@ -1123,6 +1126,7 @@
         // Show action buttons
         document.getElementById('exportButton').style.display = 'inline-block';
         document.getElementById('exportExcelButton').style.display = 'inline-block';
+        document.getElementById('exportAuditButton').style.display = 'inline-block';
         document.getElementById('dashboardButton').style.display = 'inline-block';
         
         // Update analytics and render
@@ -1217,8 +1221,9 @@
           document.getElementById("status").textContent = `✅ Added ${newCalls.length} new call(s) from ${filename}. Total: ${parsedCalls.length}`;
         }
         
-        // Show dashboard button
-        document.getElementById('dashboardButton').style.display = 'inline-block';
+        // Show dashboard button and other export buttons
+        updateExportButtons();
+        
         // Update the UI
         updateAnalytics();
         renderCalls(parsedCalls);
@@ -1244,9 +1249,7 @@
       }
       
       // Show action buttons
-      document.getElementById('exportButton').style.display = 'inline-block';
-      document.getElementById('exportExcelButton').style.display = 'inline-block';
-      document.getElementById('dashboardButton').style.display = 'inline-block';
+      updateExportButtons();
       
       // Update analytics and render
       updateAnalytics();
@@ -2383,9 +2386,7 @@
       document.querySelector('.uploaded-files-container').style.display = 'none';
       
       // Hide action buttons
-      document.getElementById('exportButton').style.display = 'none';
-      document.getElementById('exportExcelButton').style.display = 'none';
-      document.getElementById('dashboardButton').style.display = 'none';
+      updateExportButtons();
       
       document.getElementById("status").textContent = "🟡 Data cleared. Waiting for file...";
     }
@@ -2910,6 +2911,355 @@
       };
       
       return [call];
+    }
+
+    // Add function to handle changes to buttons visibility when calls are available
+    function updateExportButtons() {
+      // If we have calls data, show the export buttons
+      if (parsedCalls.length > 0) {
+        document.getElementById('exportButton').style.display = 'inline-block';
+        document.getElementById('exportExcelButton').style.display = 'inline-block';
+        document.getElementById('exportAuditButton').style.display = 'inline-block';
+        document.getElementById('dashboardButton').style.display = 'inline-block';
+      } else {
+        document.getElementById('exportButton').style.display = 'none';
+        document.getElementById('exportExcelButton').style.display = 'none';
+        document.getElementById('exportAuditButton').style.display = 'none';
+        document.getElementById('dashboardButton').style.display = 'none';
+      }
+    }
+
+         // New function to export data in audit template format
+     function exportToAuditTemplate() {
+       if (!parsedCalls.length) {
+         document.getElementById("status").textContent = "⚠️ No data to export.";
+         return;
+       }
+       
+       try {
+         // Create a workbook for the audit template
+         const wb = XLSX.utils.book_new();
+         
+         // Define the audit template headers
+         const headers = [
+           "Date",
+           "Week Ending",
+           "Month", 
+           "Auditor's Name",
+           "Audit Type",
+           "Audit Subtype",
+           "Program",
+           "Line of Business (LOB)",
+           "Site",
+           "Agent's Name",
+           "Employee ID",
+           "Workstation / Red ID",
+           "Compliant?",
+           "Violation Type",
+           "Action Taken",
+           "Closure Date",
+           "Turn Around Timeframe (TAT)",
+           "Auditor Comments",
+           "Raw JSON Data (Do not modify)"
+         ];
+         
+         // Create data for each call
+         const auditRows = parsedCalls.map(call => {
+          // Extract date from the timestamp
+          const timestamp = call.meta["Initiation timestamp"] || new Date().toISOString();
+          const callDate = new Date(timestamp);
+          
+          // Format date as MM/DD/YYYY
+          const date = callDate.toLocaleDateString('en-US', {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric'
+          });
+          
+          // Get the week ending date (next Friday)
+          const weekEnding = getWeekEndingDate(callDate);
+          
+          // Get month name
+          const month = callDate.toLocaleDateString('en-US', { month: 'long' });
+          
+          // Get agent's name
+          const agentName = call.meta["Agent name"] || call.meta["Agent"] || "Unknown";
+          
+          // Prepare potential violation types and comments based on flags
+          let violationType = "";
+          let comments = "";
+          
+          if (call.flags.length > 0) {
+            violationType = call.flags.join("; ");
+            comments = `Call flags: ${call.flags.join(", ")}`;
+            
+            // Add summary if available
+            if (call.summary) {
+              comments += `\nCall summary: ${call.summary}`;
+            }
+            
+            // Add issue if available
+            if (call.issue) {
+              comments += `\nIssue: ${call.issue}`;
+            }
+            
+            // Add outcome if available
+            if (call.outcome) {
+              comments += `\nOutcome: ${call.outcome}`;
+            }
+          } else {
+            comments = "No violations detected";
+            if (call.positiveFlags.length > 0) {
+              comments += `\nPositive indicators: ${call.positiveFlags.join(", ")}`;
+            }
+            if (call.summary) {
+              comments += `\nSummary: ${call.summary}`;
+            }
+          }
+          
+                     // Create a compressed version of the data without full transcript
+           // to avoid Excel's 32,767 character limit
+           const compressedCallData = {
+             contactId: call.meta["Contact ID"] || "Unknown",
+             agent: agentName,
+             timestamp: timestamp,
+             duration: call.meta["Contact duration"] || "Unknown",
+             meta: call.meta,
+             flags: call.flags || [],
+             positiveFlags: call.positiveFlags || [],
+             issue: call.issue || "",
+             outcome: call.outcome || "",
+             summary: call.summary || "",
+             positiveScore: call.positiveScore || 0,
+             // Instead of full transcript, just store summary info about it
+             transcriptSummary: {
+               count: call.transcript.length,
+               speakers: [...new Set(call.transcript.map(t => t.speaker))],
+               totalTextLength: call.transcript.reduce((acc, t) => acc + t.text.length, 0),
+               // Store only the first and last few messages for reference
+               first3Messages: call.transcript.slice(0, 3).map(t => ({
+                 speaker: t.speaker,
+                 timestamp: t.timestamp,
+                 text: t.text.substring(0, 100) + (t.text.length > 100 ? "..." : "")
+               })),
+               last3Messages: call.transcript.slice(-3).map(t => ({
+                 speaker: t.speaker,
+                 timestamp: t.timestamp,
+                 text: t.text.substring(0, 100) + (t.text.length > 100 ? "..." : "")
+               }))
+             }
+           };
+           
+           // Create a JSON string and check its length
+           let jsonData = JSON.stringify(compressedCallData);
+           
+           // If still too long, progressively reduce content
+           if (jsonData.length > 32000) {
+             // Remove last messages
+             delete compressedCallData.transcriptSummary.last3Messages;
+             jsonData = JSON.stringify(compressedCallData);
+             
+             if (jsonData.length > 32000) {
+               // Remove first messages
+               delete compressedCallData.transcriptSummary.first3Messages;
+               jsonData = JSON.stringify(compressedCallData);
+               
+               if (jsonData.length > 32000) {
+                 // Remove some metadata
+                 compressedCallData.meta = {
+                   "Contact ID": compressedCallData.meta["Contact ID"] || "Unknown",
+                   "Agent name": compressedCallData.meta["Agent name"] || "Unknown",
+                   "Initiation timestamp": compressedCallData.meta["Initiation timestamp"] || "Unknown"
+                 };
+                 jsonData = JSON.stringify(compressedCallData);
+                 
+                 if (jsonData.length > 32000) {
+                   // Last resort - create minimal data
+                   jsonData = JSON.stringify({
+                     contactId: compressedCallData.contactId,
+                     agent: compressedCallData.agent,
+                     flags: compressedCallData.flags,
+                     message: "Original data exceeds Excel cell limit of 32,767 characters"
+                   });
+                 }
+               }
+             }
+           }
+
+           // Create a row with the audit template format
+           return {
+             "Date": date,
+             "Week Ending": weekEnding,
+             "Month": month,
+             "Auditor's Name": "Inspiro QA", // Default value
+             "Audit Type": "Transactional Audit", // Default value
+             "Audit Subtype": "", // To be filled by auditor
+             "Program": "Boost", // Default value
+             "Line of Business (LOB)": "Dish", // Default value
+             "Site": "CDA", // Default value
+             "Agent's Name": agentName,
+             "Employee ID": "", // To be filled by auditor
+             "Workstation / Red ID": call.meta["Contact ID"] || "Unknown", // Using Contact ID as reference
+             "Compliant?": call.flags.length === 0 ? "Yes" : "No", // Compliant if no flags
+             "Violation Type": violationType,
+             "Action Taken": "", // To be filled by auditor
+             "Closure Date": "", // To be filled by auditor
+             "Turn Around Timeframe (TAT)": "", // To be filled by auditor
+             "Auditor Comments": comments,
+             "Raw JSON Data (Do not modify)": jsonData
+           };
+        });
+        
+        // Create the worksheet
+        const ws = XLSX.utils.json_to_sheet(auditRows);
+        
+                 // Set column widths for better readability
+         const colWidths = {
+           A: 12, // Date
+           B: 12, // Week Ending
+           C: 12, // Month
+           D: 15, // Auditor's Name
+           E: 18, // Audit Type
+           F: 15, // Audit Subtype
+           G: 10, // Program
+           H: 15, // Line of Business
+           I: 8,  // Site
+           J: 20, // Agent's Name
+           K: 12, // Employee ID
+           L: 20, // Workstation / Red ID
+           M: 12, // Compliant?
+           N: 25, // Violation Type
+           O: 15, // Action Taken
+           P: 12, // Closure Date
+           Q: 12, // TAT
+           R: 50, // Auditor Comments
+           S: 100 // Raw JSON Data
+         };
+        
+        // Set column widths
+        ws['!cols'] = Object.entries(colWidths).map(([col, width]) => ({ wch: width }));
+        
+                 // Add the worksheet to the workbook
+         XLSX.utils.book_append_sheet(wb, ws, "Audit Template");
+         
+         // Add a second worksheet with call details similar to the original export
+         const callDataRows = parsedCalls.map((call, index) => {
+           // Create a full row with all metadata
+           const row = {
+             'Call ID': index + 1,
+             'Contact ID': call.meta["Contact ID"] || "Unknown",
+             'Agent': call.meta["Agent name"] || call.meta["Agent"] || "Unknown",
+             'Channel': call.meta["Channel"] || "Unknown",
+             'Timestamp': call.meta["Initiation timestamp"] || "Unknown",
+             'Duration': call.meta["Contact duration"] || "Unknown",
+             'Queue': call.meta["Queue"] || "Unknown",
+             'Contact Status': call.meta["Contact status"] || "Unknown",
+             'Issue': call.issue || "",
+             'Outcome': call.outcome || "",
+             'Summary': call.summary || "",
+             'Flags': call.flags.join("; ") || "",
+             'Positive Flags': call.positiveFlags.join("; ") || "",
+             'Positive Score': call.positiveScore || 0,
+             'Transcript Count': call.transcript.length || 0
+           };
+           
+           // Add any other metadata fields present
+           Object.entries(call.meta).forEach(([key, value]) => {
+             // Only add if not already included in standard fields
+             if (!row.hasOwnProperty(key) && key !== "Contact ID") {
+               row[key] = value;
+             }
+           });
+           
+           return row;
+         });
+         
+         const callDataSheet = XLSX.utils.json_to_sheet(callDataRows);
+         XLSX.utils.book_append_sheet(wb, callDataSheet, "Call Data");
+         
+         // Add a third sheet with raw data for technicians and importers
+         // This works around the Excel cell character limit by using multiple cells
+         // Create an array of arrays (AOA) format for raw data
+         const rawDataSheet = [
+           ["Call ID", "Contact ID", "Raw JSON Data"]
+         ];
+         
+         // Add each call's data in chunks to avoid Excel's cell limit
+         parsedCalls.forEach((call, index) => {
+           // Create the full raw JSON data object
+           const rawCallData = {
+             contactId: call.meta["Contact ID"] || "Unknown",
+             agent: call.meta["Agent name"] || call.meta["Agent"] || "Unknown",
+             timestamp: call.meta["Initiation timestamp"] || "Unknown",
+             duration: call.meta["Contact duration"] || "Unknown",
+             meta: call.meta,
+             flags: call.flags || [],
+             positiveFlags: call.positiveFlags || [],
+             issue: call.issue || "",
+             outcome: call.outcome || "",
+             summary: call.summary || "",
+             positiveScore: call.positiveScore || 0,
+             transcriptLength: call.transcript.length
+           };
+           
+           // Convert to JSON and add to the sheet
+           const callId = index + 1;
+           const contactId = call.meta["Contact ID"] || "Unknown";
+           const jsonString = JSON.stringify(rawCallData);
+           
+           rawDataSheet.push([callId, contactId, jsonString]);
+           
+           // Add transcript data in separate rows (indexed by message) to avoid character limits
+           call.transcript.forEach((entry, entryIndex) => {
+             const transcriptEntry = {
+               entryIndex: entryIndex,
+               speaker: entry.speaker,
+               timestamp: entry.timestamp,
+               text: entry.text,
+               flags: entry.flags || [],
+               positiveFlags: entry.positiveFlags || []
+             };
+             
+             // Add as a new row with the same call ID and contact ID
+             rawDataSheet.push([
+               callId, 
+               contactId, 
+               `TRANSCRIPT_ENTRY:${JSON.stringify(transcriptEntry)}`
+             ]);
+           });
+         });
+         
+         // Create the raw data sheet
+         const rawWs = XLSX.utils.aoa_to_sheet(rawDataSheet);
+         XLSX.utils.book_append_sheet(wb, rawWs, "Technical Data");
+         
+         // Create filename based on date/time
+         const date = new Date();
+         const filename = `audit-template-export-${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}.xlsx`;
+        
+        // Write the Excel file
+        XLSX.writeFile(wb, filename);
+        
+                 document.getElementById("status").textContent = `✅ Exported ${parsedCalls.length} call(s) to Audit Template format with 3 sheets: Audit Template, Call Data, and Technical Data.`;
+      } catch (error) {
+        console.error("Audit Template export error:", error);
+        document.getElementById("status").textContent = `❌ Audit Template export error: ${error.message}`;
+      }
+    }
+
+    // Helper function to get the week ending date (next Friday) from a given date
+    function getWeekEndingDate(date) {
+      const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
+      const daysUntilFriday = (5 - dayOfWeek + 7) % 7; // Friday is day 5
+      
+      const weekEndingDate = new Date(date);
+      weekEndingDate.setDate(date.getDate() + daysUntilFriday);
+      
+      return weekEndingDate.toLocaleDateString('en-US', {
+        month: '2-digit',
+        day: '2-digit',
+        year: 'numeric'
+      });
     }
   </script>
 </body>
