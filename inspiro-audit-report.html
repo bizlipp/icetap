@@ -1,0 +1,150 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Inspiro Audit Insights</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f4f4f9;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+    .header {
+      background: #a43ec9;
+      color: #fff;
+      padding: 20px;
+      border-radius: 10px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 26px;
+    }
+    .section {
+      background: #fff;
+      margin-top: 20px;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .section h2 {
+      margin-top: 0;
+      font-size: 20px;
+      color: #a43ec9;
+    }
+    .stat {
+      font-size: 24px;
+      font-weight: bold;
+      margin: 5px 0;
+    }
+    #copyButton {
+      margin-top: 10px;
+      padding: 8px 16px;
+      background: #a43ec9;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #copyButton:hover {
+      background: #9133b2;
+    }
+    .placeholder {
+      color: #aaa;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Inspiro Team Wellness & Coaching Report</h1>
+    <p>Celebrating wins and guiding development with empathy & insight.</p>
+  </div>
+
+  <div class="section">
+    <h2>Positive Performance Highlights</h2>
+    <div class="stat" id="totalAudits">Total Audits Reviewed: <span class="placeholder">Loading...</span></div>
+    <div class="stat" id="complianceRate">Overall Positivity Rate: <span class="placeholder">Loading...</span></div>
+    <div id="topPositiveFlags"></div>
+  </div>
+
+  <div class="section">
+    <h2>Coaching Trends</h2>
+    <div id="commentSummary" class="placeholder">Analyzing auditor comments...</div>
+  </div>
+
+  <div class="section">
+    <h2>Team Engagement Pulse</h2>
+    <div class="stat" id="avgTalkTime">Avg Talk Time: <span class="placeholder">Calculating...</span></div>
+    <div id="agentBadges"></div>
+  </div>
+
+  <button id="copyButton">Copy to Outlook</button>
+
+  <script>
+    function loadData() {
+      const data = JSON.parse(localStorage.getItem("inspiroCallData") || "[]");
+      if (!data.length) {
+        document.getElementById("totalAudits").innerHTML = "Total Audits Reviewed: 0";
+        return;
+      }
+
+      document.getElementById("totalAudits").innerHTML = "Total Audits Reviewed: " + data.length;
+
+      let compliant = 0;
+      let flagWords = {};
+      let durations = [];
+      let agentScores = {};
+
+      data.forEach(call => {
+        const comments = call.summary + " " + call.issue + " " + call.outcome;
+        comments.toLowerCase().split(/\W+/).forEach(word => {
+          if (word.length > 4) {
+            flagWords[word] = (flagWords[word] || 0) + 1;
+          }
+        });
+
+        const compliantFlag = call.flags && call.flags.length === 0;
+        if (compliantFlag) compliant++;
+
+        const duration = call.meta?.["Contact duration"] || "0:00:00";
+        const parts = duration.split(":");
+        if (parts.length === 3) {
+          durations.push(+parts[0]*3600 + +parts[1]*60 + +parts[2]);
+        }
+
+        const agent = call.meta?.["Agent name"] || "Unknown";
+        agentScores[agent] = (agentScores[agent] || 0) + (call.positiveScore || 0);
+      });
+
+      const posRate = Math.round((compliant / data.length) * 100);
+      document.getElementById("complianceRate").innerHTML = "Overall Positivity Rate: " + posRate + "%";
+
+      const topFlags = Object.entries(flagWords).sort((a,b)=>b[1]-a[1]).slice(0,5);
+      document.getElementById("topPositiveFlags").innerHTML = "<p><strong>Frequent Coaching Topics:</strong> " + topFlags.map(f=>f[0]).join(", ") + "</p>";
+
+      const avg = Math.round(durations.reduce((a,b)=>a+b,0) / durations.length);
+      const minutes = Math.floor(avg / 60);
+      document.getElementById("avgTalkTime").innerHTML = "Avg Talk Time: " + minutes + " min";
+
+      const topAgents = Object.entries(agentScores).sort((a,b)=>b[1]-a[1]).slice(0,3);
+      document.getElementById("agentBadges").innerHTML = "<p><strong>Top Momentum Agents:</strong> " + topAgents.map(a=>a[0]).join(", ") + "</p>";
+
+      document.getElementById("commentSummary").innerHTML = "Coaching conversations centered around: " + topFlags.map(f=>f[0]).join(", ");
+    }
+
+    function copyToClipboard() {
+      const bodyText = document.body.innerText;
+      navigator.clipboard.writeText(bodyText).then(() => {
+        alert("Report copied to clipboard. Ready to paste in Outlook.");
+      });
+    }
+
+    document.getElementById("copyButton").addEventListener("click", copyToClipboard);
+    loadData();
+  </script>
+</body>
+</html>
