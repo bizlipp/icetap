@@ -1,0 +1,413 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Inspiro Coaching Dashboard v3</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f0f0f;
+      color: #eee;
+      margin: 0;
+      padding: 20px;
+    }
+    .header {
+      background: linear-gradient(90deg, #a43ec9, #4e2c8c);
+      padding: 20px;
+      border-radius: 12px;
+      color: #fff;
+    }
+    h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+    .section {
+      margin-top: 20px;
+      background: #1b1b1b;
+      padding: 16px;
+      border-radius: 10px;
+    }
+    h2 {
+      color: #a43ec9;
+      margin-top: 0;
+    }
+    canvas {
+      max-width: 100%;
+      height: 300px;
+      margin-top: 15px;
+    }
+    .btn {
+      background: #a43ec9;
+      color: white;
+      padding: 10px 18px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+    .btn:hover {
+      background: #b857e0;
+    }
+    #outlookBlock {
+      white-space: pre-wrap;
+      margin-top: 15px;
+      background: #111;
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Inspiro Coaching Dashboard v3</h1>
+    <p>Gamified. Actionable. Outlook-Ready. PDF Exportable.</p>
+  </div>
+
+  <div class="section">
+    <h2>🧮 Agent Score Formula</h2>
+    <p><strong>Agent Score =</strong> ( +2 × Positive Flags +2 if < 4min call ) – (1 × Flags) – (2 × Callback Hits ) / Total Calls</p>
+  </div>
+
+  <div class="section">
+    <h2>📊 Score Charts & Call Trends</h2>
+    <canvas id="scoreChart"></canvas>
+    <canvas id="themeChart"></canvas>
+    <canvas id="callbackChart"></canvas>
+  </div>
+
+  <div class="section">
+    <h2>🏅 Agent Badges</h2>
+    <div id="agentBadges">Loading...</div>
+  </div>
+
+  
+  <div class="section">
+    <h2>🧠 Coaching Summary</h2>
+    <button class="btn" onclick="toggleSummary()">Toggle Summary</button>
+    <div id="coachingSummary" style="margin-top: 15px; display: none; white-space: pre-wrap; line-height: 1.5;"></div>
+  </div>
+
+  <div class="section">
+    <h2>📤 Outlook Summary</h2>
+    <div id="outlookBlock">Generating report...</div>
+    <button class="btn" onclick="copyOutlook()">Copy to Outlook</button>
+    <button class="btn" onclick="downloadPDF()">Download PDF</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js">
+function toggleSummary() {
+  const el = document.getElementById("coachingSummary");
+  el.style.display = el.style.display === "none" ? "block" : "none";
+}
+
+function generateCoachingSummary(data) {
+  const { calls, agents, themes, callbacks, avgScore, avgDuration } = data;
+  const topAgents = Object.entries(agents)
+    .sort((a,b)=> (b[1].score/b[1].total) - (a[1].score/b[1].total))
+    .slice(0, 3)
+    .map(a => a[0]);
+  
+  const topThemes = Object.entries(themes).sort((a,b)=>b[1]-a[1]).slice(0, 3).map(t => t[0]);
+
+  const repeatCallbackUsers = Object.entries(callbacks).filter(([_, v]) => v.length > 1).length;
+
+  const summary = `This week, the team maintained a strong engagement level, averaging a score of ${avgScore.toFixed(1)} over ${calls.length} reviewed calls. 
+Average call duration held at ${avgDuration.toFixed(1)} minutes, with many calls resolved efficiently and positively.
+
+Shoutouts to standout agents: ${topAgents.join(", ")}, who demonstrated excellent communication and consistency. 
+Common themes during coaching moments included: ${topThemes.join(", ")} — offering a clear direction for targeted support or refreshers.
+
+${repeatCallbackUsers > 0 ? `We observed ${repeatCallbackUsers} customers who called back within a short window. These cases may benefit from reviewing root causes or confirming resolution clarity.` : `No callback spikes were detected this cycle, indicating strong first-contact resolution.`}
+
+Keep celebrating what’s working while refining moments that can elevate the overall experience.`;
+
+  document.getElementById("coachingSummary").textContent = summary;
+  return summary;
+}
+
+</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js">
+function toggleSummary() {
+  const el = document.getElementById("coachingSummary");
+  el.style.display = el.style.display === "none" ? "block" : "none";
+}
+
+function generateCoachingSummary(data) {
+  const { calls, agents, themes, callbacks, avgScore, avgDuration } = data;
+  const topAgents = Object.entries(agents)
+    .sort((a,b)=> (b[1].score/b[1].total) - (a[1].score/b[1].total))
+    .slice(0, 3)
+    .map(a => a[0]);
+  
+  const topThemes = Object.entries(themes).sort((a,b)=>b[1]-a[1]).slice(0, 3).map(t => t[0]);
+
+  const repeatCallbackUsers = Object.entries(callbacks).filter(([_, v]) => v.length > 1).length;
+
+  const summary = `This week, the team maintained a strong engagement level, averaging a score of ${avgScore.toFixed(1)} over ${calls.length} reviewed calls. 
+Average call duration held at ${avgDuration.toFixed(1)} minutes, with many calls resolved efficiently and positively.
+
+Shoutouts to standout agents: ${topAgents.join(", ")}, who demonstrated excellent communication and consistency. 
+Common themes during coaching moments included: ${topThemes.join(", ")} — offering a clear direction for targeted support or refreshers.
+
+${repeatCallbackUsers > 0 ? `We observed ${repeatCallbackUsers} customers who called back within a short window. These cases may benefit from reviewing root causes or confirming resolution clarity.` : `No callback spikes were detected this cycle, indicating strong first-contact resolution.`}
+
+Keep celebrating what’s working while refining moments that can elevate the overall experience.`;
+
+  document.getElementById("coachingSummary").textContent = summary;
+  return summary;
+}
+
+</script>
+  <script>
+    function copyOutlook() {
+      const text = document.getElementById("outlookBlock").innerText;
+      navigator.clipboard.writeText(text).then(() => alert("Copied to clipboard!"));
+    }
+    function downloadPDF() {
+      html2pdf().from(document.body).save('Inspiro_Coaching_Report.pdf');
+    }
+  
+function toggleSummary() {
+  const el = document.getElementById("coachingSummary");
+  el.style.display = el.style.display === "none" ? "block" : "none";
+}
+
+function generateCoachingSummary(data) {
+  const { calls, agents, themes, callbacks, avgScore, avgDuration } = data;
+  const topAgents = Object.entries(agents)
+    .sort((a,b)=> (b[1].score/b[1].total) - (a[1].score/b[1].total))
+    .slice(0, 3)
+    .map(a => a[0]);
+  
+  const topThemes = Object.entries(themes).sort((a,b)=>b[1]-a[1]).slice(0, 3).map(t => t[0]);
+
+  const repeatCallbackUsers = Object.entries(callbacks).filter(([_, v]) => v.length > 1).length;
+
+  const summary = `This week, the team maintained a strong engagement level, averaging a score of ${avgScore.toFixed(1)} over ${calls.length} reviewed calls. 
+Average call duration held at ${avgDuration.toFixed(1)} minutes, with many calls resolved efficiently and positively.
+
+Shoutouts to standout agents: ${topAgents.join(", ")}, who demonstrated excellent communication and consistency. 
+Common themes during coaching moments included: ${topThemes.join(", ")} — offering a clear direction for targeted support or refreshers.
+
+${repeatCallbackUsers > 0 ? `We observed ${repeatCallbackUsers} customers who called back within a short window. These cases may benefit from reviewing root causes or confirming resolution clarity.` : `No callback spikes were detected this cycle, indicating strong first-contact resolution.`}
+
+Keep celebrating what’s working while refining moments that can elevate the overall experience.`;
+
+  document.getElementById("coachingSummary").textContent = summary;
+  return summary;
+}
+
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const calls = JSON.parse(localStorage.getItem("inspiroCallData") || "[]");
+  const agents = {};
+  const themes = {};
+  const callbacks = {};
+  let totalScore = 0;
+  let durationTotal = 0;
+
+  const durationToSeconds = (str) => {
+    if (!str || typeof str !== "string") return 0;
+    const parts = str.split(":").map(Number);
+    return (parts[0] * 3600 + parts[1] * 60 + parts[2]);
+  };
+
+  calls.forEach(call => {
+    const agent = call.meta?.["Agent name"] || "Unknown";
+    const durationStr = call.meta?.["Contact duration"] || "0:00:00";
+    const seconds = durationToSeconds(durationStr);
+    const flags = call.flags || [];
+    const posFlags = call.positiveFlags || [];
+    const contactId = call.meta?.["Contact ID"];
+    const customerId = call.meta?.["Customer phone number / email address"];
+    const timestamp = new Date(call.meta?.["Initiation timestamp"]);
+    
+    // Score logic
+    let score = 0;
+    score += posFlags.length * 2;
+    if (seconds < 240 && posFlags.length) score += 2;
+    score -= flags.length;
+    
+    // Track callbacks
+    if (!callbacks[customerId]) callbacks[customerId] = [];
+    callbacks[customerId].push({ contactId, timestamp });
+
+    // Callback penalty
+    if (callbacks[customerId].length > 1) score -= 2;
+
+    if (!agents[agent]) agents[agent] = { total: 0, score: 0, shortCount: 0, posCount: 0, flags: 0 };
+    agents[agent].total++;
+    agents[agent].score += score;
+    if (seconds < 240) agents[agent].shortCount++;
+    if (posFlags.length) agents[agent].posCount++;
+    agents[agent].flags += flags.length;
+
+    totalScore += score;
+    durationTotal += seconds;
+
+    [...flags, ...posFlags].forEach(flag => {
+      const k = flag.toLowerCase();
+      themes[k] = (themes[k] || 0) + 1;
+    });
+  });
+
+  // Populate formula transparency
+  document.getElementById("outlookBlock").textContent = `📊 Coaching Summary (${calls.length} calls)
+
+⭐ Avg Engagement Score: ${(totalScore / calls.length).toFixed(1)}
+⏱️ Avg Duration: ${(durationTotal / calls.length / 60).toFixed(1)} min
+🧠 Top Coaching Themes: ${Object.entries(themes).sort((a,b)=>b[1]-a[1]).slice(0,5).map(t=>t[0]).join(", ")}
+
+🏅 Agent Standouts:` + 
+Object.entries(agents)
+  .sort((a,b)=>b[1].score/b[1].total - a[1].score/a[1].total)
+  .slice(0,3)
+  .map(([name, a]) => 
+    `
+• ${name} – Score: ${(a.score/a.total).toFixed(2)}, Pos: ${a.posCount}, Flags: ${a.flags}, Short Calls: ${a.shortCount}`
+  ).join("");
+
+  
+const coachingBlurb = generateCoachingSummary({
+  calls, agents, themes, callbacks,
+  avgScore: totalScore / calls.length,
+  avgDuration: durationTotal / calls.length / 60
+}).split("\n")[0];
+
+document.getElementById("outlookBlock").textContent = 
+  coachingBlurb + "\n\n" + document.getElementById("outlookBlock").textContent;
+
+  // Agent score chart
+  const agentNames = Object.keys(agents);
+  const agentScores = agentNames.map(name => (agents[name].score / agents[name].total).toFixed(2));
+  new Chart(document.getElementById('scoreChart'), {
+    type: 'bar',
+    data: {
+      labels: agentNames,
+      datasets: [{
+        label: 'Avg Score',
+        data: agentScores,
+        backgroundColor: 'rgba(164, 62, 201, 0.7)',
+        borderColor: '#a43ec9',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#ccc' }, grid: { color: '#222' } },
+        y: { ticks: { color: '#ccc' }, grid: { color: '#222' }, beginAtZero: true }
+      }
+    }
+  });
+
+  // Theme chart
+  const themeData = Object.entries(themes).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  new Chart(document.getElementById('themeChart'), {
+    type: 'pie',
+    data: {
+      labels: themeData.map(t => t[0]),
+      datasets: [{
+        label: 'Theme Frequency',
+        data: themeData.map(t => t[1]),
+        backgroundColor: themeData.map((_, i) => `hsl(${i*40}, 70%, 50%)`)
+      }]
+    },
+    options: {
+      plugins: { legend: { labels: { color: '#eee' } } }
+    }
+  });
+
+  // Callback insight chart (callback counts per user)
+  const repeatCounts = Object.entries(callbacks)
+    .map(([k, arr]) => ({ k, count: arr.length }))
+    .filter(entry => entry.count > 1)
+    .sort((a,b)=>b.count - a.count)
+    .slice(0, 10);
+  
+  new Chart(document.getElementById('callbackChart'), {
+    type: 'bar',
+    data: {
+      labels: repeatCounts.map(r => r.k),
+      datasets: [{
+        label: 'Callback Count',
+        data: repeatCounts.map(r => r.count),
+        backgroundColor: 'rgba(255, 77, 77, 0.7)',
+        borderColor: '#ff4d4d',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#ccc' }, grid: { color: '#222' } },
+        y: { beginAtZero: true, ticks: { color: '#ccc' }, grid: { color: '#222' } }
+      }
+    }
+  });
+
+  generateCoachingSummary({ calls, agents, themes, callbacks, avgScore: totalScore / calls.length, avgDuration: durationTotal / calls.length / 60 });
+  // Badge assignment
+  const badgeContainer = document.getElementById("agentBadges");
+  badgeContainer.innerHTML = "";
+  Object.entries(agents).forEach(([name, a]) => {
+    const avg = a.score / a.total;
+    let badges = [];
+
+    if (a.shortCount >= a.total * 0.5 && a.posCount >= a.total * 0.7) {
+      badges.push("🏅 Resolution Hero");
+    }
+    if (avg >= (totalScore / calls.length)) {
+      badges.push("🌟 Team Uplifter");
+    }
+    if (a.flags === 0 && a.posCount === a.total) {
+      badges.push("🧘 Clarity Master");
+    }
+
+    if (badges.length) {
+      const line = document.createElement("div");
+      line.textContent = `${name}: ${badges.join("  ")}`;
+      badgeContainer.appendChild(line);
+    }
+  });
+});
+
+function toggleSummary() {
+  const el = document.getElementById("coachingSummary");
+  el.style.display = el.style.display === "none" ? "block" : "none";
+}
+
+function generateCoachingSummary(data) {
+  const { calls, agents, themes, callbacks, avgScore, avgDuration } = data;
+  const topAgents = Object.entries(agents)
+    .sort((a,b)=> (b[1].score/b[1].total) - (a[1].score/b[1].total))
+    .slice(0, 3)
+    .map(a => a[0]);
+  
+  const topThemes = Object.entries(themes).sort((a,b)=>b[1]-a[1]).slice(0, 3).map(t => t[0]);
+
+  const repeatCallbackUsers = Object.entries(callbacks).filter(([_, v]) => v.length > 1).length;
+
+  const summary = `This week, the team maintained a strong engagement level, averaging a score of ${avgScore.toFixed(1)} over ${calls.length} reviewed calls. 
+Average call duration held at ${avgDuration.toFixed(1)} minutes, with many calls resolved efficiently and positively.
+
+Shoutouts to standout agents: ${topAgents.join(", ")}, who demonstrated excellent communication and consistency. 
+Common themes during coaching moments included: ${topThemes.join(", ")} — offering a clear direction for targeted support or refreshers.
+
+${repeatCallbackUsers > 0 ? `We observed ${repeatCallbackUsers} customers who called back within a short window. These cases may benefit from reviewing root causes or confirming resolution clarity.` : `No callback spikes were detected this cycle, indicating strong first-contact resolution.`}
+
+Keep celebrating what’s working while refining moments that can elevate the overall experience.`;
+
+  document.getElementById("coachingSummary").textContent = summary;
+  return summary;
+}
+
+</script>
+
+</body>
+</html>
