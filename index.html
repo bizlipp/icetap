@@ -100,84 +100,234 @@
   </div>
 
   <div id="dashboardTab" class="tab-content active">
-    <!-- Content from inspiro-audit-report-v3.html body, excluding its own script tags and its original file uploader -->
-    <div class="header">
-      <!-- The original h1/p and uploader from inspiro-audit-report-v3.html's header are omitted -->
-      <!-- as the platform has a global uploader and branding -->
-      <!-- This header div is kept if .section relies on a .header sibling for spacing or structure, -->
-      <!-- or it can be removed if .section styles are self-contained. -->
-      <!-- For now, let's keep its structure minimal or repurpose if needed -->
-       <h1 style="display: none;">Coaching Dashboard (Embedded)</h1> <!-- Hidden, for structure if CSS needs it -->
+    <!-- Content from dashboard.html, adapted for the new platform -->
+    <div class="data-controls" style="padding: 10px 0; background: transparent; border-radius: 0; margin-bottom:15px; display: flex; gap: 10px; align-items: center;">
+      <!-- Removed loadDataButton and dataStatus as they are handled by platform uploader -->
+      <!-- The refreshButton functionality can be tied to re-processing if needed, or omitted -->
+      <!-- <button id="refreshDashboardButton" class="btn">Refresh Dashboard View</button> -->
+      <p style="color: #aaa; margin:0;">Dashboard view. Filters and Formula apply to this view.</p>
     </div>
 
-    <div class="section filter-section">
-      <h2>🔍 Filters</h2>
-      <div>
-        <label for="agentFilter">Filter by Agent:</label>
-        <select id="agentFilter" class="filter-select">
-          <option value="all">All Agents</option>
-        </select>
+    <!-- Summary Statistics -->
+    <div class="dashboard-card" style="margin-bottom: 20px;">
+      <div class="card-header">
+        <span>📊 Call Statistics Summary</span>
       </div>
-    </div>
-
-    <div class="section">
-      <h2>🧮 Agent Score Formula</h2>
-      <p><strong>Current Formula:</strong> ( +2 × Positive Flags +2 if < 4min call ) – (1 × Flags) – (2 × Callback Hits ) / Total Calls</p>
-      <div id="formulaConfig" class="formula-config-grid">
-          <div>
-              <label for="pointsPositiveFlag">Points per Positive Flag:</label>
-              <input type="number" id="pointsPositiveFlag" value="2">
-          </div>
-          <div>
-              <label for="pointsShortPositiveCall">Points for Short (<4min) Positive Call:</label>
-              <input type="number" id="pointsShortPositiveCall" value="2">
-          </div>
-          <div>
-              <label for="penaltyFlag">Penalty per Flag:</label>
-              <input type="number" id="penaltyFlag" value="-1">
-          </div>
-          <div>
-              <label for="penaltyCallback">Penalty per Callback Hit:</label>
-              <input type="number" id="penaltyCallback" value="-2">
-          </div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Calls</div>
+          <div class="stat-value" id="statTotalCalls">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Flagged Calls</div>
+          <div class="stat-value negative-color" id="statFlaggedCalls">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Positive Calls</div>
+          <div class="stat-value positive-color" id="statPositiveCalls">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg. Call Duration</div>
+          <div class="stat-value" id="statAvgDuration">0 min</div>
+        </div>
       </div>
-      <button id="applyFormulaBtn" class="btn" style="margin-top:10px;">Apply New Formula</button>
-    </div>
-
-    <div class="section">
-      <h2>📊 Score Charts & Call Trends</h2>
-      <div id="scoreChartSkeleton" class="skeleton-loader skeleton-chart"></div>
-      <canvas id="scoreChart" style="display: none;"></canvas>
-      <div id="themeChartSkeleton" class="skeleton-loader skeleton-chart"></div>
-      <canvas id="themeChart" style="display: none;"></canvas>
-      <div id="callbackChartSkeleton" class="skeleton-loader skeleton-chart"></div>
-      <canvas id="callbackChart" style="display: none;"></canvas>
-    </div>
-
-    <div class="section">
-      <h2>🏅 Agent Badges</h2>
-      <div id="agentBadgesSkeleton">
-        <div class="skeleton-loader skeleton-text" style="width: 60%;"></div>
-        <div class="skeleton-loader skeleton-text" style="width: 70%;"></div>
-        <div class="skeleton-loader skeleton-text" style="width: 50%;"></div>
-      </div>
-      <div id="agentBadges" style="display: none;">Loading...</div>
     </div>
     
-    <div class="section">
-      <h2>🧠 Coaching Summary</h2>
-      <button class="btn" onclick="toggleSummary()">Toggle Summary</button>
-      <div id="coachingSummary" style="margin-top: 15px; display: none; white-space: pre-wrap; line-height: 1.5;"></div>
+    <!-- Filters and Formula Sections - re-integrating them into the new layout -->
+    <div class="dashboard-container" style="grid-template-columns: 1fr 1fr; margin-bottom:0;">
+        <div class="dashboard-card">
+            <div class="card-header"><span>🔍 Filters</span></div>
+            <div style="padding: 15px;">
+                <label for="agentFilter">Filter by Agent:</label>
+                <select id="agentFilter" class="filter-select" style="width:100%; padding: 8px; background:#333; color:#eee; border:1px solid #555;">
+                  <option value="all">All Agents</option>
+                </select>
+            </div>
+        </div>
+        <div class="dashboard-card">
+           <div class="card-header"><span>🧮 Agent Score Formula</span></div>
+            <p style="font-size:0.9em; padding: 0 15px; color:#ccc;"><strong>Current:</strong> ( +2 × Pos.Flag +2 if <4m Pos.Call ) – (1 × Flag) – (2 × Callback ) / Total</p>
+            <div id="formulaConfig" class="formula-config-grid" style="padding: 0 15px 15px 15px;">
+                <div>
+                    <label for="pointsPositiveFlag">Points per Positive Flag:</label>
+                    <input type="number" id="pointsPositiveFlag" value="2">
+                </div>
+                <div>
+                    <label for="pointsShortPositiveCall">Points for Short (<4min) Positive Call:</label>
+                    <input type="number" id="pointsShortPositiveCall" value="2">
+                </div>
+                <div>
+                    <label for="penaltyFlag">Penalty per Flag:</label>
+                    <input type="number" id="penaltyFlag" value="-1">
+                </div>
+                <div>
+                    <label for="penaltyCallback">Penalty per Callback Hit:</label>
+                    <input type="number" id="penaltyCallback" value="-2">
+                </div>
+            </div>
+            <button id="applyFormulaBtn" class="btn primary-button" style="margin:0 15px 15px 15px; width: calc(100% - 30px);">Apply New Formula</button>
+        </div>
     </div>
 
-    <div class="section">
-      <h2>📤 Outlook Summary</h2>
-      <div id="outlookBlock">Generating report...</div>
-      <button class="btn" onclick="copyOutlook()">Copy to Outlook</button>
-      <button class="btn" onclick="downloadPDF()">Download PDF</button>
+
+    <div class="dashboard-container">
+      <!-- Agent Performance -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <span>👥 Agent Performance (Call Volume & Composition)</span>
+          <small style="color:#aaa;">Top 5 by call volume</small>
+        </div>
+        <div class="chart-container" style="height: 350px;">
+          <canvas id="newAgentPerformanceChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Flag Distribution -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <span>🚩 Flag Distribution</span>
+          <small style="color:#aaa;">Top 8 flags</small>
+        </div>
+        <div class="chart-container" style="height: 350px;">
+          <canvas id="newFlagDistributionChart"></canvas>
+        </div>
+      </div>
+      
+      <!-- Positive Indicators -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <span>🌟 Positive Indicators</span>
+          <small style="color:#aaa;">Top 8 indicators</small>
+        </div>
+        <div class="chart-container" style="height: 350px;">
+          <canvas id="newPositiveIndicatorsChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Categories Analysis -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <span>📊 Categories Analysis</span>
+           <small style="color:#aaa;">Top 10 categories</small>
+        </div>
+        <div class="chart-container" style="height:250px;">
+          <canvas id="newCategoriesChart"></canvas>
+        </div>
+        <div id="newCategoryDetails" style="margin-top: 15px; padding: 0 10px 10px 10px;">
+          <div class="no-data-message">No categories data available</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dashboard-container" style="grid-template-columns: 1fr 1fr;">
+      <!-- Time Distribution -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <span>⏰ Call Time Distribution</span>
+        </div>
+        <div class="chart-container" style="height: 280px;">
+          <canvas id="newTimeDistributionChart"></canvas> <!-- Hourly -->
+        </div>
+        <div class="chart-container" style="height: 280px; margin-top:20px;">
+          <canvas id="newDayDistributionChart"></canvas> <!-- Daily -->
+        </div>
+      </div>
+      
+      <!-- Channel & Queue Distribution -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <span>📱 Channel & Queue Distribution</span>
+        </div>
+        <div style="display: flex; gap: 20px; padding: 15px;">
+          <div style="flex: 1;">
+            <h3 style="font-size: 16px; color: #aaa; margin-bottom: 10px; text-align:center;">Channels</h3>
+            <div class="chart-container" style="height: 220px;">
+              <canvas id="newChannelDistributionChart"></canvas>
+            </div>
+          </div>
+          <div style="flex: 1;">
+            <h3 style="font-size: 16px; color: #aaa; margin-bottom: 10px; text-align:center;">Queues</h3>
+            <div class="chart-container" style="height: 220px;">
+              <canvas id="newQueueDistributionChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dashboard-container" style="grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));">
+      <!-- Top Agents Table -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <span>🏆 Top Performing Agents</span>
+           <small style="color:#aaa;">Top 5 by average score</small>
+        </div>
+        <table id="newTopAgentsTable" style="margin:0;">
+          <thead>
+            <tr>
+              <th>Agent</th>
+              <th>Total Calls</th>
+              <th>Positive Ratio</th>
+              <th>Avg Score</th>
+              <th>Avg Duration</th>
+            </tr>
+          </thead>
+          <tbody id="newTopAgentsBody">
+            <tr><td colspan="5" class="no-data-message">No data available</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Common Topics -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <span>🔍 Common Topics (Word Cloud)</span>
+          <small style="color:#aaa;">Top 40 words</small>
+        </div>
+        <div id="newCommonTopics" style="padding: 10px; display: flex; flex-wrap: wrap; gap: 5px; align-items:center; justify-content:center; min-height:150px;">
+          <div class="no-data-message">No data available</div>
+        </div>
+      </div>
     </div>
 
-    <!-- Modals from inspiro-audit-report-v3.html -->
+    <div class="dashboard-container" style="grid-template-columns: 1fr;">
+       <!-- Repeat Callers Analysis -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <span>🔁 Repeat Callers Analysis</span>
+          <small style="color:#aaa;">Top 10 by call count</small>
+        </div>
+        <table id="newRepeatCallersTable" style="margin:0;">
+          <thead>
+            <tr>
+              <th>Customer ID</th>
+              <th>Call Count</th>
+              <th>Latest Call</th>
+              <th>First Call</th>
+              <th>Common Flags</th>
+            </tr>
+          </thead>
+          <tbody id="newRepeatCallersBody">
+            <tr><td colspan="5" class="no-data-message">No data available</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+     <div class="dashboard-container" style="grid-template-columns: 1fr;">
+        <!-- Recent Positive Calls -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <span>✅ Recent Positive Calls</span>
+            <small style="color:#aaa;">Top 5 by positive score</small>
+          </div>
+          <div id="newPositiveCallsList" style="padding:10px;">
+            <div class="no-data-message">No data available</div>
+          </div>
+        </div>
+    </div>
+
+    <!-- Modals from original inspiro-audit-report-v3.html (kept for now for potential drill-downs) -->
     <div id="agentDetailModal" class="modal" style="display: none;">
       <div class="modal-content">
         <span class="modal-close-btn" onclick="closeAgentModal()">×</span>
@@ -199,6 +349,27 @@
         <div id="callbackModalBody"></div>
       </div>
     </div>
+
+    <!-- Original Coaching Summary and Outlook/PDF sections from inspiro-audit-report-v3.html -->
+    <!-- These are kept as they are distinct from dashboard.html's content -->
+    <!-- They might need repositioning or restyling if they clash with the new card layout -->
+    <div class="dashboard-card" style="margin-top:20px;">
+        <div class="card-header"><h2>🧠 Coaching Summary</h2></div>
+        <div style="padding:15px;">
+            <button class="btn" onclick="toggleSummary()">Toggle Summary</button>
+            <div id="coachingSummary" style="margin-top: 15px; display: none; white-space: pre-wrap; line-height: 1.5;"></div>
+        </div>
+    </div>
+
+    <div class="dashboard-card" style="margin-top:20px;">
+        <div class="card-header"><h2>📤 Outlook Summary & Export</h2></div>
+        <div style="padding:15px;">
+            <div id="outlookBlock">Generating report...</div>
+            <button class="btn" onclick="copyOutlook()">Copy to Outlook</button>
+            <button class="btn" onclick="downloadPDF()">Download PDF of Current View</button>
+        </div>
+    </div>
+    
   </div>
 
   <div id="reportTab" class="tab-content" style="padding: 20px;">

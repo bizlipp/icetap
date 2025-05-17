@@ -7,7 +7,7 @@ Rake & Shake is a zero-footprint, browser-powered transcript parser + compliance
 
 ## 🚫 Zero Uploads. Zero Bull.
 
-This isn’t SaaS. It’s a standalone local-first toolkit.
+This isn't SaaS. It's a standalone local-first toolkit.
 
 - 🛡 **All processing happens in-browser** – nothing leaves your machine.
 - 🔐 **Encrypted `.zip` files supported** – full client-side decryption.
@@ -54,7 +54,7 @@ This isn’t SaaS. It’s a standalone local-first toolkit.
 - BPO teams in real-world compliance environments
 - Audit & QA teams who need answers, not interfaces
 - Security-conscious orgs with locked-down networks
-- Data warriors who don’t trust the cloud (we don’t either)
+- Data warriors who don't trust the cloud (we don't either)
 
 ---
 
@@ -68,5 +68,4 @@ Contact us at: [aerovista.us](https://aerovista.us)
 
 ## 📜 License
 
-MIT License. Use it. Clone it. Improve it. Just don’t pretend you made it.
-
+MIT License. Use it. Clone it. Improve it. Just don't pretend you made it. 
