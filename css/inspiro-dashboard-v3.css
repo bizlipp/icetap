@@ -1,0 +1,215 @@
+body {
+  font-family: 'Segoe UI', sans-serif;
+  background: #0f0f0f;
+  color: #eee;
+  margin: 0;
+  padding: 20px;
+}
+.header {
+  background: linear-gradient(90deg, #a43ec9, #4e2c8c);
+  padding: 20px;
+  border-radius: 12px;
+  color: #fff;
+}
+h1 {
+  margin: 0;
+  font-size: 28px;
+}
+.section {
+  margin-top: 20px;
+  background: #1b1b1b;
+  padding: 16px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+h2 {
+  color: #a43ec9;
+  margin-top: 0;
+}
+canvas {
+  max-width: 100%;
+  height: 300px;
+  margin-top: 15px;
+}
+.btn {
+  background: #a43ec9;
+  color: white;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 15px;
+}
+.btn:hover {
+  background: #b857e0;
+}
+#outlookBlock {
+  white-space: pre-wrap;
+  margin-top: 15px;
+  background: #111;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.btn-upload {
+  background-color: #5a3a73; /* Darker purple for distinction */
+  /* Inherits padding, border-radius, cursor, color from .btn */
+}
+
+.btn-upload:hover {
+  background-color: #704a8c; /* Slightly lighter on hover */
+}
+
+.skeleton-loader {
+  background-color: #2a2a2a; /* Darker shade for skeleton elements */
+  border-radius: 4px;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+.skeleton-text {
+  height: 1em;
+  margin-bottom: 0.5em;
+  width: 80%;
+}
+
+.skeleton-chart {
+  width: 100%;
+  height: 300px; /* Same as canvas height */
+  margin-top: 15px; /* Same as canvas margin-top */
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}
+
+@media print {
+  body {
+    background: #fff; /* Ensure white background for printing */
+    color: #000; /* Ensure black text for printing */
+  }
+
+  .header .btn, /* Hide regular buttons in header */
+  .header label[for="dataFileUpload"], /* Hide upload button label */
+  .section .btn, /* Hide buttons within sections (like Toggle Summary) */
+  #dataFileUpload, /* Hide the actual file input if it were ever visible */
+  .toast-notification /* Hide toast notifications if any are visible */
+  {
+    display: none !important;
+  }
+
+  .section {
+    box-shadow: none; /* Remove shadow for print */
+    border: 1px solid #ccc; /* Add a light border for section separation */
+    margin-top: 15px;
+    padding: 10px;
+  }
+
+  canvas {
+    /* Ensure charts have a background if they render transparently, though Chart.js usually handles this */
+    /* background-color: #fff !important; */ /* Uncomment if needed */
+  }
+
+  #outlookBlock {
+    border: 1px solid #aaa;
+    background: #f9f9f9;
+  }
+
+  /* Ensure dark theme text is readable on white print background */
+  h1, h2, #outlookBlock, #agentBadges div, #coachingSummary {
+    color: #000 !important; 
+  }
+
+  /* Chart.js legend and ticks might need color adjustments for print */
+  .chartjs-legend ul li {
+    color: #000 !important;
+  }
+  .chartjs-render-monitor .tick {
+    fill: #000 !important; /* For Chart.js v2, might need adjustment for v3/v4 ticks */
+  }
+}
+
+.filter-section div {
+  margin-bottom: 10px;
+}
+
+.filter-section label {
+  margin-right: 10px;
+  font-weight: bold;
+}
+
+.filter-select {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background-color: #2c2c2c; /* Dark background for select */
+  color: #eee; /* Light text */
+  border: 1px solid #444; /* Subtle border */
+  min-width: 200px; /* Ensure decent width */
+}
+
+/* Styling for the options within the select dropdown if needed */
+.filter-select option {
+  background-color: #2c2c2c;
+  color: #eee;
+}
+
+/* Modal Styles */
+.modal {
+  position: fixed; /* Stay in place */
+  z-index: 1001; /* Sit on top, above toast */
+  left: 0;
+  top: 0;
+  width: 100%; 
+  height: 100%;
+  overflow: auto; /* Enable scroll if needed */
+  background-color: rgba(0,0,0,0.6); /* Black w/ opacity */
+  display: flex; /* Used to center modal content */
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background-color: #1e1e1e; /* Dark background for modal */
+  margin: auto;
+  padding: 25px;
+  border: 1px solid #555;
+  border-radius: 10px;
+  width: 80%;
+  max-width: 600px; /* Max width */
+  color: #eee;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  position: relative;
+}
+
+.modal-close-btn {
+  color: #aaa;
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.modal-close-btn:hover,
+.modal-close-btn:focus {
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+#agentModalBody p {
+  margin: 8px 0;
+  line-height: 1.6;
+}
+
+#agentModalBody strong {
+  color: #a43ec9; /* Highlight key terms */
+} 
