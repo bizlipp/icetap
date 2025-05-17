@@ -83,7 +83,11 @@ export function processCallData(allCalls, filters = {}, formulaWeights = default
             if(callIsAfterFirstForCustomer) score += formulaWeights.penaltyCallback;
         }
 
-        if (!agents[agent]) agents[agent] = { total: 0, score: 0, shortCount: 0, posCount: 0, flags: 0 };
+        if (!agents[agent]) agents[agent] = { total: 0, score: 0, shortCount: 0, posCount: 0, flags: 0, agentThemes: {} };
+        // Ensure agentThemes is initialized if agent object already exists from a previous pass (e.g. if data processing is refactored later)
+        if (!agents[agent].agentThemes) {
+            agents[agent].agentThemes = {};
+        }
         agents[agent].total++;
         agents[agent].score += score;
         if (seconds < 240) agents[agent].shortCount++;
@@ -95,7 +99,8 @@ export function processCallData(allCalls, filters = {}, formulaWeights = default
 
         [...flags, ...posFlags].forEach(flag => {
             const k = typeof flag === 'string' ? flag.toLowerCase() : "unknown_flag_type";
-            themes[k] = (themes[k] || 0) + 1;
+            themes[k] = (themes[k] || 0) + 1; // Global themes
+            agents[agent].agentThemes[k] = (agents[agent].agentThemes[k] || 0) + 1; // Per-agent themes
         });
     });
 

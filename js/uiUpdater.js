@@ -123,6 +123,20 @@ export function showAgentDetailModal(agentName, agentData) {
         bodyHTML += `<p><strong>Positive Flag Count:</strong> ${agentData.posCount}</p>`;
         bodyHTML += `<p><strong>Negative Flag Count:</strong> ${agentData.flags}</p>`;
         bodyHTML += `<p><strong>Short Call Count (<4min):</strong> ${agentData.shortCount}</p>`;
+        
+        // Add Top Themes & Coaching Prompts
+        if (agentData.agentThemes && Object.keys(agentData.agentThemes).length > 0) {
+            bodyHTML += `<div style="margin-top: 15px;"><strong>Top Themes for ${agentName}:</strong><ul>`;
+            const sortedThemes = Object.entries(agentData.agentThemes)
+                                     .sort(([,a],[,b]) => b-a)
+                                     .slice(0, 3);
+            sortedThemes.forEach(([theme, count]) => {
+                bodyHTML += `<li><strong>${theme}</strong> (${count} mentions): Consider discussing strategies for effectively addressing or leveraging this theme.</li>`;
+            });
+            bodyHTML += `</ul></div>`;
+        } else {
+            bodyHTML += `<p style="margin-top: 15px;">No specific theme data available for this agent in the current view.</p>`;
+        }
         // Potentially list specific calls, flags, or other details here in a more advanced version
         
         bodyElement.innerHTML = bodyHTML;
