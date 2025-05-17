@@ -138,4 +138,80 @@ export function closeAgentDetailModal() {
     if (modal) {
         modal.style.display = 'none';
     }
+}
+
+export function showThemeDetailModal(themeName, themeDetails) {
+    const modal = document.getElementById('themeDetailModal');
+    const titleElement = document.getElementById('themeModalTitle');
+    const bodyElement = document.getElementById('themeModalBody');
+
+    if (modal && titleElement && bodyElement && themeDetails) {
+        titleElement.textContent = `Details for Theme: ${themeName}`;
+        
+        let bodyHTML = `<p><strong>Total Occurrences:</strong> ${themeDetails.totalOccurrences}</p>`;
+        bodyHTML += `<p><strong>Average Score on Calls with this Theme:</strong> ${themeDetails.avgScoreWithTheme.toFixed(2)}</p>`;
+        bodyHTML += `<p><strong>Agents associated with this theme:</strong></p><ul>`;
+        Object.entries(themeDetails.agentsInvolved).forEach(([agentName, count]) => {
+            bodyHTML += `<li>${agentName}: ${count} occurrence(s)</li>`;
+        });
+        bodyHTML += `</ul>`;
+        // Potentially list specific calls in a more advanced version
+        
+        bodyElement.innerHTML = bodyHTML;
+        modal.style.display = 'flex'; 
+    } else {
+        console.error("Theme modal elements not found or theme details missing for:", themeName);
+    }
+}
+
+export function closeThemeDetailModal() {
+    const modal = document.getElementById('themeDetailModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+export function showCallbackDetailModal(customerIdentifier, callbackEntries, allRawCalls) {
+    const modal = document.getElementById('callbackDetailModal');
+    const titleElement = document.getElementById('callbackModalTitle');
+    const bodyElement = document.getElementById('callbackModalBody');
+
+    if (modal && titleElement && bodyElement && callbackEntries) {
+        titleElement.textContent = `Callback Details for: ${customerIdentifier}`;
+        
+        let bodyHTML = `<p><strong>Customer ID:</strong> ${customerIdentifier}</p>`;
+        bodyHTML += `<p><strong>Total Callbacks:</strong> ${callbackEntries.length}</p>`;
+        bodyHTML += `<strong>Call Log:</strong><ul>`;
+
+        // Sort callbacks by timestamp, oldest first if timestamps are valid
+        const sortedEntries = [...callbackEntries].sort((a, b) => {
+            const dateA = a.timestamp ? new Date(a.timestamp) : 0;
+            const dateB = b.timestamp ? new Date(b.timestamp) : 0;
+            return dateA - dateB;
+        });
+
+        sortedEntries.forEach(entry => {
+            const callTimestamp = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : 'N/A';
+            // Find the agent for this specific call using contactId from allRawCalls
+            let agentName = 'Unknown Agent';
+            const relatedCall = allRawCalls.find(call => call.meta?.["Contact ID"] === entry.contactId);
+            if (relatedCall && relatedCall.meta?.["Agent name"]) {
+                agentName = relatedCall.meta["Agent name"];
+            }
+            bodyHTML += `<li>Contact ID: ${entry.contactId || 'N/A'} (Agent: ${agentName}) - Timestamp: ${callTimestamp}</li>`;
+        });
+        bodyHTML += `</ul>`;
+        
+        bodyElement.innerHTML = bodyHTML;
+        modal.style.display = 'flex'; 
+    } else {
+        console.error("Callback modal elements not found or callback data missing for:", customerIdentifier);
+    }
+}
+
+export function closeCallbackDetailModal() {
+    const modal = document.getElementById('callbackDetailModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
 } 

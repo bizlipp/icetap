@@ -1,6 +1,6 @@
-import { processCallData, getInitialOutlookStats, generateCoachingSummaryText } from './dataProcessor.js';
-import { createAgentScoreChart, createThemeChart, createCallbackChart, setOnAgentChartClick } from './chartGenerator.js';
-import { displayAgentBadges, displayCoachingSummary, updateOutlookBlock, prependToOutlookBlock, toggleSummaryDisplay, showToast, showSkeleton, hideSkeleton, showAgentDetailModal, closeAgentDetailModal } from './uiUpdater.js';
+import { processCallData, getInitialOutlookStats, generateCoachingSummaryText, getThemeDetails, getFormulaWeightsFromUI } from './dataProcessor.js';
+import { createAgentScoreChart, createThemeChart, createCallbackChart, setOnAgentChartClick, setOnThemeChartClick, setOnCallbackChartClick } from './chartGenerator.js';
+import { displayAgentBadges, displayCoachingSummary, updateOutlookBlock, prependToOutlookBlock, toggleSummaryDisplay, showToast, showSkeleton, hideSkeleton, showAgentDetailModal, closeAgentDetailModal, showThemeDetailModal, closeThemeDetailModal, showCallbackDetailModal, closeCallbackDetailModal } from './uiUpdater.js';
 import { initializeAgentFilter, setOnFilterChange, getSelectedAgent } from './filterManager.js';
 
 function copyOutlook() {
@@ -22,6 +22,8 @@ window.copyOutlook = copyOutlook;
 window.downloadPDF = downloadPDF;
 window.toggleSummary = () => toggleSummaryDisplay();
 window.closeAgentModal = closeAgentDetailModal;
+window.closeThemeModal = closeThemeDetailModal;
+window.closeCallbackModal = closeCallbackDetailModal;
 
 let globalProcessedData = {};
 let allRawCalls = []; // Store all loaded calls for re-filtering
@@ -49,16 +51,40 @@ function handleAgentChartClick(agentName) {
     }
 }
 
-function loadAndProcessData(calls, filters = {}) {
-    allRawCalls = calls; // Store for future filtering if this is the initial load
-    globalProcessedData = processCallData(allRawCalls, filters);
-    initializeAgentFilter(globalProcessedData); // Initialize/update agent filter dropdown
+function handleThemeChartClick(themeName) {
+    if (allRawCalls.length > 0) {
+        const themeDetails = getThemeDetails(themeName, allRawCalls, globalProcessedData.agents);
+        showThemeDetailModal(themeName, themeDetails);
+    } else {
+        showToast("No raw call data available to show theme details.", 3000);
+    }
+}
+
+function handleCallbackChartClick(customerIdentifier) {
+    if (globalProcessedData && globalProcessedData.callbacks && globalProcessedData.callbacks[customerIdentifier] && allRawCalls.length > 0) {
+        showCallbackDetailModal(customerIdentifier, globalProcessedData.callbacks[customerIdentifier], allRawCalls);
+    } else {
+        console.warn(`Callback data for customer ${customerIdentifier} not found or raw call data missing.`);
+        showToast(`Could not retrieve details for customer ${customerIdentifier}.`, 3000);
+    }
+}
+
+function loadAndProcessData(calls, filters = {}, formulaWeights) {
+    allRawCalls = calls; // Store/update the master list of calls
+    globalProcessedData = processCallData(allRawCalls, filters, formulaWeights);
+    // Only re-initialize agent filter if it's an actual data load, not just formula change
+    // For formula changes, agents list doesn't change, just their scores.
+    if(filters.agent === 'all' && calls === allRawCalls) { // Check if it is a full data reload scenario
+        initializeAgentFilter(globalProcessedData);
+    }
     rerenderDashboard();
 }
 
 document.addEventListener("DOMContentLoaded", function () {
   initializeSkeletons();
   setOnAgentChartClick(handleAgentChartClick);
+  setOnThemeChartClick(handleThemeChartClick);
+  setOnCallbackChartClick(handleCallbackChartClick);
   
   let initialCalls = [];
   try {
@@ -75,20 +101,35 @@ document.addEventListener("DOMContentLoaded", function () {
     console.warn("InspiroCallData from localStorage is not an array or is missing. Initializing with empty data.");
     initialCalls = []; 
   }
-  if (initialCalls.length === 0 && !document.getElementById('dataFileUpload').value) { // Check if file upload has a value later
+  if (initialCalls.length === 0 && !(document.getElementById('dataFileUpload') && document.getElementById('dataFileUpload').value)) { 
       showToast("No call data found. Please upload a JSON file with call data.", 5000);
   }
-
-  loadAndProcessData(initialCalls, { agent: 'all' }); // Initial load with 'all' agents
+  
+  const currentFormulaWeights = getFormulaWeightsFromUI();
+  loadAndProcessData(initialCalls, { agent: getSelectedAgent() }, currentFormulaWeights);
   
   setOnFilterChange((filters) => {
-    globalProcessedData = processCallData(allRawCalls, filters);
-    rerenderDashboard();
+    const weights = getFormulaWeightsFromUI();
+    globalProcessedData = processCallData(allRawCalls, filters, weights);
+    rerenderDashboard(); // Filter change doesn't re-init agent list, but re-renders with new data scope
   });
 
   const fileUploadInput = document.getElementById('dataFileUpload');
   if (fileUploadInput) {
     fileUploadInput.addEventListener('change', handleFileUpload);
+  }
+
+  const applyFormulaBtn = document.getElementById('applyFormulaBtn');
+  if (applyFormulaBtn) {
+    applyFormulaBtn.addEventListener('click', () => {
+        const weights = getFormulaWeightsFromUI();
+        const currentFilters = { agent: getSelectedAgent() };
+        // For formula change, we re-process allRawCalls with current filters and NEW weights
+        globalProcessedData = processCallData(allRawCalls, currentFilters, weights);
+        // Agent list for filter dropdown does not change, so no need to re-initialize it explicitly here.
+        rerenderDashboard();
+        showToast("Formula weights applied!", 2000);
+    });
   }
 });
 
@@ -100,7 +141,7 @@ function rerenderDashboard() {
     // If called directly, it might need to re-process. Let's assume data is processed before calling rerenderDashboard.
 
     updateOutlookBlock(getInitialOutlookStats(globalProcessedData));
-    const coachingSummaryFullText = generateCoachingSummaryText(globalProcessedData);
+    const coachingSummaryFullText = generateCoachingSummaryText(globalProcessedData, allRawCalls);
     displayCoachingSummary(coachingSummaryFullText);
     if (coachingSummaryFullText) {
         prependToOutlookBlock(coachingSummaryFullText.split("\n")[0]);
@@ -125,12 +166,11 @@ async function handleFileUpload(event) {
       const fileContents = await file.text();
       const jsonData = JSON.parse(fileContents);
       if (Array.isArray(jsonData)) {
-        allRawCalls = jsonData; // Update the master list of calls
-        const currentFilters = { agent: getSelectedAgent() }; // Get current filter state
-        // Reset filter to 'all' if previous agent not in new data? Or just let it be?
-        // For now, just re-apply current filter to new data.
-        globalProcessedData = processCallData(allRawCalls, currentFilters);
-        initializeAgentFilter(globalProcessedData); // Re-initialize filter with new agent list
+        allRawCalls = jsonData; 
+        const currentFilters = { agent: getSelectedAgent() };
+        const currentWeights = getFormulaWeightsFromUI();
+        globalProcessedData = processCallData(allRawCalls, currentFilters, currentWeights);
+        initializeAgentFilter(globalProcessedData); // Re-initialize filter with new agent list from new data
         rerenderDashboard();
         showToast("Data loaded from file successfully!", 3000);
       } else {

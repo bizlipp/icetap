@@ -212,4 +212,33 @@ canvas {
 
 #agentModalBody strong {
   color: #a43ec9; /* Highlight key terms */
+}
+
+.formula-config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+    margin-bottom: 10px;
+}
+
+.formula-config-grid > div {
+    display: flex;
+    flex-direction: column;
+}
+
+.formula-config-grid label {
+    margin-bottom: 5px;
+    font-size: 0.9em;
+    color: #ccc;
+}
+
+.formula-config-grid input[type="number"] {
+    padding: 8px;
+    border-radius: 4px;
+    background-color: #2c2c2c;
+    color: #eee;
+    border: 1px solid #444;
+    width: 100%; /* Make input take full width of its grid cell */
+    box-sizing: border-box; /* Include padding and border in the element's total width and height */
 } 

@@ -56,10 +56,17 @@ export function createAgentScoreChart(processedData, chartId = 'scoreChart') {
     });
 }
 
+let onThemeChartClickCallback = null;
+
+export function setOnThemeChartClick(callback) {
+    onThemeChartClickCallback = callback;
+}
+
 export function createThemeChart(processedData, chartId = 'themeChart') {
     destroyChart(themeChartInstance);
     const { themes } = processedData;
     const themeDataForChart = Object.entries(themes).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const themeLabels = themeDataForChart.map(t => t[0]);
     
     const ctx = document.getElementById(chartId)?.getContext('2d');
     if (!ctx) return;
@@ -67,7 +74,7 @@ export function createThemeChart(processedData, chartId = 'themeChart') {
     themeChartInstance = new Chart(ctx, {
         type: 'pie',
         data: {
-            labels: themeDataForChart.map(t => t[0]),
+            labels: themeLabels,
             datasets: [{
                 label: 'Theme Frequency',
                 data: themeDataForChart.map(t => t[1]),
@@ -75,9 +82,22 @@ export function createThemeChart(processedData, chartId = 'themeChart') {
             }]
         },
         options: {
+            onClick: (event, elements) => {
+                if (elements.length > 0 && onThemeChartClickCallback) {
+                    const chartElement = elements[0];
+                    const themeName = themeLabels[chartElement.index];
+                    onThemeChartClickCallback(themeName);
+                }
+            },
             plugins: { legend: { labels: { color: '#eee' } } }
         }
     });
+}
+
+let onCallbackChartClickCallback = null;
+
+export function setOnCallbackChartClick(callback) {
+    onCallbackChartClickCallback = callback;
 }
 
 export function createCallbackChart(processedData, chartId = 'callbackChart') {
@@ -86,7 +106,7 @@ export function createCallbackChart(processedData, chartId = 'callbackChart') {
     const callbackEntries = Object.entries(callbacks);
     const repeatCountsForChartCorrected = callbackEntries
         .filter(([_, arr]) => arr.length > 1)
-        .map(([k, arr]) => ({ k: k, count: arr.length })) 
+        .map(([k, arr]) => ({ customerId: k, count: arr.length })) 
         .sort((a, b) => b.count - a.count)
         .slice(0, 10);
 
@@ -96,7 +116,7 @@ export function createCallbackChart(processedData, chartId = 'callbackChart') {
     callbackChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: repeatCountsForChartCorrected.map(r => r.k),
+            labels: repeatCountsForChartCorrected.map(r => r.customerId),
             datasets: [{
                 label: 'Callback Count',
                 data: repeatCountsForChartCorrected.map(r => r.count),
@@ -106,6 +126,13 @@ export function createCallbackChart(processedData, chartId = 'callbackChart') {
             }]
         },
         options: {
+            onClick: (event, elements) => {
+                if (elements.length > 0 && onCallbackChartClickCallback) {
+                    const chartElement = elements[0];
+                    const customerId = repeatCountsForChartCorrected[chartElement.index].customerId;
+                    onCallbackChartClickCallback(customerId);
+                }
+            },
             plugins: { legend: { display: false } },
             scales: {
                 x: { ticks: { color: '#ccc' }, grid: { color: '#222' } },

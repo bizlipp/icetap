@@ -16,7 +16,23 @@ export function durationToSeconds(str) {
     return 0; 
 }
 
-export function processCallData(allCalls, filters = {}) {
+const defaultFormulaWeights = {
+    pointsPositiveFlag: 2,
+    pointsShortPositiveCall: 2,
+    penaltyFlag: -1,
+    penaltyCallback: -2
+};
+
+export function getFormulaWeightsFromUI() {
+    const weights = {};
+    weights.pointsPositiveFlag = parseInt(document.getElementById('pointsPositiveFlag')?.value) || defaultFormulaWeights.pointsPositiveFlag;
+    weights.pointsShortPositiveCall = parseInt(document.getElementById('pointsShortPositiveCall')?.value) || defaultFormulaWeights.pointsShortPositiveCall;
+    weights.penaltyFlag = parseInt(document.getElementById('penaltyFlag')?.value) || defaultFormulaWeights.penaltyFlag;
+    weights.penaltyCallback = parseInt(document.getElementById('penaltyCallback')?.value) || defaultFormulaWeights.penaltyCallback;
+    return weights;
+}
+
+export function processCallData(allCalls, filters = {}, formulaWeights = defaultFormulaWeights) {
     const agents = {};
     const themes = {};
     const callbacks = {};
@@ -52,9 +68,9 @@ export function processCallData(allCalls, filters = {}) {
         const timestamp = call.meta?.["Initiation timestamp"] ? new Date(call.meta["Initiation timestamp"]) : null;
 
         let score = 0;
-        score += posFlags.length * 2;
-        if (seconds < 240 && posFlags.length) score += 2; 
-        score -= flags.length;
+        score += posFlags.length * formulaWeights.pointsPositiveFlag;
+        if (seconds < 240 && posFlags.length) score += formulaWeights.pointsShortPositiveCall;
+        score += flags.length * formulaWeights.penaltyFlag;
 
         if (customerId && callbacks[customerId] && callbacks[customerId].length > 1) {
             let callIsAfterFirstForCustomer = false;
@@ -64,7 +80,7 @@ export function processCallData(allCalls, filters = {}) {
                     callIsAfterFirstForCustomer = true;
                 }
             }
-            if(callIsAfterFirstForCustomer) score -= 2; 
+            if(callIsAfterFirstForCustomer) score += formulaWeights.penaltyCallback;
         }
 
         if (!agents[agent]) agents[agent] = { total: 0, score: 0, shortCount: 0, posCount: 0, flags: 0 };
@@ -101,7 +117,8 @@ export function processCallData(allCalls, filters = {}) {
         avgScore,
         avgDuration,
         topThemesArray,
-        topAgentsArray
+        topAgentsArray,
+        appliedFormulaWeights: formulaWeights
     };
 }
 
@@ -122,26 +139,133 @@ export function getInitialOutlookStats(processedData) {
     return outlookText;
 }
 
-export function generateCoachingSummaryText(processedData) {
-  const { agents, themes, callbacks, avgScore, avgDuration, callCount } = processedData;
+export function generateCoachingSummaryText(processedData, allRawCallsData) {
+  const { agents, themes, callbacks, avgScore, avgDuration, callCount, topAgentsArray, topThemesArray, appliedFormulaWeights } = processedData;
   
-  // This logic is similar to part of getInitialOutlookStats, consider further consolidation if needed
-  const topAgentsNames = Object.entries(agents)
-    .sort((a,b)=> (b[1].total > 0 ? b[1].score/b[1].total : 0) - (a[1].total > 0 ? a[1].score/a[1].total : 0))
-    .slice(0, 3)
-    .map(a => a[0]);
+  let summary = `This period, ${callCount} calls were analyzed, resulting in an average team engagement score of ${avgScore.toFixed(1)}. 
+Average call duration was ${avgDuration.toFixed(1)} minutes.
+
+`;
+
+  // Agent Standouts (already good)
+  if (topAgentsArray.length > 0) {
+    summary += `🌟 **Agent Standouts:** Congratulations to ${topAgentsArray.map(a => a[0]).join(", ")} for leading with high engagement scores!
+`;
+  } else if (Object.keys(agents).length > 0) {
+    summary += "No specific agent standouts in the current filtered view based on top scores, but let's look at overall team efforts.\n";
+  } else {
+    summary += "No agent data to display for standouts in the current view.\n";
+  }
+
+  // Top Coaching Themes (already good)
+  if (topThemesArray.length > 0) {
+    summary += `🧠 **Key Themes:** Common themes observed include: ${topThemesArray.join(", ")}. Consider focusing training or discussions around these topics.
+`;
+  }
+
+  // Callback Analysis
+  const repeatCallbackEntries = Object.entries(callbacks).filter(([_, arr]) => arr.length > 1);
+  const repeatCallbackUserCount = repeatCallbackEntries.length;
+
+  if (repeatCallbackUserCount > 0) {
+    summary += `📞 **Callback Focus:** ${repeatCallbackUserCount} customer(s) had multiple contacts. 
+`;
+    const highCallbackCustomers = repeatCallbackEntries.sort((a,b) => b[1].length - a[1].length).slice(0,3);
+    summary += `   - Prioritize reviewing interactions for: ${highCallbackCustomers.map(c => c[0] + " ("+c[1].length+" calls)").join(", ")}. 
+`;
+    summary +=  `   - This can help identify opportunities to enhance first-call resolution.
+`;
+  } else {
+    summary += `👍 **First-Call Resolution:** Strong performance in first-call resolution, with no significant repeat callback patterns detected in this dataset.
+`;
+  }
+
+  // Deeper Agent Insights (Example)
+  let areasForDevelopment = [];
+  let areasOfStrength = [];
+
+  for (const [agentName, data] of Object.entries(agents)) {
+    const agentAvgScore = data.total > 0 ? (data.score / data.total) : 0;
+    const positiveInteractionRate = data.total > 0 ? (data.posCount / data.total) * 100 : 0;
+    const flagRate = data.total > 0 ? (data.flags / data.total) : 0; // flags per call
+
+    if (data.total === 0) continue; // Skip agents with no calls in the current view
+
+    if (agentAvgScore < avgScore * 0.8 && avgScore > 0) { // Significantly below team average
+        areasForDevelopment.push(`${agentName} (Avg Score: ${agentAvgScore.toFixed(1)}, vs team avg: ${avgScore.toFixed(1)})`);
+    }
+    if (flagRate > 0.5 && data.flags > 2) { // High flag rate (e.g. > 0.5 flags per call and more than 2 total flags)
+        areasForDevelopment.push(`${agentName} (High flag rate: ${data.flags} flags in ${data.total} calls)`);
+    }
+    if (positiveInteractionRate < 50 && data.total >= 5) { // Low positive interaction rate on a decent number of calls
+        areasForDevelopment.push(`${agentName} (Low positive interactions: ${positiveInteractionRate.toFixed(0)}% in ${data.total} calls)`);
+    }
+    // Example of strength
+    if (agentAvgScore > avgScore * 1.1 && data.total >=5 ) {
+        areasOfStrength.push(`${agentName} (Score: ${agentAvgScore.toFixed(1)}, ${positiveInteractionRate.toFixed(0)}% positive interactions)`);
+    }
+  }
+
+  if (areasOfStrength.length > 0) {
+    summary += `
+🚀 **Kudos & Recognition:**
+`;
+    areasOfStrength.slice(0,3).forEach(area => summary += `   - ${area}\n`);
+  }
   
-  const topThemesNames = Object.entries(themes).sort((a,b)=>b[1]-a[1]).slice(0, 3).map(t => t[0]);
-  const repeatCallbackUserCount = Object.values(callbacks).filter(arr => arr.length > 1).length;
+  if (areasForDevelopment.length > 0) {
+    summary += `
+📈 **Development Opportunities:**
+`;
+    // Show top 3-4 development areas to keep it concise
+    areasForDevelopment.slice(0,3).forEach(area => summary += `   - Focus on: ${area}\n`);
+  } else if (Object.keys(agents).length > 0) {
+    summary += `
+✅ **Consistent Performance:** Overall, agents are performing consistently within the expected parameters based on the current formula and data.
+`;
+  }
+  
+  summary += `
+Formula used: +${appliedFormulaWeights.pointsPositiveFlag}/pos.flag, +${appliedFormulaWeights.pointsShortPositiveCall}/short pos. call, ${appliedFormulaWeights.penaltyFlag}/flag, ${appliedFormulaWeights.penaltyCallback}/callback hit.`;
+  summary += `
+Remember to use the agent filter and click on charts for more granular details!`;
 
-  const summary = `This week, the team maintained a strong engagement level, averaging a score of ${avgScore.toFixed(1)} over ${callCount} reviewed calls. 
-Average call duration held at ${avgDuration.toFixed(1)} minutes, with many calls resolved efficiently and positively.
-
-Shoutouts to standout agents: ${topAgentsNames.join(", ")}, who demonstrated excellent communication and consistency. 
-Common themes during coaching moments included: ${topThemesNames.join(", ")} — offering a clear direction for targeted support or refreshers.
-
-${repeatCallbackUserCount > 0 ? `We observed ${repeatCallbackUserCount} customers who called back within a short window. These cases may benefit from reviewing root causes or confirming resolution clarity.` : `No callback spikes were detected this cycle, indicating strong first-contact resolution.`}
-
-Keep celebrating what\'s working while refining moments that can elevate the overall experience.`;
   return summary;
+}
+
+export function getThemeDetails(themeName, allRawCalls, processedAgentsData) {
+    const themeNameLower = themeName.toLowerCase();
+    let totalOccurrences = 0;
+    let sumOfScoresWithTheme = 0;
+    let callsWithThemeCount = 0;
+    const agentsInvolved = {};
+
+    allRawCalls.forEach(call => {
+        const callFlags = (call.flags || []).map(f => typeof f === 'string' ? f.toLowerCase() : '');
+        const callPositiveFlags = (call.positiveFlags || []).map(f => typeof f === 'string' ? f.toLowerCase() : '');
+        const allCallThemes = [...callFlags, ...callPositiveFlags];
+
+        if (allCallThemes.includes(themeNameLower)) {
+            totalOccurrences++;
+            const agentName = call.meta?.["Agent name"] || "Unknown";
+            agentsInvolved[agentName] = (agentsInvolved[agentName] || 0) + 1;
+
+            const durationStr = call.meta?.["Contact duration"] || "0:00:00";
+            const seconds = durationToSeconds(durationStr);
+            let score = 0;
+            const currentWeights = getFormulaWeightsFromUI();
+            score += (call.positiveFlags || []).length * currentWeights.pointsPositiveFlag;
+            if (seconds < 240 && (call.positiveFlags || []).length) score += currentWeights.pointsShortPositiveCall;
+            score += (call.flags || []).length * currentWeights.penaltyFlag;
+            
+            sumOfScoresWithTheme += score;
+            callsWithThemeCount++;
+        }
+    });
+
+    return {
+        totalOccurrences,
+        avgScoreWithTheme: callsWithThemeCount > 0 ? sumOfScoresWithTheme / callsWithThemeCount : 0,
+        agentsInvolved
+    };
 } 
