@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Inspiro Analytics Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="css/inspiro-integrated-dashboard.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+  <div class="header">
+    <h1>Inspiro Analytics Dashboard</h1>
+    <p>Comprehensive analytics of call transcripts for enhanced customer service performance.</p>
+    <div style="margin-top: 10px;">
+      <label for="dataFileUpload" class="btn btn-upload" style="cursor: pointer;">Upload Call Data (JSON)</label>
+      <input type="file" id="dataFileUpload" accept=".json" style="display: none;">
+    </div>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div class="tab-nav">
+    <button class="tab-button active" data-tab="coachingTab">Coaching</button>
+    <button class="tab-button" data-tab="analyticsTab">Analytics</button>
+    <button class="tab-button" data-tab="transcriptsTab">Transcripts</button>
+    <button class="tab-button" data-tab="exportTab">Export</button>
+  </div>
+
+  <!-- Coaching Tab (from inspiro-audit-report-v3.html) -->
+  <div id="coachingTab" class="tab-content active">
+    <div class="section filter-section">
+      <h2>🔍 Filters</h2>
+      <div>
+        <label for="agentFilter">Filter by Agent:</label>
+        <select id="agentFilter" class="filter-select">
+          <option value="all">All Agents</option>
+          <!-- Agent options will be populated by JavaScript -->
+        </select>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>🧮 Agent Score Formula</h2>
+      <p><strong>Current Formula:</strong> ( +2 × Positive Flags +2 if < 4min call ) – (1 × Flags) – (2 × Callback Hits ) / Total Calls</p>
+      <div id="formulaConfig" class="formula-config-grid">
+          <div>
+              <label for="pointsPositiveFlag">Points per Positive Flag:</label>
+              <input type="number" id="pointsPositiveFlag" value="2">
+          </div>
+          <div>
+              <label for="pointsShortPositiveCall">Points for Short (<4min) Positive Call:</label>
+              <input type="number" id="pointsShortPositiveCall" value="2">
+          </div>
+          <div>
+              <label for="penaltyFlag">Penalty per Flag:</label>
+              <input type="number" id="penaltyFlag" value="-1">
+          </div>
+          <div>
+              <label for="penaltyCallback">Penalty per Callback Hit:</label>
+              <input type="number" id="penaltyCallback" value="-2">
+          </div>
+      </div>
+      <button id="applyFormulaBtn" class="btn" style="margin-top:10px;">Apply New Formula</button>
+    </div>
+
+    <div class="section">
+      <h2>📊 Score Charts & Call Trends</h2>
+      <div id="scoreChartSkeleton" class="skeleton-loader skeleton-chart"></div>
+      <canvas id="scoreChart" style="display: none;"></canvas>
+      
+      <div id="themeChartSkeleton" class="skeleton-loader skeleton-chart"></div>
+      <canvas id="themeChart" style="display: none;"></canvas>
+      
+      <div id="callbackChartSkeleton" class="skeleton-loader skeleton-chart"></div>
+      <canvas id="callbackChart" style="display: none;"></canvas>
+    </div>
+
+    <div class="section">
+      <h2>🏅 Agent Badges</h2>
+      <div id="agentBadgesSkeleton">
+        <div class="skeleton-loader skeleton-text" style="width: 60%;"></div>
+        <div class="skeleton-loader skeleton-text" style="width: 70%;"></div>
+        <div class="skeleton-loader skeleton-text" style="width: 50%;"></div>
+      </div>
+      <div id="agentBadges" style="display: none;">Loading...</div>
+    </div>
+
+    <div class="section">
+      <h2>🧠 Coaching Summary</h2>
+      <button class="btn" id="toggleSummaryBtn">Toggle Summary</button>
+      <div id="coachingSummary" style="margin-top: 15px; display: none; white-space: pre-wrap; line-height: 1.5;"></div>
+    </div>
+  </div>
+
+  <!-- Analytics Tab (from dashboard.html) -->
+  <div id="analyticsTab" class="tab-content">
+    <div class="dashboard-container">
+      <!-- Summary Statistics -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <span>📊 Call Statistics Summary</span>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-label">Total Calls</div>
+            <div class="stat-value" id="totalCalls">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Flagged Calls</div>
+            <div class="stat-value negative-color" id="flaggedCalls">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Positive Calls</div>
+            <div class="stat-value positive-color" id="positiveCalls">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Avg. Call Duration</div>
+            <div class="stat-value" id="avgDuration">0 min</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent Performance -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <span>👥 Agent Performance</span>
+        </div>
+        <div class="chart-container">
+          <canvas id="agentPerformanceChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Flag Distribution -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <span>🚩 Flag Distribution</span>
+        </div>
+        <div class="chart-container">
+          <canvas id="flagDistributionChart"></canvas>
+        </div>
+      </div>
+      
+      <!-- Positive Indicators -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <span>🌟 Positive Indicators</span>
+        </div>
+        <div class="chart-container">
+          <canvas id="positiveIndicatorsChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Additional Analytics -->
+    <div class="dashboard-container">
+      <!-- Callback Patterns -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <span>🔄 Callback Patterns</span>
+        </div>
+        <div class="chart-container">
+          <canvas id="callbackPatternsChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Call Duration Distribution -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <span>⏱️ Call Duration Distribution</span>
+        </div>
+        <div class="chart-container">
+          <canvas id="durationDistributionChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transcripts Tab (from index.html) -->
+  <div id="transcriptsTab" class="tab-content">
+    <div class="section">
+      <h2>🔍 Transcript Search</h2>
+      <div class="search-container">
+        <input type="text" id="searchInput" placeholder="Search within transcripts...">
+        <button id="searchBtn" class="primary-button">Search</button>
+        
+        <div class="search-options">
+          <label>
+            <input type="checkbox" id="searchAgentCheckbox" checked>
+            Search agent text
+          </label>
+          <label>
+            <input type="checkbox" id="searchCustomerCheckbox" checked>
+            Search customer text
+          </label>
+          <label>
+            <input type="checkbox" id="caseSensitiveCheckbox">
+            Case sensitive
+          </label>
+        </div>
+      </div>
+      
+      <div id="searchResults">
+        <!-- Search results will appear here -->
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>📝 Call Transcripts</h2>
+      <div id="transcriptsContainer">
+        <div id="transcriptsSkeleton">
+          <div class="skeleton-loader skeleton-text" style="width: 90%;"></div>
+          <div class="skeleton-loader skeleton-text" style="width: 85%;"></div>
+          <div class="skeleton-loader skeleton-text" style="width: 92%;"></div>
+        </div>
+        <div id="transcripts" style="display: none;">
+          <!-- Transcripts will be loaded here -->
+          <p>Upload call data to view transcripts.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Tab -->
+  <div id="exportTab" class="tab-content">
+    <div class="section">
+      <h2>📤 Outlook Summary</h2>
+      <div id="outlookBlock">Generating report...</div>
+      <button class="btn" id="copyOutlookBtn">Copy to Outlook</button>
+      <button class="btn" id="downloadPDFBtn">Download PDF</button>
+    </div>
+
+    <div class="section">
+      <h2>💾 Export Data</h2>
+      <button class="btn" id="exportJSONBtn">Export JSON</button>
+      <button class="btn" id="exportExcelBtn">Export Excel</button>
+      <button class="btn" id="exportAuditTemplateBtn">Export Audit Template</button>
+    </div>
+  </div>
+
+  <!-- Main JS Module Import -->
+  <script type="module" src="js/inspiro-integrated-dashboard.js"></script>
+
+  <!-- Agent Detail Modal -->
+  <div id="agentDetailModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <span class="modal-close-btn" id="closeAgentModalBtn">&times;</span>
+      <h3 id="agentModalTitle">Agent Details</h3>
+      <div id="agentModalBody">
+        <!-- Details will be populated by JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Theme Detail Modal -->
+  <div id="themeDetailModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <span class="modal-close-btn" id="closeThemeModalBtn">&times;</span>
+      <h3 id="themeModalTitle">Theme Details</h3>
+      <div id="themeModalBody">
+        <!-- Theme details will be populated by JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Callback Detail Modal -->
+  <div id="callbackDetailModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <span class="modal-close-btn" id="closeCallbackModalBtn">&times;</span>
+      <h3 id="callbackModalTitle">Callback Details</h3>
+      <div id="callbackModalBody">
+        <!-- Callback details will be populated by JavaScript -->
+      </div>
+    </div>
+  </div>
+</body>
+</html> 
