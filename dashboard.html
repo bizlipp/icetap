@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inspiro Analytics Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="js/agentFilterManager.js"></script>
+  <script src="js/repeatAnalysis.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -188,6 +190,10 @@
     <button id="loadDataButton" class="primary-button">Load Data from Parser</button>
     <button id="refreshButton">Refresh Dashboard</button>
     <div id="dataStatus">No data loaded</div>
+    <div style="margin-left: auto;">
+        <label for="agentFilter" style="margin-right: 5px; font-size: 14px;">Filter Agents:</label>
+        <select id="agentFilter" multiple style="min-width: 200px; padding: 5px; background: #333; color: #eee; border: 1px solid #555; border-radius: 3px;"></select>
+    </div>
   </div>
 
   <div class="tab-navigation">
@@ -201,20 +207,6 @@
   </div>
 
   <div id="overviewTab" class="tab-content active">
-    <div class="dashboard-card" id="filtersCard">
-      <div class="card-header">
-        <span>⚙️ Filters</span>
-      </div>
-      <div style="padding: 15px;">
-        <label for="agentFilterSelect" style="display: block; margin-bottom: 8px; font-weight: bold;">Filter by Agent(s):</label>
-        <select multiple id="agentFilterSelect" style="width: 100%; min-height: 100px; background: #2c2c2c; color: #eee; border: 1px solid #444; border-radius: 4px; padding: 5px;">
-          <!-- Options will be populated by JavaScript -->
-        </select>
-        <button id="applyAgentFilterButton" class="primary-button" style="margin-top: 10px;">Apply Filter</button>
-        <button id="clearAgentFilterButton" style="margin-top: 10px; margin-left: 10px;">Clear Filter</button>
-      </div>
-    </div>
-
     <div class="dashboard-container">
       <!-- Summary Statistics -->
       <div class="dashboard-card">
@@ -469,6 +461,25 @@
         </table>
       </div>
     </div>
+    <!-- Placeholders for future content -->
+    <div class="dashboard-container" style="margin-top: 20px;">
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span>📊 Callback Timing Charts</span>
+            </div>
+            <div id="repeatCallersTimingCharts">
+                <!-- Content will be rendered by js/repeatAnalysis.js -->
+            </div>
+        </div>
+        <div class="dashboard-card">
+            <div class="card-header">
+                <span>🧠 Agent-Specific Insights (Repeat Callers)</span>
+            </div>
+            <div id="repeatCallersAgentInsights">
+                <!-- Content will be rendered by js/repeatAnalysis.js -->
+            </div>
+        </div>
+    </div>
   </div> <!-- End of repeatCallersTab -->
 
   <!-- New Tab: Coaching & Follow-up -->
@@ -501,13 +512,13 @@
     </div>
   </div> <!-- End of reportsTab -->
 
-  <script type="module" src="js/agentFilterManager.js"></script> 
-  <script type="module">
+  <script>
     // Dashboard state
     let dashboardData = {
-      calls: [], // Raw, unfiltered calls
-      filteredCalls: [], // Calls filtered by agent selection
+      calls: [],
+      filteredCalls: [],
       agents: {},
+      agentColors: {},
       flags: {},
       positiveFlags: {},
       hourDistribution: new Array(24).fill(0),
@@ -517,7 +528,6 @@
       wordFrequency: {},
       repeatCallers: {},
       categories: {},
-      agentColors: {}, // For Agent Color Palette Quick Win
       loaded: false
     };
     
@@ -527,12 +537,12 @@
     const dataStatus = document.getElementById('dataStatus');
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabContents = document.querySelectorAll('.tab-content');
-    // Agent Filter UI elements will be grabbed in DOMContentLoaded
-
+    const agentFilterElement = document.getElementById('agentFilter');
+    
     // Chart objects
     let agentPerformanceChart = null;
     let flagDistributionChart = null;
-    let positiveIndicatorsChartActual = null; // New chart instance for the "Positive" tab
+    let positiveIndicatorsChartActual = null;
     let timeDistributionChart = null;
     let dayDistributionChart = null;
     let channelDistributionChart = null;
@@ -540,19 +550,16 @@
     let categoriesChart = null;
     
     // Constants
-    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const COLOR_POOL = [
+        'rgba(164, 62, 201, 0.8)', 'rgba(76, 175, 80, 0.8)', 'rgba(255, 77, 77, 0.8)', 
+        'rgba(33, 150, 243, 0.8)', 'rgba(255, 152, 0, 0.8)', 'rgba(0, 150, 136, 0.8)',
+        'rgba(233, 30, 99, 0.8)', 'rgba(139, 195, 74, 0.8)', 'rgba(255, 235, 59, 0.8)',
+        'rgba(121, 85, 72, 0.8)', 'rgba(158, 158, 158, 0.8)', 'rgba(96, 125, 139, 0.8)'
+    ];
     
-    // import functions from agentFilterManager
-    import { initAgentFilter, populateAgentFilter, getSelectedAgents, getInitialSelectedAgents } from './js/agentFilterManager.js';
-
     // Event listeners
     document.addEventListener('DOMContentLoaded', () => {
-      const agentFilterSelect = document.getElementById('agentFilterSelect');
-      const applyAgentFilterButton = document.getElementById('applyAgentFilterButton');
-      const clearAgentFilterButton = document.getElementById('clearAgentFilterButton');
-      
-      initAgentFilter(agentFilterSelect, applyAgentFilterButton, clearAgentFilterButton, handleFilterChange);
-
       loadDataButton.addEventListener('click', loadDataFromParser);
       refreshButton.addEventListener('click', refreshDashboard);
 
@@ -574,48 +581,78 @@
 
       // Automatically try to load data and activate the first tab
       loadDataFromParser().then(() => {
+        if (dashboardData.loaded) {
+          const uniqueAgentNames = Object.keys(dashboardData.agents).sort();
+          initializeAgentFilterDropdown(uniqueAgentNames, handleAgentFilterChange);
+          handleAgentFilterChange(getSelectedAgentsFromFilter());
+        }
         if (tabButtons.length > 0 && !document.querySelector('.tab-button.active')) {
             tabButtons[0].click(); // Activate the first tab if none is active
         }
       }); 
     });
     
-    // Callback function for when agent filter is applied or cleared
-    function handleFilterChange(selectedAgents) {
-        console.log("Filter changed, selected agents:", selectedAgents);
-        // Re-process data with new filter and refresh dashboard
-        if (dashboardData.calls.length > 0) { // Only if raw data exists
-            applyFiltersAndRefresh();
+    // New function to handle rendering content of the active tab
+    function renderActiveTabContent(activeTabId) {
+        if (!dashboardData.loaded || !dashboardData.filteredCalls || dashboardData.filteredCalls.length === 0) {
+            console.log("No filtered data to render for tab:", activeTabId);
+            if (activeTabId === 'overviewTab') {
+                if (agentPerformanceChart) agentPerformanceChart.destroy();
+                if (flagDistributionChart) flagDistributionChart.destroy();
+                agentPerformanceChart = null;
+                flagDistributionChart = null;
+            } else if (activeTabId === 'distributionTab') {
+                if (timeDistributionChart) timeDistributionChart.destroy();
+                if (dayDistributionChart) dayDistributionChart.destroy();
+                if (channelDistributionChart) channelDistributionChart.destroy();
+                if (queueDistributionChart) queueDistributionChart.destroy();
+                if (categoriesChart) categoriesChart.destroy();
+                timeDistributionChart = null;
+                dayDistributionChart = null;
+                channelDistributionChart = null;
+                queueDistributionChart = null;
+                categoriesChart = null;
+            } else if (activeTabId === 'positiveTab') {
+                if (positiveIndicatorsChartActual) positiveIndicatorsChartActual.destroy();
+                positiveIndicatorsChartActual = null;
+                document.getElementById('positiveCallsListActual').innerHTML = '<div class="no-data-message">No positive performance data for current filter</div>';
+                document.getElementById('topAgentsBody').innerHTML = '<tr><td colspan="5" class="no-data-message">No agent data for current filter</td></tr>';
+            } else if (activeTabId === 'repeatCallersTab') {
+                updateRepeatCallersTabContent(dashboardData.filteredCalls);
+            } else if (activeTabId === 'insightsTab') {
+                document.getElementById('commonTopics').innerHTML = '<div class="no-data-message">No common topics for current filter</div>';
+            }
+            return;
+        }
+
+        if (activeTabId === 'overviewTab') {
+            renderAgentPerformanceChart();
+            renderFlagDistributionChart();
+        } else if (activeTabId === 'distributionTab') {
+            renderTimeDistributionCharts();
+            renderChannelAndQueueCharts();
+            renderCategoriesChart();
+        } else if (activeTabId === 'insightsTab') {
+            updateCommonTopics();
+        } else if (activeTabId === 'positiveTab') {
+            renderPositiveIndicatorsChartActual(); 
+            updatePositiveCallsListActual(); 
+            updateTopAgentsTable();
+        } else if (activeTabId === 'repeatCallersTab') {
+            updateRepeatCallersTabContent(dashboardData.filteredCalls);
+        } else if (activeTabId === 'coachingTab') {
+            // Placeholder: No dynamic content to render yet
+        } else if (activeTabId === 'reportsTab') {
+            // Placeholder: No dynamic content to render yet
         }
     }
     
-    function applyFiltersAndRefresh() {
-        const selectedAgents = getSelectedAgents(); // Get current selection from UI/localStorage via manager
-
-        if (selectedAgents.length > 0) {
-            dashboardData.filteredCalls = dashboardData.calls.filter(call => {
-                const agentName = call.meta["Agent"] || call.meta["Agent name"];
-                return agentName && selectedAgents.includes(agentName);
-            });
-        } else {
-            dashboardData.filteredCalls = [...dashboardData.calls]; // No filter, use all calls
-        }
-        console.log(`Applied filters. ${dashboardData.filteredCalls.length} calls in filteredCalls.`);
-        
-        // Now, re-process statistics based on filteredCalls FOR DISPLAY PURPOSES
-        // Note: dashboardData.agents (for filter population) and .calls (raw) should remain untouched by this display-filtering.
-        // The processDataForDisplay function will populate specific structures for charts/tables from filteredCalls.
-        processDataForDisplay(); 
-        
-        // Full refresh of UI elements
-        dashboardData.loaded = true; // Ensure loaded is true if we have filtered calls
-        refreshDashboard(); // This will use the new dashboardData.filteredCalls for rendering
-    }
-
     // Load data from localStorage
     async function loadDataFromParser() {
       dataStatus.textContent = "Attempting to load data...";
       dashboardData.loaded = false; 
+      dashboardData.calls = [];
+      dashboardData.filteredCalls = [];
       try {
         // Try to get data from localStorage
         const storedData = localStorage.getItem('inspiroCallData');
@@ -624,14 +661,24 @@
           try {
             const parsedData = JSON.parse(storedData);
             if (Array.isArray(parsedData) && parsedData.length > 0) {
-              dashboardData.calls = parsedData; // Store raw data
-              // Initial processing of raw data to get all agents for filter population
-              processRawCallDataForAgentsAndColors(); 
-              populateAgentFilter(dashboardData.agents); // Populate filter with ALL agents
+              dashboardData.calls = parsedData;
+              
+              // Populate agentColors based on ALL agents in the dataset
+              const allAgentNamesInDataset = [...new Set(dashboardData.calls.map(call => call.meta["Agent"] || call.meta["Agent name"] || "Unknown"))].sort();
+              allAgentNamesInDataset.forEach((name, index) => {
+                  if (name !== "Unknown") { // Optionally exclude "Unknown" from having a dedicated color
+                    dashboardData.agentColors[name] = COLOR_POOL[index % COLOR_POOL.length];
+                  }
+              });
+              // console.log("[Debug] Populated agentColors:", JSON.parse(JSON.stringify(dashboardData.agentColors)));
 
-              // Apply initial filter from localStorage or default to all
-              applyFiltersAndRefresh();
-              // dataStatus.textContent set by applyFiltersAndRefresh or refreshDashboard
+              processData();
+              dataStatus.textContent = `✅ Loaded ${dashboardData.calls.length} calls`;
+              dashboardData.loaded = true;
+              
+              const uniqueAgentNames = Object.keys(dashboardData.agents).sort();
+              initializeAgentFilterDropdown(uniqueAgentNames, handleAgentFilterChange);
+              handleAgentFilterChange(getSelectedAgentsFromFilter());
               return;
             }
           } catch (parseError) {
@@ -646,31 +693,10 @@
       }
     }
     
-    // New function to process raw call data just for agent list and colors
-    function processRawCallDataForAgentsAndColors() {
-        dashboardData.agents = {}; // Reset agents for fresh population
-        dashboardData.calls.forEach(call => {
-            const agent = call.meta["Agent"] || call.meta["Agent name"] || "Unknown";
-            if (!dashboardData.agents[agent]) {
-                dashboardData.agents[agent] = { name: agent, totalCalls: 0 }; // Basic structure for now
-            }
-            dashboardData.agents[agent].totalCalls++;
-        });
-
-        // Agent Color Palette Quick Win
-        const colorPool = ['#a43ec9', '#4caf50', '#ff4d4d', '#2196f3', '#ff9800', '#00bcd4', '#f06292', '#7e57c2', '#ffee58', '#8d6e63'];
-        dashboardData.agentColors = {};
-        let agentIndex = 0;
-        Object.keys(dashboardData.agents).sort().forEach(name => { // Sort for consistent color assignment
-            dashboardData.agentColors[name] = colorPool[agentIndex % colorPool.length];
-            agentIndex++;
-        });
-    }
-
-    // Modified processData to processDataForDisplay - operates on dashboardData.filteredCalls
-    // This function will now primarily populate aggregates for display from `filteredCalls`
-    function processDataForDisplay() {
-      // Reset aggregates that depend on filtered data
+    // Process the raw call data into usable statistics
+    function processData() {
+      // Reset processed data
+      dashboardData.agents = {};
       dashboardData.flags = {};
       dashboardData.positiveFlags = {};
       dashboardData.hourDistribution = new Array(24).fill(0);
@@ -678,109 +704,192 @@
       dashboardData.channelDistribution = {};
       dashboardData.queueDistribution = {};
       dashboardData.wordFrequency = {};
-      // dashboardData.repeatCallers should be based on filteredCalls too
-      dashboardData.repeatCallers = {}; 
+      dashboardData.repeatCallers = {};
       dashboardData.categories = {};
       
-      // Agent stats for display (e.g. for Top Agents table) will be based on filtered calls
-      // We must be careful not to overwrite dashboardData.agents which holds ALL agents for the filter.
-      // Let's create a temporary structure for display-specific agent metrics.
-      let displayAgentMetrics = {};
+      // Determine selected agents for filtering
+      const selectedAgents = getSelectedAgentsFromFilter();
+      const isFiltering = selectedAgents.length > 0 && !selectedAgents.includes('all');
 
-      dashboardData.filteredCalls.forEach(call => {
+      dashboardData.filteredCalls = dashboardData.calls.filter(call => {
+        if (!isFiltering) return true; // No filter applied or "all" selected
         const agent = call.meta["Agent"] || call.meta["Agent name"] || "Unknown";
-        if (!displayAgentMetrics[agent]) {
-          displayAgentMetrics[agent] = {
-            name: agent,
-            totalCalls: 0,
+        return selectedAgents.includes(agent);
+      });
+
+      // Process each call from FILTERED calls for dashboard display
+      dashboardData.filteredCalls.forEach(call => {
+        // Agent data (still populate dashboardData.agents from ALL calls for the filter dropdown,
+        // but subsequent metrics are based on filteredCalls)
+        const agentName = call.meta["Agent"] || call.meta["Agent name"] || "Unknown";
+        if (!dashboardData.agents[agentName]) {
+          dashboardData.agents[agentName] = {
+            name: agentName,
+            totalCalls: 0, // This will be total in filtered set
             flaggedCalls: 0,
             positiveCalls: 0,
             positiveScore: 0,
             avgDuration: 0,
-            totalDuration: 0
+            totalDuration: 0,
           };
         }
         
-        const agentData = displayAgentMetrics[agent];
+        // Increment agent stats
+        const agentData = dashboardData.agents[agentName];
         agentData.totalCalls++;
-        if (call.flags && call.flags.length > 0) agentData.flaggedCalls++;
-        if (call.positiveFlags && call.positiveFlags.length > 0) agentData.positiveCalls++;
+        
+        if (call.flags && call.flags.length > 0) {
+          agentData.flaggedCalls++;
+        }
+        
+        if (call.positiveFlags && call.positiveFlags.length > 0) {
+          agentData.positiveCalls++;
+        }
+        
+        // Track positive score
         agentData.positiveScore += (call.positiveScore || 0);
+        
+        // Track call duration
         const durationText = call.meta["Contact duration"] || "0";
-        agentData.totalDuration += parseDuration(durationText);
-
+        const durationMinutes = parseDuration(durationText);
+        agentData.totalDuration += durationMinutes;
+        
+        // Track flags
         if (call.flags) {
           call.flags.forEach(flag => {
             dashboardData.flags[flag] = (dashboardData.flags[flag] || 0) + 1;
           });
         }
+        
+        // Track positive flags
         if (call.positiveFlags) {
           call.positiveFlags.forEach(flag => {
             dashboardData.positiveFlags[flag] = (dashboardData.positiveFlags[flag] || 0) + 1;
           });
         }
+        
+        // Track time distribution
         try {
           const timestamp = call.meta["Initiation timestamp"];
           if (timestamp) {
             const date = new Date(timestamp);
             if (!isNaN(date.getTime())) {
-              dashboardData.hourDistribution[date.getHours()]++;
-              dashboardData.dayDistribution[date.getDay()]++;
+              // Hour distribution
+              const hour = date.getHours();
+              dashboardData.hourDistribution[hour]++;
+              
+              // Day of week distribution
+              const day = date.getDay();
+              dashboardData.dayDistribution[day]++;
             }
           }
-        } catch (error) { console.error("Error processing timestamp:", error); }
+        } catch (error) {
+          console.error("Error processing timestamp:", error);
+        }
         
+        // Track channel and queue
         const channel = call.meta["Channel"] || "Unknown";
         dashboardData.channelDistribution[channel] = (dashboardData.channelDistribution[channel] || 0) + 1;
+        
         const queue = call.meta["Queue"] || "Unknown";
         dashboardData.queueDistribution[queue] = (dashboardData.queueDistribution[queue] || 0) + 1;
-
+        
+        // Track word frequency in transcripts
         if (call.transcript && call.transcript.length > 0) {
           call.transcript.forEach(entry => {
             if (entry.text) {
               const text = entry.text.toLowerCase();
-              const words = text.split(/\\s+/).filter(word => 
+              const words = text.split(/\s+/).filter(word => 
                 word.length > 3 && 
-                !["this", "that", "what", "with", "have", "your", "from", "there", "would", "could", "about", "which", "just", "like", "it's", "yeah", "don't", "going", "gonna", "you're", "thank", "then", "know", "because", "they", "well", "need", "give", "take", "back", "right", "name", "alright", "when", "want", "here", "make", "let's", "will", "okay", "actually", "sorry", "able", "sure", "were", "been", "does", "doing", "should", "can't", "didn't", "isn't", "that's", "i'll", "we'll", "wasn't", "they're", "where", "their", "them", "these", "those", "some", "myself", "yourself", "himself", "herself", "please", "account", "information", "customer", "service", "contact", "number", "email", "phone", "call", "calling", "assistance", "help", "good", "time", "more", "only", "send", "still", "text", "data", "said", "today", "what's", "we're", "boost", "card", "digit", "yeah,", "you,", "here.", "know,", "right,", "yes,", "alright,", "that,", "bye,", "cxo-supcall-de-escalate", "credit_debit_number", "choosing", "payment", "cxo-wireless-call-issues", "i've"].includes(word)
+                ![
+                  // Common filler words and pronouns
+                  "this", "that", "what", "with", "have", "your", "from", "there", "would", "could", "about", "which",
+                  "just", "like", "it's", "yeah", "don't", "going", "gonna", "you're", "thank", "then", "know", "because",
+                  "they", "well", "need", "give", "take", "back", "right", "name", "alright", "when", "want", "here",
+                  "make", "let's", "will", "okay", "actually", "sorry", "able", "sure", "were", "been", "does", "doing", 
+                  "should", "can't", "can't", "didn't", "isn't", "that's", "i'll", "we'll", "wasn't", "they're",
+                  "where", "their", "them", "these", "those", "some", "myself", "yourself", "himself", "herself",
+                  // Common corporate jargon and fillers
+                  "please", "account", "information", "customer", "service", "contact", "number", "email", "phone", 
+                  "call", "calling", "assistance",
+                  // Additional words spotted in screenshot
+                  "help", "good", "time", "more", "only", "send", "still", "text", "data", "said", "today", 
+                  "what's", "we're", "boost", "card", "digit", "yeah,", "you,", "here.", "know,", "right,", "yes,",
+                  "alright,", "that,", "bye,", "cxo-supcall-de-escalate", "credit_debit_number", "choosing", "phone",
+                  "payment", "cxo-wireless-call-issues", "i've"
+                ].includes(word)
               );
+              
               words.forEach(word => {
                 dashboardData.wordFrequency[word] = (dashboardData.wordFrequency[word] || 0) + 1;
               });
             }
           });
         }
+        
+        // Track repeat callers
         const customerPhone = call.meta["Customer phone number / email address"];
         if (customerPhone && customerPhone !== "Unknown" && customerPhone !== "N/A") {
+          // Create or update caller record
           if (!dashboardData.repeatCallers[customerPhone]) {
-            dashboardData.repeatCallers[customerPhone] = { phoneNumber: customerPhone, calls: [], flagCount: {}, firstCall: null, latestCall: null };
+            dashboardData.repeatCallers[customerPhone] = {
+              phoneNumber: customerPhone,
+              calls: [],
+              flagCount: {},
+              firstCall: null,
+              latestCall: null
+            };
           }
+          
+          // Add call to caller's history
           const callerRecord = dashboardData.repeatCallers[customerPhone];
-          callerRecord.calls.push({ id: call.meta["Contact ID"], timestamp: call.meta["Initiation timestamp"], flags: call.flags || [], agent: agent });
+          callerRecord.calls.push({
+            id: call.meta["Contact ID"],
+            timestamp: call.meta["Initiation timestamp"],
+            flags: call.flags || [],
+            agent: agentName
+          });
+          
+          // Update flag counts
           if (call.flags) {
-            call.flags.forEach(flag => { callerRecord.flagCount[flag] = (callerRecord.flagCount[flag] || 0) + 1; });
+            call.flags.forEach(flag => {
+              callerRecord.flagCount[flag] = (callerRecord.flagCount[flag] || 0) + 1;
+            });
           }
-          const callTimestamp = call.meta["Initiation timestamp"];
-          if (callTimestamp) {
-            const date = new Date(callTimestamp);
+          
+          // Track first and latest call
+          const timestamp = call.meta["Initiation timestamp"];
+          if (timestamp) {
+            const date = new Date(timestamp);
             if (!isNaN(date.getTime())) {
-              if (!callerRecord.firstCall || date < new Date(callerRecord.firstCall)) callerRecord.firstCall = callTimestamp;
-              if (!callerRecord.latestCall || date > new Date(callerRecord.latestCall)) callerRecord.latestCall = callTimestamp;
+              if (!callerRecord.firstCall || date < new Date(callerRecord.firstCall)) {
+                callerRecord.firstCall = timestamp;
+              }
+              if (!callerRecord.latestCall || date > new Date(callerRecord.latestCall)) {
+                callerRecord.latestCall = timestamp;
+              }
             }
           }
         }
+        
+        // Process categories
         if (call.meta["Categories"] && call.meta["Categories"] !== "N/A") {
+          // Split categories string by commas
           const categoryList = call.meta["Categories"].split(',').map(cat => cat.trim());
+          
+          // Count each category
           categoryList.forEach(category => {
-            if (category) dashboardData.categories[category] = (dashboardData.categories[category] || 0) + 1;
+            if (category) {
+              dashboardData.categories[category] = (dashboardData.categories[category] || 0) + 1;
+            }
           });
         }
       });
       
-      Object.values(displayAgentMetrics).forEach(agent => {
+      // Calculate averages for agents based on filtered calls
+      Object.values(dashboardData.agents).forEach(agent => {
         agent.avgDuration = agent.totalCalls > 0 ? agent.totalDuration / agent.totalCalls : 0;
       });
-      // Store this separately for display, so dashboardData.agents keeps all agents for filter
-      dashboardData.displayAgentMetrics = displayAgentMetrics; 
     }
     
     // Parse duration string to minutes
@@ -817,17 +926,26 @@
       if (!dashboardData.calls || dashboardData.calls.length === 0) { 
         dataStatus.textContent = "No data loaded to refresh.";
         dashboardData.loaded = false; 
-        // Clear all dashboard elements if no data
-        clearDashboardElements(); // Call a new function to clear out old data from UI
+        clearDashboardElements();
         return;
       }
 
-      dataStatus.textContent = "🔄 Re-processing and refreshing dashboard...";
-      // processData(); // This should now be processDataForDisplay, which is called by applyFiltersAndRefresh or handleFilterChange
-      applyFiltersAndRefresh(); // This will correctly re-filter and call processDataForDisplay
+      dataStatus.textContent = "🔄 Re-processing and refreshing dashboard with filter...";
+      processData();
+      dashboardData.loaded = true; 
       
-      // updateSummaryStats(); // Called by renderActiveTabContent or directly if needed before
-      // No, updateSummaryStats should be called here before rendering tabs
+      if (dashboardData.filteredCalls.length === 0 && (getSelectedAgentsFromFilter().length > 0 && !getSelectedAgentsFromFilter().includes('all'))) {
+        dataStatus.textContent = `⚠️ No calls match the current agent filter. Loaded ${dashboardData.calls.length} total calls.`;
+        clearDashboardElements();
+        const activeButtonNoData = document.querySelector('.tab-button.active');
+        if (activeButtonNoData) {
+            renderActiveTabContent(activeButtonNoData.dataset.tab);
+        } else if (tabButtons.length > 0) {
+            tabButtons[0].click();
+        }
+        return;
+      }
+      
       updateSummaryStats();
 
       const activeButton = document.querySelector('.tab-button.active');
@@ -836,7 +954,7 @@
       } else if (tabButtons.length > 0) {
           tabButtons[0].click(); 
       }
-      dataStatus.textContent = `✅ Dashboard refreshed with ${dashboardData.calls.length} calls.`;
+      dataStatus.textContent = `✅ Dashboard refreshed. Displaying ${dashboardData.filteredCalls.length} of ${dashboardData.calls.length} calls based on filter.`;
     }
     
     // New function to clear dashboard elements
@@ -879,15 +997,14 @@
         // For simplicity, destroying the chart instance usually suffices as Chart.js might clear it.
     }
     
-    // Update summary statistics - MUST use filteredCalls
+    // Update summary statistics
     function updateSummaryStats() {
-      const callsToSummarize = dashboardData.filteredCalls; // USE FILTERED CALLS
-      const totalCalls = callsToSummarize.length;
+      const totalCalls = dashboardData.filteredCalls.length;
       let flaggedCalls = 0;
       let positiveCalls = 0;
       let totalDuration = 0;
       
-      callsToSummarize.forEach(call => { // USE FILTERED CALLS
+      dashboardData.filteredCalls.forEach(call => {
         if (call.flags && call.flags.length > 0) flaggedCalls++;
         if (call.positiveFlags && call.positiveFlags.length > 0) positiveCalls++;
         
@@ -904,53 +1021,60 @@
       document.getElementById('avgDuration').textContent = avgDuration.toFixed(1) + ' min';
     }
     
-    // Render the agent performance chart - MUST use displayAgentMetrics and agentColors
+    // Render the agent performance chart
     function renderAgentPerformanceChart() {
-      const canvasElement = document.getElementById('agentPerformanceChart');
-      if (!canvasElement) { console.warn("Agent performance chart canvas not found"); return; }
-      const ctx = canvasElement.getContext('2d');
+      const ctx = document.getElementById('agentPerformanceChart').getContext('2d');
       
-      // Use displayAgentMetrics which is based on filteredCalls
-      const agentsForChart = Object.values(dashboardData.displayAgentMetrics || {})
+      // Rebuild agent stats based *only* on filteredCalls for this chart
+      const agentsInFilteredSet = {};
+      dashboardData.filteredCalls.forEach(call => {
+          const agentName = call.meta["Agent"] || call.meta["Agent name"] || "Unknown";
+          if (!agentsInFilteredSet[agentName]) {
+              agentsInFilteredSet[agentName] = { name: agentName, totalCalls: 0, flaggedCalls: 0, positiveCalls: 0 };
+          }
+          agentsInFilteredSet[agentName].totalCalls++;
+          if (call.flags && call.flags.length > 0) agentsInFilteredSet[agentName].flaggedCalls++;
+          if (call.positiveFlags && call.positiveFlags.length > 0) agentsInFilteredSet[agentName].positiveCalls++;
+      });
+      
+      const agents = Object.values(agentsInFilteredSet)
         .sort((a, b) => b.totalCalls - a.totalCalls)
-        .slice(0, 10); // Top 10 by call volume from filtered data
+        .slice(0, 10); // Top 10 agents in the current filtered view
       
-      const labels = agentsForChart.map(a => a.name);
-      const datasets = [
-        {
-          label: 'Positive Calls',
-          data: agentsForChart.map(a => a.positiveCalls),
-          backgroundColor: agentsForChart.map(a => dashboardData.agentColors[a.name] ? dashboardData.agentColors[a.name].replace(/, 1\)/, ', 0.7)') : 'rgba(76, 175, 80, 0.7)'),
-          borderColor: agentsForChart.map(a => dashboardData.agentColors[a.name] || 'rgba(76, 175, 80, 1)'),
-          borderWidth: 1
-        },
-        {
-          label: 'Neutral Calls', // Assuming neutral = total - positive - flagged
-          data: agentsForChart.map(a => Math.max(0, a.totalCalls - a.positiveCalls - a.flaggedCalls)),
-          backgroundColor: 'rgba(158, 158, 158, 0.7)',
-          borderColor: 'rgba(158, 158, 158, 1)',
-          borderWidth: 1
-        },
-        {
-          label: 'Flagged Calls',
-          data: agentsForChart.map(a => a.flaggedCalls),
-          backgroundColor: 'rgba(255, 77, 77, 0.7)',
-          borderColor: 'rgba(255, 77, 77, 1)',
-          borderWidth: 1
-        }
-      ];
-      // If using agent specific colors, one approach for stacked bar is to create a dataset per agent per type
-      // For simplicity here, if agentColors are available, we use the positive call color for that agent, otherwise default.
-      // A more advanced setup would ensure each segment of the stack for an agent can be uniquely colored.
-      // For now, let's color the 'Positive Calls' segment by agent color if available.
-      // The first dataset (Positive Calls) will attempt to use agent specific colors.
-
+      // Destroy existing chart if it exists
       if (agentPerformanceChart) {
         agentPerformanceChart.destroy();
       }
+      
+      // Create new chart
       agentPerformanceChart = new Chart(ctx, {
         type: 'bar',
-        data: { labels: labels, datasets: datasets },
+        data: {
+          labels: agents.map(a => a.name),
+          datasets: [
+            {
+              label: 'Positive Calls',
+              data: agents.map(a => a.positiveCalls),
+              backgroundColor: agents.map((a, index) => dashboardData.agentColors[a.name] ? dashboardData.agentColors[a.name].replace('0.8', '0.6') : COLOR_POOL[(index + COLOR_POOL.length -1) % COLOR_POOL.length].replace('0.8', '0.6')),
+              borderColor: agents.map((a, index) => dashboardData.agentColors[a.name] || COLOR_POOL[(index + COLOR_POOL.length -1) % COLOR_POOL.length]),
+              borderWidth: 1
+            },
+            {
+              label: 'Neutral Calls',
+              data: agents.map(a => a.totalCalls - a.flaggedCalls - a.positiveCalls),
+              backgroundColor: agents.map((a, index) => dashboardData.agentColors[a.name] ? dashboardData.agentColors[a.name].replace('0.8', '0.4') : COLOR_POOL[index % COLOR_POOL.length].replace('0.8', '0.4')),
+              borderColor: agents.map((a, index) => dashboardData.agentColors[a.name] || COLOR_POOL[index % COLOR_POOL.length]),
+              borderWidth: 1
+            },
+            {
+              label: 'Flagged Calls',
+              data: agents.map(a => a.flaggedCalls),
+              backgroundColor: agents.map((a, index) => dashboardData.agentColors[a.name] ? dashboardData.agentColors[a.name].replace('0.8', '0.9') : COLOR_POOL[(index + 1) % COLOR_POOL.length].replace('0.8','0.9')),
+              borderColor: agents.map((a, index) => dashboardData.agentColors[a.name] || COLOR_POOL[(index + 1) % COLOR_POOL.length]),
+              borderWidth: 1
+            }
+          ]
+        },
         options: {
           responsive: true,
           maintainAspectRatio: false,
@@ -985,20 +1109,22 @@
       });
     }
     
-    // Render the flag distribution chart - based on filteredCalls
+    // Render the flag distribution chart
     function renderFlagDistributionChart() {
-      const canvasElement = document.getElementById('flagDistributionChart');
-      if (!canvasElement) { console.warn("Flag distribution chart canvas not found"); return; }
-      const ctx = canvasElement.getContext('2d');
+      const ctx = document.getElementById('flagDistributionChart').getContext('2d');
       
-      // dashboardData.flags is already populated from filteredCalls by processDataForDisplay
-      const topFlags = Object.entries(dashboardData.flags)
+      const localFlags = {};
+      dashboardData.filteredCalls.forEach(call => {
+          if (call.flags) {
+              call.flags.forEach(flag => {
+                  localFlags[flag] = (localFlags[flag] || 0) + 1;
+              });
+          }
+      });
+      
+      const topFlags = Object.entries(localFlags)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 8); // Top 8 flags
-      
-      // Prepare data
-      const labels = topFlags.map(f => f[0]);
-      const data = topFlags.map(f => f[1]);
       
       // Destroy existing chart if it exists
       if (flagDistributionChart) {
@@ -1009,10 +1135,10 @@
       flagDistributionChart = new Chart(ctx, {
         type: 'bar',
         data: {
-          labels: labels,
+          labels: topFlags.map(f => f[0]),
           datasets: [{
             label: 'Flag Occurrences',
-            data: data,
+            data: topFlags.map(f => f[1]),
             backgroundColor: 'rgba(255, 77, 77, 0.7)',
             borderColor: 'rgba(255, 77, 77, 1)',
             borderWidth: 1
@@ -1050,9 +1176,27 @@
       });
     }
     
-    // Render time distribution charts - based on filteredCalls
+    // Render time distribution charts
     function renderTimeDistributionCharts() {
-      // dashboardData.hourDistribution and dayDistribution are from filteredCalls via processDataForDisplay
+      const localHourDistribution = new Array(24).fill(0);
+      const localDayDistribution = new Array(7).fill(0);
+
+      dashboardData.filteredCalls.forEach(call => {
+          try {
+            const timestamp = call.meta["Initiation timestamp"];
+            if (timestamp) {
+              const date = new Date(timestamp);
+              if (!isNaN(date.getTime())) {
+                localHourDistribution[date.getHours()]++;
+                localDayDistribution[date.getDay()]++;
+              }
+            }
+          } catch (error) {
+            console.error("Error processing timestamp for filtered time charts:", error);
+          }
+      });
+
+      // Hour distribution chart
       const hourCanvas = document.getElementById('timeDistributionChart');
       if (!hourCanvas) {
         console.warn("Hour distribution chart canvas not found");
@@ -1075,7 +1219,7 @@
           labels: hourLabels,
           datasets: [{
             label: 'Calls by Hour of Day',
-            data: dashboardData.hourDistribution,
+            data: localHourDistribution,
             backgroundColor: 'rgba(164, 62, 201, 0.7)',
             borderColor: 'rgba(164, 62, 201, 1)',
             borderWidth: 1
@@ -1129,10 +1273,10 @@
       dayDistributionChart = new Chart(dayCtx, {
         type: 'bar',
         data: {
-          labels: dayNames,
+          labels: DAY_NAMES,
           datasets: [{
             label: 'Calls by Day of Week',
-            data: dashboardData.dayDistribution,
+            data: localDayDistribution,
             backgroundColor: 'rgba(76, 175, 80, 0.7)',
             borderColor: 'rgba(76, 175, 80, 1)',
             borderWidth: 1
@@ -1170,19 +1314,34 @@
       });
     }
     
-    // Render channel and queue distribution charts - based on filteredCalls
+    // Render channel and queue distribution charts
     function renderChannelAndQueueCharts() {
-      // dashboardData.channelDistribution and queueDistribution are from filteredCalls via processDataForDisplay
+      const localChannelDistribution = {};
+      const localQueueDistribution = {};
+
+      dashboardData.filteredCalls.forEach(call => {
+          const channel = call.meta["Channel"] || "Unknown";
+          localChannelDistribution[channel] = (localChannelDistribution[channel] || 0) + 1;
+          
+          const queue = call.meta["Queue"] || "Unknown";
+          localQueueDistribution[queue] = (localQueueDistribution[queue] || 0) + 1;
+      });
+
+      // Define a broader color palette for these charts if needed, or use the global COLOR_POOL
+      const pieChartColors = [
+        'rgba(255, 99, 132, 0.7)', 'rgba(54, 162, 235, 0.7)', 'rgba(255, 206, 86, 0.7)',
+        'rgba(75, 192, 192, 0.7)', 'rgba(153, 102, 255, 0.7)', 'rgba(255, 159, 64, 0.7)',
+        'rgba(255, 99, 132, 0.5)', 'rgba(54, 162, 235, 0.5)', 'rgba(255, 206, 86, 0.5)',
+        'rgba(75, 192, 192, 0.5)', 'rgba(153, 102, 255, 0.5)', 'rgba(255, 159, 64, 0.5)'
+      ];
+
+      // Channel distribution
       const channelCanvas = document.getElementById('channelDistributionChart');
       if (!channelCanvas) {
         console.warn("Channel distribution chart canvas not found");
         return;
       }
       const channelCtx = channelCanvas.getContext('2d');
-      
-      // Prepare data
-      const channelLabels = Object.keys(dashboardData.channelDistribution);
-      const channelData = Object.values(dashboardData.channelDistribution);
       
       // Destroy existing chart if it exists
       if (channelDistributionChart) {
@@ -1193,17 +1352,10 @@
       channelDistributionChart = new Chart(channelCtx, {
         type: 'pie',
         data: {
-          labels: channelLabels,
+          labels: Object.keys(localChannelDistribution),
           datasets: [{
-            data: channelData,
-            backgroundColor: [
-              'rgba(255, 99, 132, 0.7)',
-              'rgba(54, 162, 235, 0.7)',
-              'rgba(255, 206, 86, 0.7)',
-              'rgba(75, 192, 192, 0.7)',
-              'rgba(153, 102, 255, 0.7)',
-              'rgba(255, 159, 64, 0.7)'
-            ],
+            data: Object.values(localChannelDistribution),
+            backgroundColor: pieChartColors,
             borderColor: '#2a2a2a',
             borderWidth: 1
           }]
@@ -1230,10 +1382,6 @@
       }
       const queueCtx = queueCanvas.getContext('2d');
       
-      // Prepare data
-      const queueLabels = Object.keys(dashboardData.queueDistribution);
-      const queueData = Object.values(dashboardData.queueDistribution);
-      
       // Destroy existing chart if it exists
       if (queueDistributionChart) {
         queueDistributionChart.destroy();
@@ -1243,17 +1391,10 @@
       queueDistributionChart = new Chart(queueCtx, {
         type: 'pie',
         data: {
-          labels: queueLabels,
+          labels: Object.keys(localQueueDistribution),
           datasets: [{
-            data: queueData,
-            backgroundColor: [
-              'rgba(54, 162, 235, 0.7)',
-              'rgba(255, 99, 132, 0.7)',
-              'rgba(255, 206, 86, 0.7)',
-              'rgba(75, 192, 192, 0.7)',
-              'rgba(153, 102, 255, 0.7)',
-              'rgba(255, 159, 64, 0.7)'
-            ],
+            data: Object.values(localQueueDistribution),
+            backgroundColor: pieChartColors.slice().reverse(),
             borderColor: '#2a2a2a',
             borderWidth: 1
           }]
@@ -1273,9 +1414,8 @@
       });
     }
     
-    // Render categories chart - based on filteredCalls
+    // Render categories chart
     function renderCategoriesChart() {
-      // dashboardData.categories is from filteredCalls via processDataForDisplay
       const canvasElement = document.getElementById('categoriesChart');
       if (!canvasElement) {
         console.warn("Categories chart canvas not found");
@@ -1284,29 +1424,33 @@
       const ctx = canvasElement.getContext('2d');
       const categoryDetailsContainer = document.getElementById('categoryDetails');
       
-      // Get categories data
-      const categories = Object.entries(dashboardData.categories)
-        .sort((a, b) => b[1] - a[1]) // Sort by count descending
-        .slice(0, 10); // Top 10 categories
+      const localCategories = {};
+      dashboardData.filteredCalls.forEach(call => {
+          if (call.meta["Categories"] && call.meta["Categories"] !== "N/A") {
+            const categoryList = call.meta["Categories"].split(',').map(cat => cat.trim());
+            categoryList.forEach(category => {
+              if (category) {
+                localCategories[category] = (localCategories[category] || 0) + 1;
+              }
+            });
+          }
+      });
       
-      // Check if we have data
+      const categories = Object.entries(localCategories)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10);
+      
       if (categories.length === 0) {
-        categoryDetailsContainer.innerHTML = '<div class="no-data-message">No categories data available</div>';
+        if (categoriesChart) categoriesChart.destroy();
+        categoriesChart = null;
+        categoryDetailsContainer.innerHTML = '<div class="no-data-message">No categories data available for current filter</div>';
         return;
       }
       
-      // Prepare chart data
-      const labels = categories.map(c => c[0]);
       const counts = categories.map(c => c[1]);
       
-      // Create color array - gradient from green to purple
-      const colors = counts.map((_, index) => {
-        const ratio = index / (counts.length - 1);
-        const r = Math.round(164 + (76 - 164) * ratio);
-        const g = Math.round(62 + (175 - 62) * ratio);
-        const b = Math.round(201 + (80 - 201) * ratio);
-        return `rgba(${r}, ${g}, ${b}, 0.7)`;
-      });
+      // Create color array - using a slice of COLOR_POOL for variety
+      const categoryColors = COLOR_POOL.slice(0, Math.min(counts.length, COLOR_POOL.length)).map(c => c.replace('0.8', '0.7'));
       
       // Destroy existing chart if it exists
       if (categoriesChart) {
@@ -1317,13 +1461,13 @@
       categoriesChart = new Chart(ctx, {
         type: 'bar',
         data: {
-          labels: labels,
+          labels: categories.map(c => c[0]),
           datasets: [
             {
               label: 'Call Count',
               data: counts,
-              backgroundColor: colors,
-              borderColor: colors.map(c => c.replace('0.7', '1')),
+              backgroundColor: categoryColors,
+              borderColor: categoryColors.map(c => c.replace('0.7', '1')),
               borderWidth: 1
             }
           ]
@@ -1370,7 +1514,7 @@
       
       // Update category details section with table
       let detailsHtml = `
-        <h3 style="font-size: 16px; margin-bottom: 10px; color: #aaa;">Category Distribution (Filtered)</h3>
+        <h3 style="font-size: 16px; margin-bottom: 10px; color: #aaa;">Category Distribution</h3>
         <table style="width: 100%;">
           <thead>
             <tr>
@@ -1382,9 +1526,9 @@
           <tbody>
       `;
       
-      const totalFilteredCalls = dashboardData.filteredCalls.length; // Use filtered total
+      const totalCalls = dashboardData.filteredCalls.length;
       categories.forEach(([category, count]) => {
-        const percentage = totalFilteredCalls > 0 ? (count / totalFilteredCalls * 100).toFixed(1) : 0; // Check totalFilteredCalls
+        const percentage = (count / totalCalls * 100).toFixed(1);
         detailsHtml += `
           <tr>
             <td style="text-align: left;">${category}</td>
@@ -1402,63 +1546,42 @@
       categoryDetailsContainer.innerHTML = detailsHtml;
     }
     
-    // Update the repeat callers table - based on filteredCalls
-    function updateRepeatCallersTable() {
-      // dashboardData.repeatCallers is from filteredCalls via processDataForDisplay
-      const tableBody = document.getElementById('repeatCallersBody');
-      if(!tableBody) {
-        console.warn("Repeat callers table body not found. Original or new.");
-        return;
-      }
-      // Get callers with multiple calls
-      const repeatCallers = Object.values(dashboardData.repeatCallers)
-        .filter(caller => caller.calls.length > 1)
-        .sort((a, b) => b.calls.length - a.calls.length);
-      
-      // Clear table
-      tableBody.innerHTML = '';
-      
-      // No data case
-      if (repeatCallers.length === 0) {
-        const row = document.createElement('tr');
-        row.innerHTML = '<td colspan="5" class="no-data-message">No repeat callers found</td>';
-        tableBody.appendChild(row);
-        return;
-      }
-      
-      // Add rows (limited to top 10)
-      repeatCallers.slice(0, 10).forEach(caller => {
-        const row = document.createElement('tr');
-        
-        // Get top flags for this caller
-        const topFlags = Object.entries(caller.flagCount)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 3)
-          .map(([flag, count]) => `${flag} (${count})`)
-          .join(', ');
-        
-        // Format phone number for privacy
-        const phoneDisplay = caller.phoneNumber.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
-        
-        row.innerHTML = `
-          <td>${phoneDisplay}</td>
-          <td>${caller.calls.length}</td>
-          <td>${caller.latestCall ? new Date(caller.latestCall).toLocaleString() : 'Unknown'}</td>
-          <td>${caller.firstCall ? new Date(caller.firstCall).toLocaleString() : 'Unknown'}</td>
-          <td>${topFlags || 'None'}</td>
-        `;
-        
-        tableBody.appendChild(row);
-      });
-    }
-    
-    // Update common topics - based on filteredCalls
+    // Update common topics word cloud
     function updateCommonTopics() {
-      // dashboardData.wordFrequency is from filteredCalls via processDataForDisplay
       const container = document.getElementById('commonTopics');
       
-      // Get top words
-      const topWords = Object.entries(dashboardData.wordFrequency)
+      const localWordFrequency = {};
+      dashboardData.filteredCalls.forEach(call => {
+          if (call.transcript && call.transcript.length > 0) {
+              call.transcript.forEach(entry => {
+                  if (entry.text) {
+                      const text = entry.text.toLowerCase();
+                      const words = text.split(/\s+/).filter(word => 
+                          word.length > 3 && 
+                          ![
+                            "this", "that", "what", "with", "have", "your", "from", "there", "would", "could", "about", "which",
+                            "just", "like", "it's", "yeah", "don't", "going", "gonna", "you're", "thank", "then", "know", "because",
+                            "they", "well", "need", "give", "take", "back", "right", "name", "alright", "when", "want", "here",
+                            "make", "let's", "will", "okay", "actually", "sorry", "able", "sure", "were", "been", "does", "doing", 
+                            "should", "can't", "can't", "didn't", "isn't", "that's", "i'll", "we'll", "wasn't", "they're",
+                            "where", "their", "them", "these", "those", "some", "myself", "yourself", "himself", "herself",
+                            "please", "account", "information", "customer", "service", "contact", "number", "email", "phone", 
+                            "call", "calling", "assistance",
+                            "help", "good", "time", "more", "only", "send", "still", "text", "data", "said", "today", 
+                            "what's", "we're", "boost", "card", "digit", "yeah,", "you,", "here.", "know,", "right,", "yes,",
+                            "alright,", "that,", "bye,", "cxo-supcall-de-escalate", "credit_debit_number", "choosing", "phone",
+                            "payment", "cxo-wireless-call-issues", "i've"
+                          ].includes(word)
+                      );
+                      words.forEach(word => {
+                          localWordFrequency[word] = (localWordFrequency[word] || 0) + 1;
+                      });
+                  }
+              });
+          }
+      });
+
+      const topWords = Object.entries(localWordFrequency)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 40); // Top 40 words
       
@@ -1497,31 +1620,47 @@
       });
     }
     
-    // Update the top agents table - MUST use displayAgentMetrics
+    // Update the top agents table
     function updateTopAgentsTable() {
       const tableBody = document.getElementById('topAgentsBody');
       if(!tableBody) {
         console.warn("Top agents table body not found. Original or new.");
         return;
       }
-      
-      // Use displayAgentMetrics which is based on filteredCalls and processed by processDataForDisplay
-      const sortedAgents = Object.values(dashboardData.displayAgentMetrics || {})
+      // Calculate agent stats based on filteredCalls
+      const agentsInFilteredSetForTable = {};
+       dashboardData.filteredCalls.forEach(call => {
+          const agentName = call.meta["Agent"] || call.meta["Agent name"] || "Unknown";
+          if (!agentsInFilteredSetForTable[agentName]) {
+              agentsInFilteredSetForTable[agentName] = { 
+                  name: agentName, totalCalls: 0, positiveCalls: 0, positiveScore: 0, totalDuration: 0 
+              };
+          }
+          const agentData = agentsInFilteredSetForTable[agentName];
+          agentData.totalCalls++;
+          if (call.positiveFlags && call.positiveFlags.length > 0) agentData.positiveCalls++;
+          agentData.positiveScore += (call.positiveScore || 0);
+          agentData.totalDuration += parseDuration(call.meta["Contact duration"] || "0");
+      });
+
+      const sortedAgents = Object.values(agentsInFilteredSetForTable)
         .map(agent => {
           const positiveRatio = agent.totalCalls > 0 ? 
             (agent.positiveCalls / agent.totalCalls) : 0;
-          // avgScore is already calculated as part of total positiveScore / totalCalls in displayAgentMetrics
-          // but let's ensure it's used correctly
-          const avgScoreDisplay = agent.totalCalls > 0 ? (agent.positiveScore / agent.totalCalls) : 0;
+          const avgScore = agent.totalCalls > 0 ? 
+            (agent.positiveScore / agent.totalCalls) : 0;
+          const avgDuration = agent.totalCalls > 0 ?
+            (agent.totalDuration / agent.totalCalls) :0;
             
           return {
-            ...agent, // contains name, totalCalls, avgDuration (already calculated)
+            ...agent,
             positiveRatio,
-            avgScore: avgScoreDisplay 
+            avgScore,
+            avgDuration
           };
         })
-        .sort((a, b) => b.avgScore - a.avgScore) // Sort by average positive score
-        .slice(0, 10); // Top 10
+        .sort((a, b) => b.avgScore - a.avgScore)
+        .slice(0, 5); // Top 5 by positive score
       
       // Clear table
       tableBody.innerHTML = '';
@@ -1550,12 +1689,98 @@
       });
     }
     
-    // New function for the positive calls list in the "Positive" tab - based on filteredCalls
+    // New function for Positive Indicators chart in the "Positive" tab
+    function renderPositiveIndicatorsChartActual() {
+      console.log("[Debug] renderPositiveIndicatorsChartActual called with filtered data");
+      const localPositiveFlags = {};
+      dashboardData.filteredCalls.forEach(call => {
+          if (call.positiveFlags) {
+              call.positiveFlags.forEach(flag => {
+                  localPositiveFlags[flag] = (localPositiveFlags[flag] || 0) + 1;
+              });
+          }
+      });
+      console.log("[Debug] localPositiveFlags (from filtered):", JSON.parse(JSON.stringify(localPositiveFlags)));
+
+      const canvasElement = document.getElementById('positiveIndicatorsChartActual');
+      if (!canvasElement) {
+        console.warn("Positive Indicators chart canvas not found");
+        return;
+      }
+      const ctx = canvasElement.getContext('2d');
+      
+      const topPositiveFlags = Object.entries(localPositiveFlags)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10); // Display top 10 positive flags for clarity
+      
+      const labels = topPositiveFlags.map(f => f[0]);
+      const data = topPositiveFlags.map(f => f[1]);
+
+      // Destroy existing chart if it exists
+      if (positiveIndicatorsChartActual) {
+        positiveIndicatorsChartActual.destroy();
+      }
+      
+      // Create new chart
+      positiveIndicatorsChartActual = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Positive Indicator Occurrences',
+            data: data,
+            backgroundColor: 'rgba(76, 175, 80, 0.7)',
+            borderColor: 'rgba(76, 175, 80, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              ticks: {
+                color: '#ccc'
+              },
+              grid: {
+                color: 'rgba(255, 255, 255, 0.05)'
+              }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                color: '#ccc',
+                stepSize: Math.max(1, Math.ceil(Math.max(...data) / 10))
+              },
+              grid: {
+                color: 'rgba(255, 255, 255, 0.05)'
+              }
+            }
+          },
+          plugins: {
+            legend: {
+              labels: {
+                color: '#ccc'
+              }
+            },
+            title: {
+                display: true,
+                text: 'Top Positive Indicators',
+                color: '#ccc',
+                font: {
+                    size: 16
+                }
+            }
+          }
+        }
+      });
+    }
+    
+    // New function for the positive calls list in the "Positive" tab
     function updatePositiveCallsListActual() {
-        console.log("[Debug] updatePositiveCallsListActual called");
-        // Use filteredCalls directly
+        console.log("[Debug] updatePositiveCallsListActual called with filtered data");
         const positiveCallsSource = dashboardData.filteredCalls.filter(call => call.positiveScore > 0);
-        console.log("[Debug] Calls with positiveScore > 0 (from filteredCalls):", JSON.parse(JSON.stringify(positiveCallsSource)));
+        console.log("[Debug] Calls with positiveScore > 0 (from filtered):", JSON.parse(JSON.stringify(positiveCallsSource)));
 
         const container = document.getElementById('positiveCallsListActual');
         if (!container) {
@@ -1601,7 +1826,20 @@
             container.appendChild(callElement);
         });
     }
+
+    // Helper to get selected agents from the dropdown
+    function getSelectedAgentsFromFilter() {
+        if (!agentFilterElement) return ['all']; // Should not happen if element is present
+        return [...agentFilterElement.selectedOptions].map(option => option.value);
+    }
+
+    // Callback for when agent filter changes
+    function handleAgentFilterChange(selectedAgents) {
+        console.log("Agent filter changed, selected:", selectedAgents);
+        localStorage.setItem('selectedAgents', JSON.stringify(selectedAgents));
+        
+        refreshDashboard();
+    }
   </script>
 </body>
 </html>
-

@@ -1,7 +1,7 @@
 // agentFilterManager.js
 // Manages global multi-agent filtering system
 
-export function initializeAgentFilterDropdown(agents, onChange) {
+function initializeAgentFilterDropdown(agents, onChange) {
   const filter = document.getElementById('agentFilter');
   filter.innerHTML = ''; // Clear existing options
 
