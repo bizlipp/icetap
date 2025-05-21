@@ -7,6 +7,9 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="js/agentFilterManager.js"></script>
   <script src="js/repeatAnalysis.js"></script>
+  <script src="js/themeMap.js"></script>
+  <script src="js/reportComposer.js"></script>
+  <script src="js/reportUI.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -176,6 +179,27 @@
       to { opacity: 1; }
     }
     /* End Tab System Styles */
+
+    /* Styles for Agent Performance Snapshots tags */
+    .snapshot-tag {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 0.8em;
+      margin-right: 4px;
+      margin-bottom: 4px; /* if they wrap */
+    }
+    .snapshot-tag-flag {
+      background-color: rgba(255, 77, 77, 0.1); /* Light red */
+      color: #ff4d4d; /* Red */
+      border: 1px solid rgba(255, 77, 77, 0.3);
+    }
+    .snapshot-tag-positive {
+      background-color: rgba(76, 175, 80, 0.1); /* Light green */
+      color: #4caf50; /* Green */
+      border: 1px solid rgba(76, 175, 80, 0.3);
+    }
+    /* End Styles for Agent Performance Snapshots tags */
   </style>
 </head>
 <body>
@@ -331,9 +355,12 @@
             <tr>
               <th>Customer Phone</th>
               <th>Call Count</th>
-              <th>Latest Call</th>
-              <th>First Call</th>
-              <th>Common Flags</th>
+              <th>Span (Days)</th>
+              <th>First Call Date</th>
+              <th>Latest Call Date</th>
+              <th>Top Themes</th>
+              <th>Agent Trail</th>
+              <th>Pattern Tag</th>
             </tr>
           </thead>
           <tbody id="repeatCallersBodyOriginalLocation">
@@ -353,6 +380,36 @@
           <div class="no-data-message">No data available</div>
         </div>
       </div>
+
+      <!-- New: Flag & Positive Indicator Trends -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <span>📊 Flag & Positive Indicator Snapshot</span>
+        </div>
+        <div style="display: flex; gap: 20px; margin-bottom:20px;">
+          <div style="flex: 1;">
+            <h4 style="font-size: 16px; color: #aaa; margin-bottom: 10px; text-align: center;">Top 5 Flags</h4>
+            <div class="chart-container" style="height: 250px;">
+              <canvas id="topFlagsChartInsights"></canvas>
+            </div>
+          </div>
+          <div style="flex: 1;">
+            <h4 style="font-size: 16px; color: #aaa; margin-bottom: 10px; text-align: center;">Top 5 Positive Indicators</h4>
+            <div class="chart-container" style="height: 250px;">
+              <canvas id="topPositiveIndicatorsChartInsights"></canvas>
+            </div>
+          </div>
+        </div>
+        <!-- Line Chart for Trends -->
+        <div>
+             <h4 style="font-size: 16px; color: #aaa; margin-bottom: 10px; text-align: center;">Daily Flag & Positive Indicator Trends</h4>
+            <div class="chart-container" style="height: 300px;">
+                <canvas id="flagPositiveTrendsChart"></canvas>
+            </div>
+        </div>
+      </div>
+      <!-- End New: Flag & Positive Indicator Trends -->
+
     </div>
     
     <div class="dashboard-container">
@@ -448,9 +505,12 @@
             <tr>
               <th>Customer Phone</th>
               <th>Call Count</th>
-              <th>Latest Call</th>
-              <th>First Call</th>
-              <th>Common Flags</th>
+              <th>Span (Days)</th>
+              <th>First Call Date</th>
+              <th>Latest Call Date</th>
+              <th>Top Themes</th>
+              <th>Agent Trail</th>
+              <th>Pattern Tag</th>
             </tr>
           </thead>
           <tbody id="repeatCallersBody">
@@ -461,14 +521,25 @@
         </table>
       </div>
     </div>
+    <!-- Root Cause Reporting Block -->
+    <div class="dashboard-card" style="margin-top: 20px;">
+        <div class="card-header">
+            <span>🔍 Root Cause Analysis & Coaching Summary</span>
+            <button id="copyCoachingSummaryButton" style="margin-left: auto;">Copy Summary</button>
+        </div>
+        <div id="repeatSummaryBlock" style="padding: 15px; min-height: 100px; background: #2a2a2a; border-radius: 0 0 5px 5px;">
+            <div class="no-data-message">Coaching summary will appear here.</div>
+        </div>
+    </div>
     <!-- Placeholders for future content -->
     <div class="dashboard-container" style="margin-top: 20px;">
         <div class="dashboard-card">
             <div class="card-header">
                 <span>📊 Callback Timing Charts</span>
             </div>
-            <div id="repeatCallersTimingCharts">
+            <div id="repeatCallersTimingCharts" style="display: flex; flex-wrap: wrap; gap: 15px;">
                 <!-- Content will be rendered by js/repeatAnalysis.js -->
+                <!-- This div will now contain volumeChartDiv and pieChartDiv -->
             </div>
         </div>
         <div class="dashboard-card">
@@ -514,7 +585,7 @@
 
   <script>
     // Dashboard state
-    let dashboardData = {
+    window.dashboardData = {
       calls: [],
       filteredCalls: [],
       agents: {},
@@ -526,10 +597,109 @@
       channelDistribution: {},
       queueDistribution: {},
       wordFrequency: {},
+      topicFrequency: {},
       repeatCallers: {},
       categories: {},
+      dailyFlagCounts: {}, // New for trend chart
+      dailyPositiveCounts: {}, // New for trend chart
       loaded: false
     };
+    
+    window.themeMap = {
+      // Billing & Payments
+      "bill": "Billing", "billing": "Billing", "charge": "Billing", "charged": "Billing", "payment": "Billing", "invoice": "Billing", "refund": "Billing", "overcharge": "Billing", "statement": "Billing",
+      // Cancellations & Disconnections
+      "cancel": "Cancellation", "cancellation": "Cancellation", "disconnect": "Cancellation", "terminate": "Cancellation", "termination": "Cancellation", "close account": "Cancellation",
+      // Technical Issues & Support
+      "issue": "Technical Issue", "problem": "Technical Issue", "error": "Technical Issue", "broken": "Technical Issue", "fix": "Technical Issue", "support": "Technical Issue", "password": "Login/Access", "login": "Login/Access", "username": "Login/Access", "account access": "Login/Access",
+      // Product & Service Info
+      "service": "Service Inquiry", "product": "Product Inquiry", "feature": "Feature Inquiry", "plan": "Plan Inquiry", "upgrade": "Service Change", "downgrade": "Service Change", "change plan": "Service Change",
+      // Agent & Interaction Quality
+      "agent": "Agent Interaction", "representative": "Agent Interaction", "helpful": "Positive Feedback", "great service": "Positive Feedback", "thank you": "Positive Feedback", "appreciate": "Positive Feedback", "complaint": "Negative Feedback", "unhelpful": "Negative Feedback", "frustrated": "Negative Feedback", "angry": "Negative Feedback",
+      // Common Actions/Requests
+      "update": "Update Information", "address": "Update Information", "email": "Update Information", "phone number": "Update Information",
+      // Time & Urgency
+      "urgent": "Urgent Matter", "asap": "Urgent Matter", "immediately": "Urgent Matter",
+      // Follow-up & History
+      "follow up": "Follow-up", "called before": "Previous Call", "last call": "Previous Call", "still waiting": "Ongoing Issue"
+    };
+
+    window.softSkillKeywordMap = {
+      "Empathy": ["understand", "understood", "appreciate", "listen", "listened", "patient", "patience", "care", "caring", "sympathy", "empathetic"],
+      "Communication": ["clear", "clearly", "explain", "explained", "concise", "articulate", "communication", "helpful", "information"],
+      "Problem Solving": ["resolve", "resolved", "solution", "problem solved", "fix", "fixed", "issue resolved", "effective"],
+      "Professionalism": ["professional", "courteous", "polite", "respectful", "manner"],
+      "Efficiency": ["quick", "quickly", "efficient", "fast", "prompt"]
+      // Add more skills and keywords as needed
+    };
+
+    // Expanded Stop Words List
+    const STOP_WORDS = [
+        "a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "aren't", "as", "at",
+        "be", "because", "been", "before", "being", "below", "between", "both", "but", "by",
+        "can", "cannot", "can't", "could", "couldn't",
+        "did", "didn't", "do", "does", "doesn't", "doing", "don't", "down", "during",
+        "each",
+        "few", "for", "from", "further",
+        "had", "hadn't", "has", "hasn't", "have", "haven't", "having", "he", "he'd", "he'll", "he's", "her", "here", "here's", "hers", "herself", "him", "himself", "his", "how", "how's",
+        "i", "i'd", "i'll", "i'm", "i've", "if", "in", "into", "is", "isn't", "it", "it's", "its", "itself",
+        "just", "know",
+        "let's", "like",
+        "me", "more", "most", "mustn't", "my", "myself",
+        "no", "nor", "not", "now",
+        "of", "off", "on", "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over", "own",
+        "please",
+        "same", "shan't", "she", "she'd", "she'll", "she's", "should", "shouldn't", "so", "some", "such",
+        "than", "that", "that's", "the", "their", "theirs", "them", "themselves", "then", "there", "there's", "these", "they", "they'd", "they'll", "they're", "they've", "this", "those", "through", "to", "too",
+        "under", "until", "up",
+        "very",
+        "was", "wasn't", "we", "we'd", "we'll", "we're", "we've", "were", "weren't", "what", "what's", "when", "when's", "where", "where's", "which", "while", "who", "who's", "whom", "why", "why's", "with", "won't", "would", "wouldn't",
+        "yeah", "yes", "yet", "you", "you'd", "you'll", "you're", "you've", "your", "yours", "yourself", "yourselves",
+        // Common conversational fillers & short words
+        "okay", "ok", "oh", "ah", "uh", "um", "hmm", "huh", "got", "hi", "hey", "hello", "bye", "goodbye", "thanks", "thankyou",
+        "able", "actually", "also", "always", "another", "anything", "around", "away", "back", "become", "call", "calling", "came", "come", "coming",
+        "day", "days", "done", "else", "even", "every", "everyone", "everything", "feel", "find", "first", "five", "four", "get", "getting", "give", "giving", "go", "going", "gonna", "gotta", "guys",
+        "hello", "help", "here", "hi", "hour", "hours", "information", "isnt", "item", "items", "kinda", "knew", "last", "left", "let", "little", "long", "look", "looking", "lot",
+        "made", "make", "making", "man", "many", "maybe", "mean", "means", "might", "minute", "minutes", "moment", "month", "months", "morning", "mr", "mrs", "ms", "much", "name", "need", "never", "new", "next", "nice", "night", "nope",
+        "number", "numbers", "one", "ones", "opportunity", "options", "order", "orders", "other", "others", "our", "ours", "out", "over", "own",
+        "part", "parts", "past", "people", "percent", "perhaps", "person", "phone", "place", "play", "point", "possible", "pretty", "probably", "put",
+        "question", "questions", "quite",
+        "rather", "real", "really", "reason", "regards", "remember", "remove", "regard", "regarding", "response", "right", "room",
+        "said", "saw", "say", "saying", "second", "see", "seeing", "seem", "seemed", "seems", "send", "sent", "serious", "several", "shall", "show", "showed", "shows", "side", "since", "sir", "situation", "small", "somebody", "someone", "something", "sometime", "sometimes", "somewhere", "soon", "sorry", "sort", "speak", "start", "started", "state", "still", "stuff", "sure", "system",
+        "talk", "talking", "tell", "thing", "things", "think", "thinking", "though", "three", "time", "times", "today", "told", "tomorrow", "tonight", "took", "totally", "try", "trying", "two",
+        "understand", "use", "used", "using",
+        "version",
+        "wait", "waiting", "want", "wanna", "way", "week", "weeks", "welcome", "well", "went", "whatever", "whole", "whose", "will", "wish", "within", "without", "word", "words", "work", "working", "world", "write",
+        "yesterday", "yet",
+        // Words that might be too generic depending on context, but good to filter for general topics
+        "account", "action", "address", "advice", "afternoon", "age", "agent", "alert", "amount", "application", "area", "ask", "asked", "asking", "assistance", "available",
+        "balance", "based", "basis", "begin", "believe", "best", "better", "big", "bit", "book", "brand", "business", "buy",
+        "card", "care", "case", "cases", "cause", "center", "certain", "certainly", "chance", "change", "changes", "character", "check", "checking", "choice", "choose", "clear", "clearly", "client", "close", "company", "complete", "completely", "concern", "condition", "conference", "confirm", "confirmation", "connect", "consider", "contact", "continue", "contract", "control", "conversation", "copy", "correct", "cost", "country", "couple", "course", "create", "credit", "current", "currently", "customer",
+        "data", "date", "deal", "dear", "decide", "decision", "define", "definitely", "degree", "department", "depend", "describe", "description", "detail", "details", "develop", "different", "difficult", "direct", "discuss", "document", "double", "doubt", "drive", "due", "duty",
+        "earlier", "early", "easily", "easy", "effect", "either", "end", "ensure", "enter", "entire", "especially", "etc", "exact", "exactly", "example", "except", "expect", "experience", "explain", "express", "extra",
+        "face", "fact", "factor", "fail", "fall", "family", "far", "fast", "father", "fear", "feedback", "field", "figure", "file", "fill", "final", "finally", "financial", "fine", "finish", "firm", "follow", "following", "foot", "force", "form", "former", "forward", "free", "friend", "front", "full", "function", "fund", "future",
+        "game", "general", "generally", "given", "glad", "goal", "god", "good", "government", "great", "ground", "group", "grow", "guess", "guy",
+        "half", "hand", "handle", "happen", "happened", "hard", "head", "hear", "heard", "heart", "hello", "hence", "hers", "high", "history", "hit", "hold", "home", "hope", "house", "however", "human", "hundred",
+        "idea", "identify", "image", "important", "impossible", "improve", "include", "including", "increase", "indeed", "indicate", "individual", "industry", "influence", "inside", "instance", "instead", "interest", "international", "interview", "introduce", "investigation", "involve", "involved", "itself",
+        "job", "join", "keep", "key", "kind", "knowledge",
+        "language", "large", "later", "latest", "latter", "law", "lay", "lead", "learn", "least", "leave", "legal", "less", "letter", "level", "life", "light", "line", "list", "listen", "live", "local", "lose", "love", "low",
+        "main", "major", "manage", "management", "manner", "mark", "market", "match", "material", "matter", "may", "measure", "media", "meet", "meeting", "member", "mention", "message", "method", "middle", "million", "mind", "miss", "model", "money", "month", "mother", "move", "movement",
+        "nature", "near", "nearly", "necessary", "neither", "network", "news", "normal", "note", "nothing", "notice",
+        "object", "observe", "obtain", "obvious", "occur", "offer", "office", "often", "old", "open", "operate", "operation", "opinion", "option", "organisation", "original", "otherwise", "outside",
+        "page", "paper", "parent", "particular", "particularly", "party", "pass", "pattern", "pay", "per", "perform", "performance", "period", "personal", "picture", "piece", "plan", "play", "plus", "pm", "policy", "political", "pool", "poor", "popular", "position", "positive", "power", "practice", "prefer", "prepare", "present", "president", "press", "pressure", "previous", "price", "primary", "principle", "print", "prior", "private", "process", "produce", "product", "production", "profile", "program", "progress", "project", "promise", "proper", "property", "propose", "protect", "provide", "public", "pull", "purpose", "push", "put",
+        "quality", "quarter", "question", "quick", "quickly",
+        "race", "radio", "raise", "range", "rate", "reach", "read", "ready", "realize", "receive", "recent", "recently", "recognize", "record", "red", "reduce", "refer", "reference", "reflect", "regard", "region", "relate", "related", "relation", "relationship", "release", "remain", "remember", "report", "represent", "require", "research", "resource", "respect", "respond", "result", "return", "reveal", "review", "road", "role", "roll", "room", "rule", "run",
+        "safe", "sale", "save", "scale", "scene", "school", "science", "score", "search", "season", "seat", "section", "secure", "security", "select", "sell", "sense", "separate", "series", "serve", "service", "session", "set", "settle", "seven", "share", "short", "shot", "simple", "simply", "single", "sit", "site", "size", "skill", "social", "society", "solution", "somehow", "son", "song", "sort", "sound", "source", "south", "space", "speak", "special", "specific", "specifically", "speech", "speed", "spend", "sport", "spring", "staff", "stage", "stand", "standard", "star", "start", "statement", "station", "status", "stay", "step", "stock", "stop", "store", "story", "strategy", "street", "strong", "structure", "student", "study", "style", "subject", "succeed", "success", "successful", "suddenly", "suffer", "suggest", "suit", "summer", "sun", "supply", "support", "suppose", "surface", "survey",
+        "table", "take", "tax", "teach", "team", "technology", "telephone", "television", "term", "terms", "test", "thank", "therefore", "thing", "third", "thought", "thousand", "threat", "throughout", "throw", "thus", "ticket", "title", "together", "tomorrow", "top", "total", "touch", "toward", "town", "track", "trade", "traditional", "train", "training", "transfer", "transport", "travel", "treat", "treatment", "tree", "trial", "trip", "trouble", "true", "trust", "turn", "tv", "twelve", "twenty", "type",
+        "unable", "unit", "united", "university", "upon", "usually",
+        "value", "various", "view", "visit", "voice", "volume",
+        "walk", "wall", "war", "watch", "water", "wear", "weather", "website", "week", "weight", "west", "white", "whole", "wide", "wife", "win", "wind", "window", "wine", "winter", "woman", "women", "wonder", "word", "worker", "world", "worry", "worth", "writer", "writing", "wrong",
+        "year", "yesterday", "young",
+        "zone",
+        // Words from the original exclusion list (some might be redundant now)
+        "cxo-supcall-de-escalate", "credit_debit_number", "choosing",
+        "cxo-wireless-call-issues"
+    ];
     
     // DOM elements
     const loadDataButton = document.getElementById('loadDataButton');
@@ -548,10 +718,16 @@
     let channelDistributionChart = null;
     let queueDistributionChart = null;
     let categoriesChart = null;
+    let callbackVolumeChart = null;
+    let agentRepeatCountsChart = null;
+    let repeatThemesPieChart = null;
+    let topFlagsChartInsights = null; // New chart
+    let topPositiveIndicatorsChartInsights = null; // New chart
+    let flagPositiveTrendsChart = null; // New chart for trends
     
     // Constants
     const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-    const COLOR_POOL = [
+    window.COLOR_POOL = [
         'rgba(164, 62, 201, 0.8)', 'rgba(76, 175, 80, 0.8)', 'rgba(255, 77, 77, 0.8)', 
         'rgba(33, 150, 243, 0.8)', 'rgba(255, 152, 0, 0.8)', 'rgba(0, 150, 136, 0.8)',
         'rgba(233, 30, 99, 0.8)', 'rgba(139, 195, 74, 0.8)', 'rgba(255, 235, 59, 0.8)',
@@ -572,29 +748,31 @@
           const activeTabId = button.dataset.tab;
           document.getElementById(activeTabId).classList.add('active');
           
-          // Render or update content for the newly active tab
-          if (dashboardData.loaded) {
+          if (window.dashboardData.loaded) {
             renderActiveTabContent(activeTabId);
+            if (activeTabId === 'repeatCallersTab') {
+                if (document.getElementById('repeatSummaryBlock') && document.getElementById('copyCoachingSummaryButton')) {
+                    initializeReportUI('repeatSummaryBlock', 'copyCoachingSummaryButton');
+                }
+            }
           }
         });
       });
 
-      // Automatically try to load data and activate the first tab
       loadDataFromParser().then(() => {
-        if (dashboardData.loaded) {
-          const uniqueAgentNames = Object.keys(dashboardData.agents).sort();
+        if (window.dashboardData.loaded) {
+          const uniqueAgentNames = Object.keys(window.dashboardData.agents).sort();
           initializeAgentFilterDropdown(uniqueAgentNames, handleAgentFilterChange);
           handleAgentFilterChange(getSelectedAgentsFromFilter());
         }
         if (tabButtons.length > 0 && !document.querySelector('.tab-button.active')) {
-            tabButtons[0].click(); // Activate the first tab if none is active
+            tabButtons[0].click();
         }
       }); 
     });
     
-    // New function to handle rendering content of the active tab
     function renderActiveTabContent(activeTabId) {
-        if (!dashboardData.loaded || !dashboardData.filteredCalls || dashboardData.filteredCalls.length === 0) {
+        if (!window.dashboardData.loaded || !window.dashboardData.filteredCalls || window.dashboardData.filteredCalls.length === 0) {
             console.log("No filtered data to render for tab:", activeTabId);
             if (activeTabId === 'overviewTab') {
                 if (agentPerformanceChart) agentPerformanceChart.destroy();
@@ -612,15 +790,30 @@
                 channelDistributionChart = null;
                 queueDistributionChart = null;
                 categoriesChart = null;
+                if (callbackVolumeChart) callbackVolumeChart.destroy();
+                callbackVolumeChart = null;
+                if (agentRepeatCountsChart) agentRepeatCountsChart.destroy();
+                agentRepeatCountsChart = null;
+                if (repeatThemesPieChart) repeatThemesPieChart.destroy();
+                repeatThemesPieChart = null;
+                if (flagPositiveTrendsChart) flagPositiveTrendsChart.destroy(); // Destroy new chart
+                flagPositiveTrendsChart = null;
             } else if (activeTabId === 'positiveTab') {
                 if (positiveIndicatorsChartActual) positiveIndicatorsChartActual.destroy();
                 positiveIndicatorsChartActual = null;
                 document.getElementById('positiveCallsListActual').innerHTML = '<div class="no-data-message">No positive performance data for current filter</div>';
                 document.getElementById('topAgentsBody').innerHTML = '<tr><td colspan="5" class="no-data-message">No agent data for current filter</td></tr>';
             } else if (activeTabId === 'repeatCallersTab') {
-                updateRepeatCallersTabContent(dashboardData.filteredCalls);
+                updateRepeatCallersTabContent(window.dashboardData.filteredCalls);
             } else if (activeTabId === 'insightsTab') {
                 document.getElementById('commonTopics').innerHTML = '<div class="no-data-message">No common topics for current filter</div>';
+                document.getElementById('agentSnapshotsContainer').innerHTML = '<div class="no-data-message">Select agents to see their performance snapshots.</div>';
+                if (topFlagsChartInsights) topFlagsChartInsights.destroy();
+                topFlagsChartInsights = null;
+                if (topPositiveIndicatorsChartInsights) topPositiveIndicatorsChartInsights.destroy();
+                topPositiveIndicatorsChartInsights = null;
+                if (flagPositiveTrendsChart) flagPositiveTrendsChart.destroy(); // Destroy new chart
+                flagPositiveTrendsChart = null;
             }
             return;
         }
@@ -634,12 +827,16 @@
             renderCategoriesChart();
         } else if (activeTabId === 'insightsTab') {
             updateCommonTopics();
+            updateAgentPerformanceSnapshots();
+            renderTopFlagsChartInsights(); // New function call
+            renderTopPositiveIndicatorsChartInsights(); // New function call
+            renderFlagPositiveTrendsChart(); // New function call
         } else if (activeTabId === 'positiveTab') {
             renderPositiveIndicatorsChartActual(); 
             updatePositiveCallsListActual(); 
             updateTopAgentsTable();
         } else if (activeTabId === 'repeatCallersTab') {
-            updateRepeatCallersTabContent(dashboardData.filteredCalls);
+            updateRepeatCallersTabContent(window.dashboardData.filteredCalls);
         } else if (activeTabId === 'coachingTab') {
             // Placeholder: No dynamic content to render yet
         } else if (activeTabId === 'reportsTab') {
@@ -647,36 +844,32 @@
         }
     }
     
-    // Load data from localStorage
     async function loadDataFromParser() {
       dataStatus.textContent = "Attempting to load data...";
-      dashboardData.loaded = false; 
-      dashboardData.calls = [];
-      dashboardData.filteredCalls = [];
+      window.dashboardData.loaded = false;
+      window.dashboardData.calls = [];
+      window.dashboardData.filteredCalls = [];
       try {
-        // Try to get data from localStorage
         const storedData = localStorage.getItem('inspiroCallData');
         
         if (storedData) {
           try {
             const parsedData = JSON.parse(storedData);
             if (Array.isArray(parsedData) && parsedData.length > 0) {
-              dashboardData.calls = parsedData;
+              window.dashboardData.calls = parsedData;
               
-              // Populate agentColors based on ALL agents in the dataset
-              const allAgentNamesInDataset = [...new Set(dashboardData.calls.map(call => call.meta["Agent"] || call.meta["Agent name"] || "Unknown"))].sort();
+              const allAgentNamesInDataset = [...new Set(window.dashboardData.calls.map(call => call.meta["Agent"] || call.meta["Agent name"] || "Unknown"))].sort();
               allAgentNamesInDataset.forEach((name, index) => {
-                  if (name !== "Unknown") { // Optionally exclude "Unknown" from having a dedicated color
-                    dashboardData.agentColors[name] = COLOR_POOL[index % COLOR_POOL.length];
+                  if (name !== "Unknown") {
+                    window.dashboardData.agentColors[name] = window.COLOR_POOL[index % window.COLOR_POOL.length];
                   }
               });
-              // console.log("[Debug] Populated agentColors:", JSON.parse(JSON.stringify(dashboardData.agentColors)));
 
               processData();
-              dataStatus.textContent = `✅ Loaded ${dashboardData.calls.length} calls`;
-              dashboardData.loaded = true;
+              dataStatus.textContent = `✅ Loaded ${window.dashboardData.calls.length} calls`;
+              window.dashboardData.loaded = true;
               
-              const uniqueAgentNames = Object.keys(dashboardData.agents).sort();
+              const uniqueAgentNames = Object.keys(window.dashboardData.agents).sort();
               initializeAgentFilterDropdown(uniqueAgentNames, handleAgentFilterChange);
               handleAgentFilterChange(getSelectedAgentsFromFilter());
               return;
@@ -693,49 +886,46 @@
       }
     }
     
-    // Process the raw call data into usable statistics
     function processData() {
-      // Reset processed data
-      dashboardData.agents = {};
-      dashboardData.flags = {};
-      dashboardData.positiveFlags = {};
-      dashboardData.hourDistribution = new Array(24).fill(0);
-      dashboardData.dayDistribution = new Array(7).fill(0);
-      dashboardData.channelDistribution = {};
-      dashboardData.queueDistribution = {};
-      dashboardData.wordFrequency = {};
-      dashboardData.repeatCallers = {};
-      dashboardData.categories = {};
+      window.dashboardData.agents = {};
+      window.dashboardData.flags = {};
+      window.dashboardData.positiveFlags = {};
+      window.dashboardData.hourDistribution = new Array(24).fill(0);
+      window.dashboardData.dayDistribution = new Array(7).fill(0);
+      window.dashboardData.channelDistribution = {};
+      window.dashboardData.queueDistribution = {};
+      window.dashboardData.wordFrequency = {};
+      window.dashboardData.topicFrequency = {};
+      window.dashboardData.repeatCallers = {};
+      window.dashboardData.categories = {};
+      window.dashboardData.dailyFlagCounts = {}; // Initialize
+      window.dashboardData.dailyPositiveCounts = {}; // Initialize
       
-      // Determine selected agents for filtering
       const selectedAgents = getSelectedAgentsFromFilter();
       const isFiltering = selectedAgents.length > 0 && !selectedAgents.includes('all');
 
-      dashboardData.filteredCalls = dashboardData.calls.filter(call => {
-        if (!isFiltering) return true; // No filter applied or "all" selected
-        const agent = call.meta["Agent"] || call.meta["Agent name"] || "Unknown";
-        return selectedAgents.includes(agent);
+      window.dashboardData.filteredCalls = window.dashboardData.calls.filter(call => {
+        if (!isFiltering) return true;
+        const agentName = call.meta["Agent name"] || call.meta["Agent"] || "Unknown";
+        return selectedAgents.includes(agentName);
       });
 
-      // Process each call from FILTERED calls for dashboard display
-      dashboardData.filteredCalls.forEach(call => {
-        // Agent data (still populate dashboardData.agents from ALL calls for the filter dropdown,
-        // but subsequent metrics are based on filteredCalls)
-        const agentName = call.meta["Agent"] || call.meta["Agent name"] || "Unknown";
-        if (!dashboardData.agents[agentName]) {
-          dashboardData.agents[agentName] = {
+      window.dashboardData.filteredCalls.forEach(call => {
+        const agentName = call.meta["Agent name"] || call.meta["Agent"] || "Unknown";
+        if (!window.dashboardData.agents[agentName]) {
+          window.dashboardData.agents[agentName] = {
             name: agentName,
-            totalCalls: 0, // This will be total in filtered set
+            totalCalls: 0,
             flaggedCalls: 0,
             positiveCalls: 0,
             positiveScore: 0,
             avgDuration: 0,
             totalDuration: 0,
+            softSkills: {} // Initialize soft skills for the agent
           };
         }
         
-        // Increment agent stats
-        const agentData = dashboardData.agents[agentName];
+        const agentData = window.dashboardData.agents[agentName];
         agentData.totalCalls++;
         
         if (call.flags && call.flags.length > 0) {
@@ -746,93 +936,111 @@
           agentData.positiveCalls++;
         }
         
-        // Track positive score
         agentData.positiveScore += (call.positiveScore || 0);
         
-        // Track call duration
         const durationText = call.meta["Contact duration"] || "0";
         const durationMinutes = parseDuration(durationText);
         agentData.totalDuration += durationMinutes;
         
-        // Track flags
         if (call.flags) {
           call.flags.forEach(flag => {
-            dashboardData.flags[flag] = (dashboardData.flags[flag] || 0) + 1;
+            window.dashboardData.flags[flag] = (window.dashboardData.flags[flag] || 0) + 1;
           });
         }
         
-        // Track positive flags
         if (call.positiveFlags) {
           call.positiveFlags.forEach(flag => {
-            dashboardData.positiveFlags[flag] = (dashboardData.positiveFlags[flag] || 0) + 1;
+            window.dashboardData.positiveFlags[flag] = (window.dashboardData.positiveFlags[flag] || 0) + 1;
           });
         }
         
-        // Track time distribution
         try {
           const timestamp = call.meta["Initiation timestamp"];
           if (timestamp) {
             const date = new Date(timestamp);
             if (!isNaN(date.getTime())) {
-              // Hour distribution
               const hour = date.getHours();
-              dashboardData.hourDistribution[hour]++;
-              
-              // Day of week distribution
+              window.dashboardData.hourDistribution[hour]++;
               const day = date.getDay();
-              dashboardData.dayDistribution[day]++;
+              window.dashboardData.dayDistribution[day]++;
+
+              // Aggregate for daily trends chart
+              const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD
+              if (!window.dashboardData.dailyFlagCounts[dateString]) {
+                window.dashboardData.dailyFlagCounts[dateString] = 0;
+              }
+              if (!window.dashboardData.dailyPositiveCounts[dateString]) {
+                window.dashboardData.dailyPositiveCounts[dateString] = 0;
+              }
+              if (call.flags && call.flags.length > 0) {
+                window.dashboardData.dailyFlagCounts[dateString]++;
+              }
+              if (call.positiveFlags && call.positiveFlags.length > 0) {
+                window.dashboardData.dailyPositiveCounts[dateString]++;
+              }
             }
           }
         } catch (error) {
           console.error("Error processing timestamp:", error);
         }
         
-        // Track channel and queue
         const channel = call.meta["Channel"] || "Unknown";
-        dashboardData.channelDistribution[channel] = (dashboardData.channelDistribution[channel] || 0) + 1;
+        window.dashboardData.channelDistribution[channel] = (window.dashboardData.channelDistribution[channel] || 0) + 1;
         
         const queue = call.meta["Queue"] || "Unknown";
-        dashboardData.queueDistribution[queue] = (dashboardData.queueDistribution[queue] || 0) + 1;
+        window.dashboardData.queueDistribution[queue] = (window.dashboardData.queueDistribution[queue] || 0) + 1;
         
-        // Track word frequency in transcripts
         if (call.transcript && call.transcript.length > 0) {
+          const callTextForSkills = call.transcript.map(entry => entry.text || '').join(' ').toLowerCase();
+          const callPositiveFlags = call.positiveFlags || [];
+
+          Object.keys(window.softSkillKeywordMap).forEach(skill => {
+            if (!agentData.softSkills[skill]) {
+              agentData.softSkills[skill] = 0;
+            }
+            window.softSkillKeywordMap[skill].forEach(keyword => {
+              // Check in transcript text
+              if (callTextForSkills.includes(keyword)) {
+                agentData.softSkills[skill]++;
+              }
+              // Check in positive flags (exact match)
+              if (callPositiveFlags.includes(keyword)) {
+                agentData.softSkills[skill]++; // Could add more weight or handle differently
+              }
+            });
+          });
+
           call.transcript.forEach(entry => {
             if (entry.text) {
               const text = entry.text.toLowerCase();
-              const words = text.split(/\s+/).filter(word => 
-                word.length > 3 && 
-                ![
-                  // Common filler words and pronouns
-                  "this", "that", "what", "with", "have", "your", "from", "there", "would", "could", "about", "which",
-                  "just", "like", "it's", "yeah", "don't", "going", "gonna", "you're", "thank", "then", "know", "because",
-                  "they", "well", "need", "give", "take", "back", "right", "name", "alright", "when", "want", "here",
-                  "make", "let's", "will", "okay", "actually", "sorry", "able", "sure", "were", "been", "does", "doing", 
-                  "should", "can't", "can't", "didn't", "isn't", "that's", "i'll", "we'll", "wasn't", "they're",
-                  "where", "their", "them", "these", "those", "some", "myself", "yourself", "himself", "herself",
-                  // Common corporate jargon and fillers
-                  "please", "account", "information", "customer", "service", "contact", "number", "email", "phone", 
-                  "call", "calling", "assistance",
-                  // Additional words spotted in screenshot
-                  "help", "good", "time", "more", "only", "send", "still", "text", "data", "said", "today", 
-                  "what's", "we're", "boost", "card", "digit", "yeah,", "you,", "here.", "know,", "right,", "yes,",
-                  "alright,", "that,", "bye,", "cxo-supcall-de-escalate", "credit_debit_number", "choosing", "phone",
-                  "payment", "cxo-wireless-call-issues", "i've"
-                ].includes(word)
-              );
+              const words = text.split(/\\s+/).filter(word => {
+                const cleanedWord = word.replace(/[^a-z0-9']/gi, ''); // Basic cleaning
+                return cleanedWord.length > 2 && !STOP_WORDS.includes(cleanedWord);
+              });
               
               words.forEach(word => {
-                dashboardData.wordFrequency[word] = (dashboardData.wordFrequency[word] || 0) + 1;
+                const cleanedWord = word.replace(/[^a-z0-9']/gi, '');
+                let themed = false;
+                // Check against themeMap (simple exact match for now)
+                if (window.themeMap[cleanedWord]) {
+                  const theme = window.themeMap[cleanedWord];
+                  window.dashboardData.topicFrequency[theme] = (window.dashboardData.topicFrequency[theme] || 0) + 1;
+                  themed = true;
+                }
+                
+                // If not themed, or if we want to count raw words too:
+                if (!themed || true) { // Modify condition if only themed words are needed in wordFrequency
+                    window.dashboardData.wordFrequency[cleanedWord] = (window.dashboardData.wordFrequency[cleanedWord] || 0) + 1;
+                }
               });
             }
           });
         }
         
-        // Track repeat callers
         const customerPhone = call.meta["Customer phone number / email address"];
         if (customerPhone && customerPhone !== "Unknown" && customerPhone !== "N/A") {
-          // Create or update caller record
-          if (!dashboardData.repeatCallers[customerPhone]) {
-            dashboardData.repeatCallers[customerPhone] = {
+          if (!window.dashboardData.repeatCallers[customerPhone]) {
+            window.dashboardData.repeatCallers[customerPhone] = {
               phoneNumber: customerPhone,
               calls: [],
               flagCount: {},
@@ -840,24 +1048,18 @@
               latestCall: null
             };
           }
-          
-          // Add call to caller's history
-          const callerRecord = dashboardData.repeatCallers[customerPhone];
+          const callerRecord = window.dashboardData.repeatCallers[customerPhone];
           callerRecord.calls.push({
             id: call.meta["Contact ID"],
             timestamp: call.meta["Initiation timestamp"],
             flags: call.flags || [],
             agent: agentName
           });
-          
-          // Update flag counts
           if (call.flags) {
             call.flags.forEach(flag => {
               callerRecord.flagCount[flag] = (callerRecord.flagCount[flag] || 0) + 1;
             });
           }
-          
-          // Track first and latest call
           const timestamp = call.meta["Initiation timestamp"];
           if (timestamp) {
             const date = new Date(timestamp);
@@ -872,32 +1074,24 @@
           }
         }
         
-        // Process categories
         if (call.meta["Categories"] && call.meta["Categories"] !== "N/A") {
-          // Split categories string by commas
           const categoryList = call.meta["Categories"].split(',').map(cat => cat.trim());
-          
-          // Count each category
           categoryList.forEach(category => {
             if (category) {
-              dashboardData.categories[category] = (dashboardData.categories[category] || 0) + 1;
+              window.dashboardData.categories[category] = (window.dashboardData.categories[category] || 0) + 1;
             }
           });
         }
       });
       
-      // Calculate averages for agents based on filtered calls
-      Object.values(dashboardData.agents).forEach(agent => {
+      Object.values(window.dashboardData.agents).forEach(agent => {
         agent.avgDuration = agent.totalCalls > 0 ? agent.totalDuration / agent.totalCalls : 0;
       });
     }
     
-    // Parse duration string to minutes
     function parseDuration(durationText) {
-      // Try to handle different duration formats
       if (!durationText) return 0;
       
-      // Format: "HH:MM:SS"
       const timeMatch = durationText.match(/(\d+):(\d+):(\d+)/);
       if (timeMatch) {
         const hours = parseInt(timeMatch[1]);
@@ -906,7 +1100,6 @@
         return hours * 60 + minutes + seconds / 60;
       }
       
-      // Format: "X minutes Y seconds"
       const textMatch = durationText.match(/(\d+)\s*minutes?\s*(?:and\s*)?(?:(\d+)\s*seconds?)?/i);
       if (textMatch) {
         const minutes = parseInt(textMatch[1] || 0);
@@ -914,28 +1107,26 @@
         return minutes + seconds / 60;
       }
       
-      // Try to parse as number
       const num = parseFloat(durationText);
       if (!isNaN(num)) return num;
       
       return 0;
     }
     
-    // Refresh all dashboard elements
     function refreshDashboard() {
-      if (!dashboardData.calls || dashboardData.calls.length === 0) { 
+      if (!window.dashboardData.calls || window.dashboardData.calls.length === 0) {
         dataStatus.textContent = "No data loaded to refresh.";
-        dashboardData.loaded = false; 
+        window.dashboardData.loaded = false;
         clearDashboardElements();
         return;
       }
 
       dataStatus.textContent = "🔄 Re-processing and refreshing dashboard with filter...";
       processData();
-      dashboardData.loaded = true; 
+      window.dashboardData.loaded = true;
       
-      if (dashboardData.filteredCalls.length === 0 && (getSelectedAgentsFromFilter().length > 0 && !getSelectedAgentsFromFilter().includes('all'))) {
-        dataStatus.textContent = `⚠️ No calls match the current agent filter. Loaded ${dashboardData.calls.length} total calls.`;
+      if (window.dashboardData.filteredCalls.length === 0 && (getSelectedAgentsFromFilter().length > 0 && !getSelectedAgentsFromFilter().includes('all'))) {
+        dataStatus.textContent = `⚠️ No calls match the current agent filter. Loaded ${window.dashboardData.calls.length} total calls.`;
         clearDashboardElements();
         const activeButtonNoData = document.querySelector('.tab-button.active');
         if (activeButtonNoData) {
@@ -954,18 +1145,15 @@
       } else if (tabButtons.length > 0) {
           tabButtons[0].click(); 
       }
-      dataStatus.textContent = `✅ Dashboard refreshed. Displaying ${dashboardData.filteredCalls.length} of ${dashboardData.calls.length} calls based on filter.`;
+      dataStatus.textContent = `✅ Dashboard refreshed. Displaying ${window.dashboardData.filteredCalls.length} of ${window.dashboardData.calls.length} calls based on filter.`;
     }
     
-    // New function to clear dashboard elements
     function clearDashboardElements() {
-        // Clear summary stats
         document.getElementById('totalCalls').textContent = '0';
         document.getElementById('flaggedCalls').textContent = '0';
         document.getElementById('positiveCalls').textContent = '0';
         document.getElementById('avgDuration').textContent = '0 min';
 
-        // Clear charts by destroying them if they exist
         if (agentPerformanceChart) agentPerformanceChart.destroy();
         if (flagDistributionChart) flagDistributionChart.destroy();
         if (positiveIndicatorsChartActual) positiveIndicatorsChartActual.destroy();
@@ -974,11 +1162,15 @@
         if (channelDistributionChart) channelDistributionChart.destroy();
         if (queueDistributionChart) queueDistributionChart.destroy();
         if (categoriesChart) categoriesChart.destroy();
-        // Re-initialize chart variables to null
+        if (callbackVolumeChart) callbackVolumeChart.destroy();
+        if (agentRepeatCountsChart) agentRepeatCountsChart.destroy();
+        if (repeatThemesPieChart) repeatThemesPieChart.destroy();
         agentPerformanceChart = flagDistributionChart = positiveIndicatorsChartActual = timeDistributionChart = null;
         dayDistributionChart = channelDistributionChart = queueDistributionChart = categoriesChart = null;
+        callbackVolumeChart = null;
+        agentRepeatCountsChart = null;
+        repeatThemesPieChart = null;
 
-        // Clear tables and lists
         const noDataMsg = '<td colspan="5" class="no-data-message">No data available</td>';
         const originalRepeatCallersBody = document.getElementById('repeatCallersBodyOriginalLocation');
         if (originalRepeatCallersBody) originalRepeatCallersBody.innerHTML = `<tr>${noDataMsg}</tr>`;
@@ -992,19 +1184,15 @@
         document.getElementById('topAgentsBody').innerHTML = `<tr>${noDataMsg}</tr>`;
 
         document.getElementById('positiveCallsListActual').innerHTML = '<div class="no-data-message">No data available</div>';
-
-        // You might want to visually clear canvas elements too, e.g., by drawing a "No Data" message
-        // For simplicity, destroying the chart instance usually suffices as Chart.js might clear it.
     }
     
-    // Update summary statistics
     function updateSummaryStats() {
-      const totalCalls = dashboardData.filteredCalls.length;
+      const totalCalls = window.dashboardData.filteredCalls.length;
       let flaggedCalls = 0;
       let positiveCalls = 0;
       let totalDuration = 0;
       
-      dashboardData.filteredCalls.forEach(call => {
+      window.dashboardData.filteredCalls.forEach(call => {
         if (call.flags && call.flags.length > 0) flaggedCalls++;
         if (call.positiveFlags && call.positiveFlags.length > 0) positiveCalls++;
         
@@ -1014,21 +1202,18 @@
       
       const avgDuration = totalCalls > 0 ? totalDuration / totalCalls : 0;
       
-      // Update DOM
       document.getElementById('totalCalls').textContent = totalCalls;
       document.getElementById('flaggedCalls').textContent = flaggedCalls;
       document.getElementById('positiveCalls').textContent = positiveCalls;
       document.getElementById('avgDuration').textContent = avgDuration.toFixed(1) + ' min';
     }
     
-    // Render the agent performance chart
     function renderAgentPerformanceChart() {
       const ctx = document.getElementById('agentPerformanceChart').getContext('2d');
       
-      // Rebuild agent stats based *only* on filteredCalls for this chart
       const agentsInFilteredSet = {};
-      dashboardData.filteredCalls.forEach(call => {
-          const agentName = call.meta["Agent"] || call.meta["Agent name"] || "Unknown";
+      window.dashboardData.filteredCalls.forEach(call => {
+          const agentName = call.meta["Agent name"] || call.meta["Agent"] || "Unknown";
           if (!agentsInFilteredSet[agentName]) {
               agentsInFilteredSet[agentName] = { name: agentName, totalCalls: 0, flaggedCalls: 0, positiveCalls: 0 };
           }
@@ -1039,14 +1224,12 @@
       
       const agents = Object.values(agentsInFilteredSet)
         .sort((a, b) => b.totalCalls - a.totalCalls)
-        .slice(0, 10); // Top 10 agents in the current filtered view
+        .slice(0, 10);
       
-      // Destroy existing chart if it exists
       if (agentPerformanceChart) {
         agentPerformanceChart.destroy();
       }
       
-      // Create new chart
       agentPerformanceChart = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -1055,22 +1238,22 @@
             {
               label: 'Positive Calls',
               data: agents.map(a => a.positiveCalls),
-              backgroundColor: agents.map((a, index) => dashboardData.agentColors[a.name] ? dashboardData.agentColors[a.name].replace('0.8', '0.6') : COLOR_POOL[(index + COLOR_POOL.length -1) % COLOR_POOL.length].replace('0.8', '0.6')),
-              borderColor: agents.map((a, index) => dashboardData.agentColors[a.name] || COLOR_POOL[(index + COLOR_POOL.length -1) % COLOR_POOL.length]),
+              backgroundColor: agents.map((a, index) => window.dashboardData.agentColors[a.name] ? window.dashboardData.agentColors[a.name].replace('0.8', '0.6') : window.COLOR_POOL[(index + window.COLOR_POOL.length -1) % window.COLOR_POOL.length].replace('0.8', '0.6')),
+              borderColor: agents.map((a, index) => window.dashboardData.agentColors[a.name] || window.COLOR_POOL[(index + window.COLOR_POOL.length -1) % window.COLOR_POOL.length]),
               borderWidth: 1
             },
             {
               label: 'Neutral Calls',
               data: agents.map(a => a.totalCalls - a.flaggedCalls - a.positiveCalls),
-              backgroundColor: agents.map((a, index) => dashboardData.agentColors[a.name] ? dashboardData.agentColors[a.name].replace('0.8', '0.4') : COLOR_POOL[index % COLOR_POOL.length].replace('0.8', '0.4')),
-              borderColor: agents.map((a, index) => dashboardData.agentColors[a.name] || COLOR_POOL[index % COLOR_POOL.length]),
+              backgroundColor: agents.map((a, index) => window.dashboardData.agentColors[a.name] ? window.dashboardData.agentColors[a.name].replace('0.8', '0.4') : window.COLOR_POOL[index % window.COLOR_POOL.length].replace('0.8', '0.4')),
+              borderColor: agents.map((a, index) => window.dashboardData.agentColors[a.name] || window.COLOR_POOL[index % window.COLOR_POOL.length]),
               borderWidth: 1
             },
             {
               label: 'Flagged Calls',
               data: agents.map(a => a.flaggedCalls),
-              backgroundColor: agents.map((a, index) => dashboardData.agentColors[a.name] ? dashboardData.agentColors[a.name].replace('0.8', '0.9') : COLOR_POOL[(index + 1) % COLOR_POOL.length].replace('0.8','0.9')),
-              borderColor: agents.map((a, index) => dashboardData.agentColors[a.name] || COLOR_POOL[(index + 1) % COLOR_POOL.length]),
+              backgroundColor: agents.map((a, index) => window.dashboardData.agentColors[a.name] ? window.dashboardData.agentColors[a.name].replace('0.8', '0.9') : window.COLOR_POOL[(index + 1) % window.COLOR_POOL.length].replace('0.8','0.9')),
+              borderColor: agents.map((a, index) => window.dashboardData.agentColors[a.name] || window.COLOR_POOL[(index + 1) % window.COLOR_POOL.length]),
               borderWidth: 1
             }
           ]
@@ -1109,12 +1292,11 @@
       });
     }
     
-    // Render the flag distribution chart
     function renderFlagDistributionChart() {
       const ctx = document.getElementById('flagDistributionChart').getContext('2d');
       
       const localFlags = {};
-      dashboardData.filteredCalls.forEach(call => {
+      window.dashboardData.filteredCalls.forEach(call => {
           if (call.flags) {
               call.flags.forEach(flag => {
                   localFlags[flag] = (localFlags[flag] || 0) + 1;
@@ -1124,14 +1306,12 @@
       
       const topFlags = Object.entries(localFlags)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 8); // Top 8 flags
+        .slice(0, 8);
       
-      // Destroy existing chart if it exists
       if (flagDistributionChart) {
         flagDistributionChart.destroy();
       }
       
-      // Create new chart
       flagDistributionChart = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -1176,12 +1356,11 @@
       });
     }
     
-    // Render time distribution charts
     function renderTimeDistributionCharts() {
       const localHourDistribution = new Array(24).fill(0);
       const localDayDistribution = new Array(7).fill(0);
 
-      dashboardData.filteredCalls.forEach(call => {
+      window.dashboardData.filteredCalls.forEach(call => {
           try {
             const timestamp = call.meta["Initiation timestamp"];
             if (timestamp) {
@@ -1196,7 +1375,6 @@
           }
       });
 
-      // Hour distribution chart
       const hourCanvas = document.getElementById('timeDistributionChart');
       if (!hourCanvas) {
         console.warn("Hour distribution chart canvas not found");
@@ -1204,15 +1382,12 @@
       }
       const hourCtx = hourCanvas.getContext('2d');
       
-      // Destroy existing chart if it exists
       if (timeDistributionChart) {
         timeDistributionChart.destroy();
       }
       
-      // Create labels for hours
       const hourLabels = Array.from({length: 24}, (_, i) => `${i}:00`);
       
-      // Create new chart
       timeDistributionChart = new Chart(hourCtx, {
         type: 'bar',
         data: {
@@ -1256,7 +1431,6 @@
         }
       });
       
-      // Day of week distribution chart
       const dayCanvas = document.getElementById('dayDistributionChart');
       if (!dayCanvas) {
         console.warn("Day distribution chart canvas not found");
@@ -1264,12 +1438,10 @@
       }
       const dayCtx = dayCanvas.getContext('2d');
       
-      // Destroy existing chart if it exists
       if (dayDistributionChart) {
         dayDistributionChart.destroy();
       }
       
-      // Create new chart
       dayDistributionChart = new Chart(dayCtx, {
         type: 'bar',
         data: {
@@ -1314,12 +1486,11 @@
       });
     }
     
-    // Render channel and queue distribution charts
     function renderChannelAndQueueCharts() {
       const localChannelDistribution = {};
       const localQueueDistribution = {};
 
-      dashboardData.filteredCalls.forEach(call => {
+      window.dashboardData.filteredCalls.forEach(call => {
           const channel = call.meta["Channel"] || "Unknown";
           localChannelDistribution[channel] = (localChannelDistribution[channel] || 0) + 1;
           
@@ -1327,7 +1498,6 @@
           localQueueDistribution[queue] = (localQueueDistribution[queue] || 0) + 1;
       });
 
-      // Define a broader color palette for these charts if needed, or use the global COLOR_POOL
       const pieChartColors = [
         'rgba(255, 99, 132, 0.7)', 'rgba(54, 162, 235, 0.7)', 'rgba(255, 206, 86, 0.7)',
         'rgba(75, 192, 192, 0.7)', 'rgba(153, 102, 255, 0.7)', 'rgba(255, 159, 64, 0.7)',
@@ -1335,7 +1505,6 @@
         'rgba(75, 192, 192, 0.5)', 'rgba(153, 102, 255, 0.5)', 'rgba(255, 159, 64, 0.5)'
       ];
 
-      // Channel distribution
       const channelCanvas = document.getElementById('channelDistributionChart');
       if (!channelCanvas) {
         console.warn("Channel distribution chart canvas not found");
@@ -1343,12 +1512,10 @@
       }
       const channelCtx = channelCanvas.getContext('2d');
       
-      // Destroy existing chart if it exists
       if (channelDistributionChart) {
         channelDistributionChart.destroy();
       }
       
-      // Create new chart
       channelDistributionChart = new Chart(channelCtx, {
         type: 'pie',
         data: {
@@ -1374,7 +1541,6 @@
         }
       });
       
-      // Queue distribution
       const queueCanvas = document.getElementById('queueDistributionChart');
       if (!queueCanvas) {
         console.warn("Queue distribution chart canvas not found");
@@ -1382,12 +1548,10 @@
       }
       const queueCtx = queueCanvas.getContext('2d');
       
-      // Destroy existing chart if it exists
       if (queueDistributionChart) {
         queueDistributionChart.destroy();
       }
       
-      // Create new chart
       queueDistributionChart = new Chart(queueCtx, {
         type: 'pie',
         data: {
@@ -1414,7 +1578,6 @@
       });
     }
     
-    // Render categories chart
     function renderCategoriesChart() {
       const canvasElement = document.getElementById('categoriesChart');
       if (!canvasElement) {
@@ -1425,7 +1588,7 @@
       const categoryDetailsContainer = document.getElementById('categoryDetails');
       
       const localCategories = {};
-      dashboardData.filteredCalls.forEach(call => {
+      window.dashboardData.filteredCalls.forEach(call => {
           if (call.meta["Categories"] && call.meta["Categories"] !== "N/A") {
             const categoryList = call.meta["Categories"].split(',').map(cat => cat.trim());
             categoryList.forEach(category => {
@@ -1449,15 +1612,12 @@
       
       const counts = categories.map(c => c[1]);
       
-      // Create color array - using a slice of COLOR_POOL for variety
-      const categoryColors = COLOR_POOL.slice(0, Math.min(counts.length, COLOR_POOL.length)).map(c => c.replace('0.8', '0.7'));
+      const categoryColors = window.COLOR_POOL.slice(0, Math.min(counts.length, window.COLOR_POOL.length)).map(c => c.replace('0.8', '0.7'));
       
-      // Destroy existing chart if it exists
       if (categoriesChart) {
         categoriesChart.destroy();
       }
       
-      // Create new chart
       categoriesChart = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -1512,7 +1672,6 @@
         }
       });
       
-      // Update category details section with table
       let detailsHtml = `
         <h3 style="font-size: 16px; margin-bottom: 10px; color: #aaa;">Category Distribution</h3>
         <table style="width: 100%;">
@@ -1526,7 +1685,7 @@
           <tbody>
       `;
       
-      const totalCalls = dashboardData.filteredCalls.length;
+      const totalCalls = window.dashboardData.filteredCalls.length;
       categories.forEach(([category, count]) => {
         const percentage = (count / totalCalls * 100).toFixed(1);
         detailsHtml += `
@@ -1546,91 +1705,76 @@
       categoryDetailsContainer.innerHTML = detailsHtml;
     }
     
-    // Update common topics word cloud
     function updateCommonTopics() {
       const container = document.getElementById('commonTopics');
-      
-      const localWordFrequency = {};
-      dashboardData.filteredCalls.forEach(call => {
-          if (call.transcript && call.transcript.length > 0) {
-              call.transcript.forEach(entry => {
-                  if (entry.text) {
-                      const text = entry.text.toLowerCase();
-                      const words = text.split(/\s+/).filter(word => 
-                          word.length > 3 && 
-                          ![
-                            "this", "that", "what", "with", "have", "your", "from", "there", "would", "could", "about", "which",
-                            "just", "like", "it's", "yeah", "don't", "going", "gonna", "you're", "thank", "then", "know", "because",
-                            "they", "well", "need", "give", "take", "back", "right", "name", "alright", "when", "want", "here",
-                            "make", "let's", "will", "okay", "actually", "sorry", "able", "sure", "were", "been", "does", "doing", 
-                            "should", "can't", "can't", "didn't", "isn't", "that's", "i'll", "we'll", "wasn't", "they're",
-                            "where", "their", "them", "these", "those", "some", "myself", "yourself", "himself", "herself",
-                            "please", "account", "information", "customer", "service", "contact", "number", "email", "phone", 
-                            "call", "calling", "assistance",
-                            "help", "good", "time", "more", "only", "send", "still", "text", "data", "said", "today", 
-                            "what's", "we're", "boost", "card", "digit", "yeah,", "you,", "here.", "know,", "right,", "yes,",
-                            "alright,", "that,", "bye,", "cxo-supcall-de-escalate", "credit_debit_number", "choosing", "phone",
-                            "payment", "cxo-wireless-call-issues", "i've"
-                          ].includes(word)
-                      );
-                      words.forEach(word => {
-                          localWordFrequency[word] = (localWordFrequency[word] || 0) + 1;
-                      });
-                  }
-              });
-          }
-      });
+      container.innerHTML = ''; // Clear previous content
 
-      const topWords = Object.entries(localWordFrequency)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 40); // Top 40 words
-      
-      // Clear container
-      container.innerHTML = '';
-      
-      // No data case
-      if (topWords.length === 0) {
+      // Combine themed topics and other frequent words
+      const displayItems = [];
+
+      // Add themed topics
+      Object.entries(window.dashboardData.topicFrequency)
+        .forEach(([theme, count]) => {
+          displayItems.push({ text: theme, count: count, isTheme: true });
+        });
+
+      // Add other frequent words (that are not part of a theme already counted)
+      // This part can be refined. For now, let's just show top words not directly in themes.
+      const allThemeWords = Object.keys(window.themeMap);
+      Object.entries(window.dashboardData.wordFrequency)
+        .filter(([word, count]) => !window.themeMap[word]) // Avoid double counting if word itself is a theme keyword
+        .forEach(([word, count]) => {
+            // Heuristic: only add if count is significant and not a stop word (already filtered but good check)
+             if (count > 2 && word.length > 3) { // Adjust threshold as needed
+                displayItems.push({ text: word, count: count, isTheme: false });
+            }
+        });
+        
+      displayItems.sort((a, b) => b.count - a.count);
+      const topItems = displayItems.slice(0, 40); // Show top 40 combined
+
+      if (topItems.length === 0) {
         const message = document.createElement('div');
         message.className = 'no-data-message';
-        message.textContent = 'No word frequency data available';
+        message.textContent = 'No common topics or frequent words found.';
         container.appendChild(message);
         return;
       }
-      
-      // Calculate max frequency for scaling
-      const maxFrequency = topWords[0][1];
-      
-      // Add words as tags
-      topWords.forEach(([word, count]) => {
-        // Scale font size based on frequency
-        const fontSize = Math.max(12, Math.min(24, 12 + (count / maxFrequency) * 12));
-        const opacity = 0.5 + (count / maxFrequency) * 0.5;
-        
-        const wordElement = document.createElement('div');
-        wordElement.style.fontSize = `${fontSize}px`;
-        wordElement.style.padding = '3px 8px';
-        wordElement.style.margin = '3px';
-        wordElement.style.borderRadius = '10px';
-        wordElement.style.background = `rgba(255, 255, 255, ${opacity * 0.1})`;
-        wordElement.style.color = '#eee';
-        wordElement.title = `${count} occurrences`;
-        wordElement.textContent = word;
-        
-        container.appendChild(wordElement);
+
+      const maxFrequency = topItems.length > 0 ? topItems[0].count : 1;
+
+      topItems.forEach(item => {
+        const fontSize = Math.max(12, Math.min(24, 12 + (item.count / maxFrequency) * 12));
+        const opacity = 0.6 + (item.count / maxFrequency) * 0.4;
+
+        const element = document.createElement('div');
+        element.style.fontSize = `${fontSize}px`;
+        element.style.padding = '4px 10px';
+        element.style.margin = '4px';
+        element.style.borderRadius = '12px';
+        element.style.color = '#eee';
+        element.title = `${item.count} occurrences`;
+        element.textContent = item.text;
+
+        if (item.isTheme) {
+          element.style.background = `rgba(164, 62, 201, ${opacity})`; // Purple for themes
+          element.style.fontWeight = 'bold';
+        } else {
+          element.style.background = `rgba(255, 255, 255, ${opacity * 0.15})`; // Lighter for individual words
+        }
+        container.appendChild(element);
       });
     }
     
-    // Update the top agents table
     function updateTopAgentsTable() {
       const tableBody = document.getElementById('topAgentsBody');
       if(!tableBody) {
         console.warn("Top agents table body not found. Original or new.");
         return;
       }
-      // Calculate agent stats based on filteredCalls
       const agentsInFilteredSetForTable = {};
-       dashboardData.filteredCalls.forEach(call => {
-          const agentName = call.meta["Agent"] || call.meta["Agent name"] || "Unknown";
+       window.dashboardData.filteredCalls.forEach(call => {
+          const agentName = call.meta["Agent name"] || call.meta["Agent"] || "Unknown";
           if (!agentsInFilteredSetForTable[agentName]) {
               agentsInFilteredSetForTable[agentName] = { 
                   name: agentName, totalCalls: 0, positiveCalls: 0, positiveScore: 0, totalDuration: 0 
@@ -1660,12 +1804,10 @@
           };
         })
         .sort((a, b) => b.avgScore - a.avgScore)
-        .slice(0, 5); // Top 5 by positive score
+        .slice(0, 5);
       
-      // Clear table
       tableBody.innerHTML = '';
       
-      // No data case
       if (sortedAgents.length === 0) {
         const row = document.createElement('tr');
         row.innerHTML = '<td colspan="5" class="no-data-message">No data available</td>';
@@ -1673,7 +1815,6 @@
         return;
       }
       
-      // Add rows
       sortedAgents.forEach(agent => {
         const row = document.createElement('tr');
         
@@ -1689,15 +1830,12 @@
       });
     }
     
-    // New function for Positive Indicators chart in the "Positive" tab
     function renderPositiveIndicatorsChartActual() {
       console.log("[Debug] renderPositiveIndicatorsChartActual called with filtered data");
       const localPositiveFlags = {};
-      dashboardData.filteredCalls.forEach(call => {
+      window.dashboardData.filteredCalls.forEach(call => {
           if (call.positiveFlags) {
-              call.positiveFlags.forEach(flag => {
-                  localPositiveFlags[flag] = (localPositiveFlags[flag] || 0) + 1;
-              });
+              call.positiveFlags.forEach(flag => { localPositiveFlags[flag] = (localPositiveFlags[flag] || 0) + 1; });
           }
       });
       console.log("[Debug] localPositiveFlags (from filtered):", JSON.parse(JSON.stringify(localPositiveFlags)));
@@ -1711,17 +1849,15 @@
       
       const topPositiveFlags = Object.entries(localPositiveFlags)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 10); // Display top 10 positive flags for clarity
+        .slice(0, 10);
       
       const labels = topPositiveFlags.map(f => f[0]);
       const data = topPositiveFlags.map(f => f[1]);
 
-      // Destroy existing chart if it exists
       if (positiveIndicatorsChartActual) {
         positiveIndicatorsChartActual.destroy();
       }
       
-      // Create new chart
       positiveIndicatorsChartActual = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -1776,10 +1912,9 @@
       });
     }
     
-    // New function for the positive calls list in the "Positive" tab
     function updatePositiveCallsListActual() {
         console.log("[Debug] updatePositiveCallsListActual called with filtered data");
-        const positiveCallsSource = dashboardData.filteredCalls.filter(call => call.positiveScore > 0);
+        const positiveCallsSource = window.dashboardData.filteredCalls.filter(call => call.positiveScore > 0);
         console.log("[Debug] Calls with positiveScore > 0 (from filtered):", JSON.parse(JSON.stringify(positiveCallsSource)));
 
         const container = document.getElementById('positiveCallsListActual');
@@ -1788,10 +1923,8 @@
             return;
         }
 
-        // Clear container
         container.innerHTML = '';
 
-        // No data case
         if (positiveCallsSource.length === 0) {
             const message = document.createElement('div');
             message.className = 'no-data-message';
@@ -1800,9 +1933,8 @@
             return;
         }
 
-        // Add positive calls
         positiveCallsSource.forEach(call => {
-            const agent = call.meta["Agent"] || call.meta["Agent name"] || "Unknown";
+            const agent = call.meta["Agent name"] || call.meta["Agent"] || "Unknown";
             const date = call.meta["Initiation timestamp"] || "Unknown date";
             const duration = call.meta["Contact duration"] || "Unknown";
 
@@ -1827,18 +1959,328 @@
         });
     }
 
-    // Helper to get selected agents from the dropdown
     function getSelectedAgentsFromFilter() {
-        if (!agentFilterElement) return ['all']; // Should not happen if element is present
+        if (!agentFilterElement) return ['all'];
         return [...agentFilterElement.selectedOptions].map(option => option.value);
     }
 
-    // Callback for when agent filter changes
     function handleAgentFilterChange(selectedAgents) {
         console.log("Agent filter changed, selected:", selectedAgents);
         localStorage.setItem('selectedAgents', JSON.stringify(selectedAgents));
-        
         refreshDashboard();
+    }
+
+    // New function for Top 5 Flags on Insights Tab
+    function renderTopFlagsChartInsights() {
+      const ctx = document.getElementById('topFlagsChartInsights')?.getContext('2d');
+      if (!ctx) return;
+
+      const localFlags = {};
+      window.dashboardData.filteredCalls.forEach(call => {
+          if (call.flags) {
+              call.flags.forEach(flag => {
+                  localFlags[flag] = (localFlags[flag] || 0) + 1;
+              });
+          }
+      });
+      
+      const topFlags = Object.entries(localFlags)
+        .sort(([,a],[,b]) => b-a)
+        .slice(0, 5);
+
+      if (topFlagsChartInsights) {
+        topFlagsChartInsights.destroy();
+      }
+      
+      topFlagsChartInsights = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: topFlags.map(f => f[0]),
+          datasets: [{
+            label: 'Flag Occurrences',
+            data: topFlags.map(f => f[1]),
+            backgroundColor: 'rgba(255, 77, 77, 0.7)',
+            borderColor: 'rgba(255, 77, 77, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          indexAxis: 'y', // Horizontal bar chart
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              ticks: { color: '#ccc', stepSize: 1 },
+              grid: { color: 'rgba(255, 255, 255, 0.05)' }
+            },
+            y: {
+              ticks: { color: '#ccc' },
+              grid: { color: 'rgba(255, 255, 255, 0.05)' }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            title: { display: false }
+          }
+        }
+      });
+    }
+
+    // New function for Top 5 Positive Indicators on Insights Tab
+    function renderTopPositiveIndicatorsChartInsights() {
+      const ctx = document.getElementById('topPositiveIndicatorsChartInsights')?.getContext('2d');
+      if (!ctx) return;
+
+      const localPositiveFlags = {};
+      window.dashboardData.filteredCalls.forEach(call => {
+          if (call.positiveFlags) {
+              call.positiveFlags.forEach(flag => { 
+                  localPositiveFlags[flag] = (localPositiveFlags[flag] || 0) + 1; 
+              });
+          }
+      });
+      
+      const topPositiveIndicators = Object.entries(localPositiveFlags)
+        .sort(([,a],[,b]) => b-a)
+        .slice(0, 5);
+
+      if (topPositiveIndicatorsChartInsights) {
+        topPositiveIndicatorsChartInsights.destroy();
+      }
+      
+      topPositiveIndicatorsChartInsights = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: topPositiveIndicators.map(f => f[0]),
+          datasets: [{
+            label: 'Indicator Occurrences',
+            data: topPositiveIndicators.map(f => f[1]),
+            backgroundColor: 'rgba(76, 175, 80, 0.7)',
+            borderColor: 'rgba(76, 175, 80, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          indexAxis: 'y', // Horizontal bar chart
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              ticks: { color: '#ccc', stepSize: 1 },
+              grid: { color: 'rgba(255, 255, 255, 0.05)' }
+            },
+            y: {
+              ticks: { color: '#ccc' },
+              grid: { color: 'rgba(255, 255, 255, 0.05)' }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            title: { display: false }
+          }
+        }
+      });
+    }
+
+    // New function for Flag/Positive Trends Line Chart
+    function renderFlagPositiveTrendsChart() {
+      const ctx = document.getElementById('flagPositiveTrendsChart')?.getContext('2d');
+      if (!ctx) return;
+
+      const sortedDates = Object.keys(window.dashboardData.dailyFlagCounts).sort();
+      
+      if (sortedDates.length === 0) {
+        if (flagPositiveTrendsChart) flagPositiveTrendsChart.destroy();
+        flagPositiveTrendsChart = null;
+        // Optionally, display a no-data message in the canvas container
+        return;
+      }
+
+      const flagCounts = sortedDates.map(date => window.dashboardData.dailyFlagCounts[date] || 0);
+      const positiveCounts = sortedDates.map(date => window.dashboardData.dailyPositiveCounts[date] || 0);
+
+      if (flagPositiveTrendsChart) {
+        flagPositiveTrendsChart.destroy();
+      }
+
+      flagPositiveTrendsChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: sortedDates,
+          datasets: [
+            {
+              label: 'Total Flagged Calls',
+              data: flagCounts,
+              borderColor: 'rgba(255, 77, 77, 0.8)',
+              backgroundColor: 'rgba(255, 77, 77, 0.2)',
+              fill: true,
+              tension: 0.1
+            },
+            {
+              label: 'Total Positive Indicator Calls',
+              data: positiveCounts,
+              borderColor: 'rgba(76, 175, 80, 0.8)',
+              backgroundColor: 'rgba(76, 175, 80, 0.2)',
+              fill: true,
+              tension: 0.1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              ticks: { color: '#ccc' },
+              grid: { color: 'rgba(255, 255, 255, 0.05)' }
+            },
+            y: {
+              ticks: { color: '#ccc', beginAtZero: true, stepSize: 1 },
+              grid: { color: 'rgba(255, 255, 255, 0.05)' }
+            }
+          },
+          plugins: {
+            legend: { labels: { color: '#ccc' } },
+            title: { display: false }
+          }
+        }
+      });
+    }
+
+    function updateAgentPerformanceSnapshots() {
+      const container = document.getElementById('agentSnapshotsContainer');
+      if (!container) {
+        console.warn("Agent snapshots container not found.");
+        return;
+      }
+
+      container.innerHTML = '';
+
+      const selectedAgents = getSelectedAgentsFromFilter();
+      const selectedAgentsData = [];
+
+      window.dashboardData.filteredCalls.forEach(call => {
+        const agentName = call.meta["Agent name"] || call.meta["Agent"] || "Unknown";
+        if (selectedAgents.includes(agentName)) {
+          if (!selectedAgentsData.some(data => data.name === agentName)) {
+            selectedAgentsData.push({
+              name: agentName,
+              totalCalls: 0,
+              flaggedCalls: 0,
+              positiveCalls: 0,
+              positiveScore: 0,
+              avgDuration: 0,
+              totalDuration: 0,
+              softSkills: {} // Initialize soft skills for the agent
+            });
+          }
+
+          const agentData = selectedAgentsData.find(data => data.name === agentName);
+          agentData.totalCalls++;
+          agentData.totalDuration += parseDuration(call.meta["Contact duration"] || "0");
+          agentData.positiveScore += (call.positiveScore || 0);
+
+          // Aggregate soft skills for specific selected agent
+          const callTextForSkillsSpecific = (call.transcript || []).map(entry => entry.text || '').join(' ').toLowerCase();
+          const callPositiveFlagsSpecific = call.positiveFlags || [];
+          Object.keys(window.softSkillKeywordMap).forEach(skill => {
+            if (!agentData.softSkills[skill]) agentData.softSkills[skill] = 0;
+            window.softSkillKeywordMap[skill].forEach(keyword => {
+              if (callTextForSkillsSpecific.includes(keyword)) agentData.softSkills[skill]++;
+              if (callPositiveFlagsSpecific.includes(keyword)) agentData.softSkills[skill]++;
+            });
+          });
+
+          if (call.flags && call.flags.length > 0) {
+            agentData.flaggedCalls++;
+            call.flags.forEach(flag => {
+              agentData.flagCount[flag] = (agentData.flagCount[flag] || 0) + 1;
+            });
+          }
+
+          if (call.positiveFlags && call.positiveFlags.length > 0) {
+            agentData.positiveCalls++;
+            call.positiveFlags.forEach(flag => {
+              agentData.positiveFlagCount[flag] = (agentData.positiveFlagCount[flag] || 0) + 1;
+            });
+          }
+
+          // Aggregate soft skills for snapshot if 'all' agents are shown
+          const callTextForSkillsAll = (call.transcript || []).map(entry => entry.text || '').join(' ').toLowerCase();
+          const callPositiveFlagsAll = call.positiveFlags || [];
+          Object.keys(window.softSkillKeywordMap).forEach(skill => {
+            if (!agentData.softSkills[skill]) agentData.softSkills[skill] = 0;
+            window.softSkillKeywordMap[skill].forEach(keyword => {
+              if (callTextForSkillsAll.includes(keyword)) agentData.softSkills[skill]++;
+              if (callPositiveFlagsAll.includes(keyword)) agentData.softSkills[skill]++;
+            });
+          });
+        }
+      });
+
+      selectedAgentsData.forEach(data => {
+        const card = document.createElement('div');
+        card.className = 'dashboard-card';
+        card.style.background = '#2a2a2a';
+        card.style.borderRadius = '5px';
+        card.style.padding = '20px';
+        card.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
+
+        card.innerHTML = `
+          <div class="card-header">
+            <span>${data.name}</span>
+          </div>
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-label">Total Calls</div>
+              <div class="stat-value">${data.totalCalls}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Flagged Calls</div>
+              <div class="stat-value negative-color">${data.flaggedCalls}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Positive Calls</div>
+              <div class="stat-value positive-color">${data.positiveCalls}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Avg. Call Duration</div>
+              <div class="stat-value">${(data.totalDuration / data.totalCalls).toFixed(1)} min</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Avg. Positive Score</div>
+              <div class="stat-value positive-color">${(data.positiveScore / data.totalCalls).toFixed(2)}</div>
+            </div>
+          </div>
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-label">Top Flags</div>
+              <div class="stat-value">${Object.entries(data.flagCount || {})
+                .sort(([,a],[,b]) => b-a)
+                .slice(0, 3)
+                .map(([name, count]) => `<span class="snapshot-tag snapshot-tag-flag">${name} (${count})</span>`)
+                .join(' ')}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Top Positive Mentions</div>
+              <div class="stat-value positive-color">${Object.entries(data.positiveFlagCount || {})
+                .sort(([,a],[,b]) => b-a)
+                .slice(0, 3)
+                .map(([name, count]) => `<span class="snapshot-tag snapshot-tag-positive">${name} (${count})</span>`)
+                .join(' ')}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Soft Skills</div>
+              <div class="stat-value">${Object.entries(data.softSkills || {})
+                .filter(([skill, score]) => score > 0)
+                .map(([skill, score]) => `<span class="snapshot-tag">${skill}: ${score}</span>`)
+                .join(' ')}</div>
+            </div>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
     }
   </script>
 </body>
