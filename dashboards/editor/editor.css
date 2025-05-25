@@ -11,11 +11,12 @@
   --inspiro-text-secondary: #b0b0b0; /* Medium gray for labels/secondary text */
   --inspiro-border-color: #4a4a4a; /* Darker border */
   --inspiro-button-primary-bg: var(--inspiro-purple-primary);
-  --inspiro-button-primary-text: #0f0f0f; /* Dark text on bright button for contrast */
+  --inspiro-button-primary-text: white; /* Changed from #0f0f0f for better contrast on purple */
   --inspiro-button-primary-hover-bg: var(--inspiro-purple-secondary);
-  --inspiro-button-secondary-bg: var(--inspiro-bg-tertiary);
-  --inspiro-button-secondary-text: var(--inspiro-text-primary);
-  --inspiro-button-secondary-hover-bg: #454545;
+  --inspiro-button-secondary-bg: var(--inspiro-orange-primary);
+  --inspiro-button-secondary-text: white; /* Changed for better contrast */
+  --inspiro-button-secondary-hover-bg: var(--inspiro-orange-secondary);
+  --inspiro-button-danger-bg: #e53e3e; /* Red-600 */
 }
 
 body {

@@ -11,6 +11,14 @@
   --inspiro-border-color: #384259; /* Subtle border */
   --inspiro-positive-color: #34D399; /* Green for positive, can adjust if needed */
   --inspiro-negative-color: #F87171; /* Red for negative/flags */
+
+  /* Button specific variables */
+  --inspiro-button-primary-bg: var(--inspiro-purple-primary); 
+  --inspiro-button-primary-text: white; 
+  --inspiro-button-primary-hover-bg: var(--inspiro-purple-secondary);
+  --inspiro-button-secondary-bg: var(--inspiro-orange-primary);
+  --inspiro-button-secondary-text: white; /* Changed for better contrast */
+  --inspiro-button-secondary-hover-bg: var(--inspiro-orange-secondary);
 }
 
 /* Coaching dashboard styles */

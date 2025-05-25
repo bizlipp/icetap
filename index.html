@@ -21,7 +21,23 @@
   <script src="js/call-analysis.js"></script>
   
   <style>
-    body { font-family: monospace; background: #111; color: #eee; padding: 20px; }
+    :root {
+      --inspiro-bg-dark: #161a25;
+      --inspiro-bg-secondary: #202634;
+      --inspiro-bg-tertiary: #2f384c;
+      --inspiro-purple-primary: #9F70FD; /* Main purple for buttons */
+      --inspiro-purple-secondary: #7a52cc;
+      --inspiro-orange-primary: #FF8C00;
+      --inspiro-orange-secondary: #cc7000;
+      --inspiro-text-primary: #E8E8FB;
+      --inspiro-text-secondary: #A8A8C8;
+      --inspiro-border-color: #384259;
+      --inspiro-button-primary-bg: var(--inspiro-purple-primary);
+      --inspiro-button-primary-text: white;
+      --inspiro-button-primary-hover-bg: var(--inspiro-purple-secondary);
+      /* Add other button types if needed, e.g., secondary */
+    }
+    body { font-family: monospace; background: var(--inspiro-bg-dark); color: var(--inspiro-text-primary); padding: 20px; }
     input[type=file] { margin-bottom: 20px; }
     pre { 
       background: #222; 
@@ -120,27 +136,46 @@
       border: 1px solid #444;
     }
     button {
-      padding: 8px 15px; 
-      background: #333; 
-      color: #eee; 
-      border: 1px solid #555; 
+      padding: 0.6em 1.2em; /* Consistent padding using em for scalability */
+      background: var(--inspiro-button-primary-bg); 
+      color: var(--inspiro-button-primary-text); 
+      border: 1px solid var(--inspiro-button-primary-bg);
+      border-radius: 5px; /* Slightly more rounded */
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* More modern font */
+      font-size: 0.9rem; /* Standardize font size */
+      font-weight: 500; /* Standardize font weight */
+      display: inline-flex; /* For icon/emoji alignment */
+      align-items: center; /* For icon/emoji alignment */
+      justify-content: center; /* For icon/emoji alignment */
+      text-align: center;
+      min-height: 38px; /* Ensure a minimum height for consistency */
+      margin: 5px; /* Add some margin for spacing when they wrap */
     }
     .primary-button {
-      background: #a43ec9;
-      border-color: #a43ec9;
+      /* This class can now be used to confirm primary styling if needed,
+         but base button already uses primary colors. 
+         Could be used for slight variations if necessary. */
+      background: var(--inspiro-button-primary-bg); /* Ensure it uses the variable */
+      color: var(--inspiro-button-primary-text);
+      border-color: var(--inspiro-button-primary-bg);
     }
-    #searchInput:focus, button:hover {
+    #searchInput:focus, button:focus {
       outline: none;
-      border-color: #666;
+      border-color: var(--inspiro-purple-secondary); /* Use a theme color for focus */
+      box-shadow: 0 0 0 2px rgba(159, 112, 253, 0.3); /* Subtle focus ring */
     }
     button:hover {
-      background: #444 !important;
+      background: var(--inspiro-button-primary-hover-bg) !important; /* Ensure hover uses variable */
+      border-color: var(--inspiro-button-primary-hover-bg) !important;
+      transform: translateY(-1px); /* Slight lift effect */
     }
+    /* Keep .primary-button:hover if it needs to be different, 
+       otherwise the general button:hover is sufficient */
     .primary-button:hover {
-      background: #b44dd9 !important;
-      border-color: #b44dd9;
+      background: var(--inspiro-button-primary-hover-bg) !important;
+      border-color: var(--inspiro-button-primary-hover-bg) !important;
     }
     .search-options {
       color: #aaa;
@@ -151,8 +186,21 @@
     }
     .controls-container {
       display: flex;
+      flex-wrap: wrap; /* Allow buttons to wrap to the next line on smaller screens */
       gap: 10px;
       margin-bottom: 20px;
+      align-items: center; /* Align items nicely if they wrap and have different heights */
+    }
+    /* Specific containers for button groups if we wrap them */
+    .top-action-buttons-container,
+    .dashboard-nav-buttons-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px; /* Spacing between buttons */
+      margin-bottom: 15px; /* Space below the button group */
+      padding: 10px;
+      background-color: var(--inspiro-bg-secondary); /* Optional: give a slight background to group them visually */
+      border-radius: 5px;
     }
     .compact-transcript {
       font-family: monospace;
@@ -252,25 +300,21 @@
       <button id="processZipButton" class="primary-button">Process ZIP</button>
     </div>
   </div>
-  
-  <div class="controls-container">
-    <div id="status">🟡 Waiting for file...</div>
-    <button id="refreshMasterLogButton" class="primary-button" style="display: none;">🔄 Refresh Master Log</button>
-    <button id="exportButton" class="primary-button" style="display: none;">Export as JSON</button>
-    <button id="exportExcelButton" class="primary-button" style="display: none;">Export as Excel</button>
-    <button id="exportAuditButton" class="primary-button" style="display: none;">Export as Audit Template</button>
-    <button id="dashboardButton" class="primary-button" style="display: none;">Open Dashboard</button>
-    <button id="clearButton" class="primary-button">Clear Data</button>
-  </div>
-  
+   
   <div class="dashboard-launcher" style="margin-bottom: 20px;">
-    <h3 style="color: #aaa; font-size: 16px; margin-bottom: 10px;">📂 Dashboards</h3>
+    <div id="status" style="margin-bottom: 10px;">🟡 Waiting for file...</div>
     <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+      <button id="dashboardButton" class="primary-button" style="display: none;" onclick="window.location.href='dashboard.html'">📈Open Dashboard</button>
       <button onclick="launchDashboard('analytics')" class="primary-button">📊 Analytics</button>
       <button onclick="launchDashboard('callback')" class="primary-button">📞 Callback</button>
       <button onclick="launchDashboard('editor')" class="primary-button">🛠️ Editor</button>
       <button onclick="launchDashboard('coaching')" class="primary-button">🎯 Coaching</button>
       <button onclick="launchDashboard('reports')" class="primary-button">📤 Reports</button>
+      <button id="exportButton" class="primary-button" style="display: none;">Export as JSON</button>
+      <button id="exportExcelButton" class="primary-button" style="display: none;">Export as Excel</button>
+      <button id="exportAuditButton" class="primary-button" style="display: none;">Export as Audit Template</button>
+      <button id="refreshMasterLogButton" class="primary-button" style="display: none;">🔄 Refresh Master Log</button>
+      <button id="clearButton" class="primary-button">🗑️Clear Data</button>
     </div>
   </div>
 
@@ -472,7 +516,7 @@
       document.getElementById('exportAuditButton').addEventListener('click', exportToAuditTemplate);
       
       // Dashboard button
-      document.getElementById('dashboardButton').addEventListener('click', openDashboard);
+      // document.getElementById('dashboardButton').addEventListener('click', openDashboard); // Original line removed
       
       // ZIP processing button
       document.getElementById('processZipButton').addEventListener('click', processZipWithPassword);
