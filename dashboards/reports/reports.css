@@ -1,0 +1,278 @@
+/* Reports dashboard styles */
+:root {
+  --inspiro-bg-dark: #161a25;
+  --inspiro-bg-secondary: #202634;
+  --inspiro-bg-tertiary: #2f384c;
+  --inspiro-purple-primary: #9F70FD;
+  --inspiro-purple-secondary: #7a52cc;
+  --inspiro-orange-primary: #FF8C00;
+  --inspiro-orange-secondary: #cc7000;
+  --inspiro-text-primary: #E8E8FB;
+  --inspiro-text-secondary: #A8A8C8;
+  --inspiro-border-color: #384259;
+  --inspiro-button-primary-bg: var(--inspiro-purple-primary);
+  --inspiro-button-primary-text: white;
+  --inspiro-button-primary-hover-bg: var(--inspiro-purple-secondary);
+  --inspiro-button-secondary-bg: var(--inspiro-orange-primary);
+  --inspiro-button-secondary-text: var(--inspiro-bg-dark);
+  --inspiro-button-secondary-hover-bg: var(--inspiro-orange-secondary);
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--inspiro-bg-dark);
+  color: var(--inspiro-text-primary);
+  margin: 0;
+  padding: 1rem;
+  line-height: 1.6;
+}
+
+#reportsDashboard {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+#reportsDashboard h2 {
+  color: var(--inspiro-purple-primary);
+  border-bottom: 2px solid var(--inspiro-border-color);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1.5rem;
+  font-size: 1.75rem;
+  display: flex;
+  align-items: center;
+}
+#reportsDashboard h2 i.fas {
+  margin-right: 0.75rem;
+}
+
+.dashboard-section {
+  background-color: var(--inspiro-bg-secondary);
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.controls-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem; /* Spacing between label, select, and button */
+  flex-wrap: wrap; /* Allow wrapping on smaller screens */
+}
+
+.controls-section label {
+  color: var(--inspiro-text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+#reportRange {
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--inspiro-border-color);
+  border-radius: 4px;
+  background-color: var(--inspiro-bg-tertiary);
+  color: var(--inspiro-text-primary);
+  font-size: 0.95rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  min-width: 150px; /* Give select some base width */
+}
+
+#reportRange:focus {
+  outline: none;
+  border-color: var(--inspiro-purple-primary);
+  box-shadow: 0 0 0 2px rgba(159, 112, 253, 0.25);
+}
+
+.button {
+  padding: 0.65rem 1.3rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  display: inline-flex;
+  align-items: center;
+}
+.button i.fas {
+    margin-right: 0.5rem;
+}
+
+#generateReport {
+  background-color: var(--inspiro-button-primary-bg);
+  color: var(--inspiro-button-primary-text);
+}
+
+#generateReport:hover {
+  background-color: var(--inspiro-button-primary-hover-bg);
+  transform: translateY(-1px);
+}
+
+.report-output-section h3 {
+  color: var(--inspiro-text-primary);
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+  font-weight: 600;
+  border-bottom: 1px solid var(--inspiro-border-color);
+  padding-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+}
+.report-output-section h3 i.fas {
+  margin-right: 0.5rem;
+  color: var(--inspiro-orange-primary);
+}
+
+#compiledReport {
+  width: 100%;
+  height: 350px; 
+  padding: 1rem;
+  border: 1px solid var(--inspiro-border-color);
+  border-radius: 4px;
+  background-color: var(--inspiro-bg-dark);
+  color: var(--inspiro-text-primary);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9rem;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.report-actions {
+  margin-top: 1rem;
+  display: flex;
+  gap: 0.75rem; 
+}
+
+.report-actions .button-secondary {
+  background-color: var(--inspiro-button-secondary-bg);
+  color: var(--inspiro-button-secondary-text);
+}
+.report-actions .button-secondary:hover {
+  background-color: var(--inspiro-button-secondary-hover-bg);
+}
+
+/* Fallback for Tailwind classes */
+.mb-4 { margin-bottom: 1rem; }
+.p-4 { padding: 1rem; }
+.rounded { border-radius: 0.25rem; }
+.text-sm { font-size: 0.875rem; }
+.text-gray-400 { color: var(--inspiro-text-secondary); }
+.ml-2 { margin-left: 0.5rem; }
+.bg-blue-600 { background-color: var(--inspiro-button-primary-bg); }
+.hover\\:bg-blue-700:hover { background-color: var(--inspiro-button-primary-hover-bg); }
+.text-white { color: var(--inspiro-button-primary-text); }
+.px-4 { padding-left: 1rem; padding-right: 1rem; }
+.py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+.mb-6 { margin-bottom: 1.5rem; }
+.text-lg { font-size: 1.125rem; }
+.font-semibold { font-weight: 600; }
+.w-full { width: 100%; }
+.bg-gray-900 { background-color: var(--inspiro-bg-dark); }
+.h-60 { height: 15rem; }
+.mt-2 { margin-top: 0.5rem; }
+.flex { display: flex; }
+.gap-2 { gap: 0.5rem; }
+.bg-gray-600 { background-color: var(--inspiro-button-secondary-bg); }
+.hover\\:bg-gray-700:hover { background-color: var(--inspiro-button-secondary-hover-bg); }
+
+/* Remove old generic styles */
+
+.dashboard-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.dashboard-card {
+  background: #222;
+  border-radius: 5px;
+  padding: 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+.card-header {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #333;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.accent-color {
+  color: #a43ec9;
+}
+
+.positive-color {
+  color: #4caf50;
+}
+
+.negative-color {
+  color: #ff4d4d;
+}
+
+.chart-container {
+  position: relative;
+  height: 300px;
+  width: 100%;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+th, td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid #333;
+}
+
+th {
+  background-color: #2a2a2a;
+  color: #ccc;
+}
+
+/*
+button {
+  padding: 8px 15px;
+  background: #333;
+  color: #eee;
+  border: 1px solid #555;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.primary-button {
+*/
+
+.no-data-message {
+  text-align: center;
+  padding: 30px;
+  color: #888;
+  font-style: italic;
+}
+
+/* Add any report-specific styles here if needed.
+   For example, to style the filter grid or report table uniquely.
+*/
+
+.filter-controls-grid {
+    /* Styles defined in global style.css are generally sufficient */
+    /* You can override or add more specific styles here if necessary */
+}
+
+.dashboard-table thead th {
+    /* Example: If reports need a slightly different header color */
+    /* background-color: #8A2BE2; */ /* BlueViolet for variety */
+}
+
+#reportSummary p {
+    font-size: 1.1em;
+    color: #c0c0c0;
+}

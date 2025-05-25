@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analytics Dashboard</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/date-fns@2.x/dist/date-fns.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.x/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <link rel="stylesheet" href="analytics.css">
+  <script src="../../js/config.js"></script>
+  <script src="../../js/storage.js"></script>
+  <script src="../../js/schema.js"></script>
+  <script src="../../js/transform.js"></script>
+  <script src="../../js/index.js"></script>
+
+  <!-- Initialize DataStackULTRA -->
+  <script>
+    (async () => {
+      try {
+        if (!window.AppStorageManager) {
+          console.error(`AppStorageManager not found, cannot initialize DataStackULTRA for ${document.title}.`);
+          const mainDashboardArea = document.getElementById('analyticsDashboard'); 
+          if(mainDashboardArea) mainDashboardArea.innerHTML = '<p class="no-data-message card p-4 text-center"><i class="fas fa-exclamation-triangle mr-2"></i>FATAL: AppStorageManager not found. Dashboard cannot load.</p>';
+          return;
+        }
+
+        const inspiroCallsData = localStorage.getItem("inspiroCallData");
+
+        if (!window.DataStackULTRA) {
+          window.DataStackULTRA = new AppStorageManager({ encryptionEnabled: false });
+          console.log(`DataStackULTRA initialized for ${document.title} (encryption disabled).`);
+        } else {
+          console.log(`DataStackULTRA already exists for ${document.title}. It will be used/overwritten with inspiroCallData if present.`);
+        }
+
+        if (inspiroCallsData) {
+          try {
+            const parsedCalls = JSON.parse(inspiroCallsData);
+            if (Array.isArray(parsedCalls) && parsedCalls.length > 0) {
+              await window.DataStackULTRA.set('loadedCalls', parsedCalls, { persistent: false });
+              console.log(`Loaded/Overwrote ${parsedCalls.length} calls from localStorage into DataStackULTRA (memory) for ${document.title}.`);
+            } else {
+              console.log(`No calls found in localStorage's inspiroCallData or data was empty for ${document.title}. Existing DataStackULTRA.loadedCalls will be used (if any).`);
+            }
+          } catch (parseError) {
+            console.error(`Failed to parse inspiroCallData from localStorage for ${document.title}:`, parseError);
+          }
+        } else {
+          console.log(`No 'inspiroCallData' found in localStorage for ${document.title}. DataStackULTRA will use existing loadedCalls (if any, e.g., from index.html).`);
+        }
+        
+      } catch (e) {
+        console.error(`Failed to initialize/load DataStackULTRA in ${document.title}:`, e);
+        const mainDashboardArea = document.getElementById('analyticsDashboard'); 
+        if(mainDashboardArea) mainDashboardArea.innerHTML = '<p class="no-data-message card p-4 text-center"><i class="fas fa-exclamation-triangle mr-2"></i>FATAL: DataStackULTRA could not be initialized/loaded. Dashboard cannot load.</p>';
+      }
+    })();
+  </script>
+
+  <script src="../../js/audit-merge.js"></script>
+  <script src="../../js/call-analysis.js"></script>
+  <script src="analytics.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+</head>
+<body>
+
+  <section id="analyticsDashboard" class="p-4">
+  <h2 class="text-xl font-bold mb-6"><i class="fas fa-chart-pie mr-2"></i>Analytics Dashboard</h2>
+  <div id="analyticsFilenameDisplay" class="text-sm text-gray-400 mb-2">Loading file info...</div>
+
+  <div class="stats-grid dashboard-section">
+    <div class="stat-card">
+      <div class="label"><i class="fas fa-phone-alt mr-1"></i>Total Calls</div>
+      <div id="anTotalCalls" class="value">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="label"><i class="fas fa-clock mr-1"></i>Avg Duration</div>
+      <div id="anAvgDuration" class="value">0:00</div>
+    </div>
+    <div class="stat-card">
+      <div class="label"><i class="fas fa-thumbs-up mr-1"></i>Positive Flags</div>
+      <div id="anPositiveFlags" class="value positive">0</div>
+    </div>
+  </div>
+
+  <!-- Main Charts Grid -->
+  <div class="grid md:grid-cols-2 gap-6 mb-6 dashboard-section">
+    <div class="chart-container-wrapper card p-4">
+      <h3 class="text-lg font-semibold mb-3"><i class="fas fa-chart-bar mr-2"></i>Hourly Call Distribution</h3>
+      <div class="chart-canvas-container" style="max-width: 600px; margin: auto; height: 300px; position: relative;">
+        <canvas id="hourlyChart"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-container-wrapper card p-4">
+      <h4 class="text-lg font-semibold mb-3"><i class="fas fa-chart-line mr-1"></i>Top Flags Over Time</h4>
+      <div class="chart-canvas-container" style="max-width: 600px; margin: auto; height: 300px; position: relative;">
+        <canvas id="flagsOverTimeChart"></canvas>
+      </div>
+      <p id="flagsOverTimeMessage" class="text-sm text-gray-400 mt-2 text-center">Chart will render here if sufficient time-series data is available.</p>
+    </div>
+  </div>
+  <!-- End Main Charts Grid -->
+
+  <div class="top-flags-section dashboard-section">
+    <h3><i class="fas fa-flag mr-2"></i>Top Flagged Categories</h3>
+    <ul id="anTopFlags">
+        <!-- LI elements will be generated by JS -->
+    </ul>
+  </div>
+
+  <div class="advanced-flag-analysis-section dashboard-section mt-6">
+    <h3 class="text-lg font-semibold mb-4"><i class="fas fa-microscope mr-2"></i>Advanced Flag Analysis</h3>
+    
+    <div class="grid md:grid-cols-2 gap-6 mb-6">
+      <div class="flag-distribution-card card p-4">
+        <h4 class="text-md font-semibold mb-2"><i class="fas fa-percentage mr-1"></i>Flag Percentage Distribution</h4>
+        <ul id="anFlagPercentages">
+          <!-- Flag percentages will be listed here -->
+          <li class="text-sm text-gray-400">Data will load here...</li>
+        </ul>
+      </div>
+      
+      <div class="flag-cooccurrence-card card p-4">
+        <h4 class="text-md font-semibold mb-2"><i class="fas fa-link mr-1"></i>Common Flag Co-occurrences</h4>
+        <ul id="anFlagCooccurrences">
+          <!-- Flag co-occurrences will be listed here -->
+          <li class="text-sm text-gray-400">Data will load here...</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Moved Top Flags Over Time to the main chart grid above -->
+    <!-- <div class="flags-over-time-chart-card card p-4">
+      <h4 class="text-md font-semibold mb-2"><i class="fas fa-chart-line mr-1"></i>Top Flags Over Time</h4>
+      <canvas id="flagsOverTimeChart"></canvas>
+      <p id="flagsOverTimeMessage" class="text-sm text-gray-400 mt-2">Chart will render here if sufficient time-series data is available.</p>
+    </div> -->
+  </div>
+
+</section>
+
+
+</body>
+</html>

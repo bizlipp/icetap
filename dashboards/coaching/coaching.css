@@ -1,0 +1,447 @@
+:root {
+  --inspiro-bg-dark: #161a25; /* Deep dark blue/gray */
+  --inspiro-bg-secondary: #202634; /* Cards, sections */
+  --inspiro-bg-tertiary: #2f384c; /* Hover, active elements */
+  --inspiro-purple-primary: #9F70FD; /* Vibrant purple */
+  --inspiro-purple-secondary: #7a52cc; /* Darker purple for hover/accents */
+  --inspiro-orange-primary: #FF8C00; /* Vibrant orange */
+  --inspiro-orange-secondary: #cc7000; /* Darker orange for hover/accents */
+  --inspiro-text-primary: #E8E8FB; /* Light lavender/off-white */
+  --inspiro-text-secondary: #A8A8C8; /* Muted lavender/gray */
+  --inspiro-border-color: #384259; /* Subtle border */
+  --inspiro-positive-color: #34D399; /* Green for positive, can adjust if needed */
+  --inspiro-negative-color: #F87171; /* Red for negative/flags */
+}
+
+/* Coaching dashboard styles */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--inspiro-bg-dark);
+  color: var(--inspiro-text-primary);
+  padding: 0;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Main dashboard container */
+#coachingDashboard {
+  padding: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Section styling */
+.dashboard-section {
+  background-color: var(--inspiro-bg-secondary);
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Headers */
+#coachingDashboard header h2,
+.dashboard-section h3 {
+  color: var(--inspiro-purple-primary);
+  border-bottom: 2px solid var(--inspiro-border-color);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+}
+
+#coachingDashboard header h2 .fas,
+.dashboard-section h3 .fas {
+  margin-right: 0.75rem;
+  color: var(--inspiro-purple-primary); /* Icons match header text */
+}
+
+/* Table Styling */
+.table-container {
+  overflow-x: auto;
+}
+
+#coachAgentTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  background-color: var(--inspiro-bg-dark); /* Table itself can be darker */
+}
+
+#coachAgentTable th, 
+#coachAgentTable td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--inspiro-border-color);
+  vertical-align: middle;
+}
+
+#coachAgentTable th {
+  background-color: var(--inspiro-bg-tertiary);
+  color: var(--inspiro-text-primary);
+  font-weight: 600;
+}
+
+#coachAgentTable tbody tr:hover {
+  background-color: var(--inspiro-bg-tertiary);
+}
+
+#coachAgentTable .agent-name {
+  font-weight: 500;
+  color: var(--inspiro-purple-primary); /* Highlight agent names with purple */
+}
+
+#coachAgentTable .positive-count {
+  color: var(--inspiro-positive-color);
+  font-weight: bold;
+}
+
+#coachAgentTable .flag-count {
+  color: var(--inspiro-negative-color);
+  font-weight: bold;
+}
+
+#coachAgentTable .notes-cell {
+  font-size: 0.8rem;
+  color: var(--inspiro-text-secondary);
+  max-width: 250px;
+  white-space: normal;
+}
+
+#coachAgentTable input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--inspiro-purple-primary);
+}
+
+/* Agent Card Grid */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.agent-card {
+  background-color: var(--inspiro-bg-secondary);
+  border-radius: 6px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  border: 1px solid var(--inspiro-border-color);
+}
+
+.agent-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+    border-color: var(--inspiro-purple-primary);
+}
+
+.agent-card .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--inspiro-border-color);
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.agent-card .card-header h3 {
+  font-size: 1.1rem;
+  color: var(--inspiro-text-primary);
+  margin: 0;
+  border: none;
+  padding: 0;
+}
+
+.agent-card .card-header .fas {
+    margin-right: 0.5rem;
+    color: var(--inspiro-purple-primary);
+}
+
+.agent-card .call-count-badge {
+  background-color: var(--inspiro-orange-primary);
+  color: var(--inspiro-bg-dark);
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.agent-card .card-body p {
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--inspiro-text-secondary);
+  display: flex;
+  align-items: center;
+}
+.agent-card .card-body .fas {
+    margin-right: 0.5rem;
+    width: 16px;
+    text-align: center;
+    color: var(--inspiro-text-secondary);
+}
+.agent-card .card-body .metric {
+  font-weight: 600;
+  color: var(--inspiro-text-primary);
+  margin-left: 0.3rem;
+}
+.agent-card .positive-icon { color: var(--inspiro-positive-color); }
+.agent-card .flag-icon { color: var(--inspiro-negative-color); }
+
+.agent-card .coaching-notes-summary {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+.agent-card .coaching-notes-summary h4 {
+  font-weight: 600;
+  color: var(--inspiro-text-secondary);
+  margin-bottom: 0.3rem;
+  display: flex;
+  align-items: center;
+}
+.agent-card .coaching-notes-summary ul {
+  list-style-type: none;
+  padding-left: 0;
+  margin: 0;
+}
+.agent-card .coaching-notes-summary li {
+  padding: 0.2rem 0;
+  border-bottom: 1px dashed var(--inspiro-border-color);
+  color: var(--inspiro-text-secondary);
+}
+.agent-card .coaching-notes-summary li:last-child {
+  border-bottom: none;
+}
+
+.agent-card .card-footer {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--inspiro-border-color);
+  text-align: right;
+}
+
+/* Buttons */
+.button {
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--inspiro-text-primary);
+}
+
+.button .fas {
+    margin-right: 0.5rem;
+}
+
+.button.primary-button {
+  background-color: var(--inspiro-purple-primary);
+  color: white; /* For high contrast with purple */
+}
+.button.primary-button:hover {
+  background-color: var(--inspiro-purple-secondary);
+  transform: translateY(-1px);
+}
+
+.button.secondary-button {
+  background-color: var(--inspiro-orange-primary);
+  color: var(--inspiro-bg-dark); /* Dark text on orange for contrast */
+}
+.button.secondary-button:hover {
+  background-color: var(--inspiro-orange-secondary);
+  transform: translateY(-1px);
+}
+
+.button.view-details-btn {
+    background-color: transparent;
+    color: var(--inspiro-purple-primary);
+    border: 1px solid var(--inspiro-purple-primary);
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+}
+.button.view-details-btn:hover {
+    background-color: rgba(159, 112, 253, 0.1); /* Light purple transparent */
+    color: var(--inspiro-purple-primary);
+    border-color: var(--inspiro-purple-secondary);
+}
+
+/* Coach the Coach Section */
+#coachSummary {
+  background-color: var(--inspiro-bg-dark);
+  color: var(--inspiro-text-primary);
+  border: 1px solid var(--inspiro-border-color);
+  border-radius: 4px;
+  padding: 0.75rem;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.no-data-message {
+  text-align: center;
+  padding: 2rem;
+  color: var(--inspiro-text-secondary);
+  font-style: italic;
+  font-size: 1rem;
+}
+
+/* Utility for Font Awesome icons in buttons/headers etc */
+.mr-1 { margin-right: 0.25rem; }
+.mr-2 { margin-right: 0.5rem; }
+
+/* Controls Container (Search and Toggle) */
+.controls-container {
+  /* margin-bottom: 1rem; Ensure this doesn't conflict with header layout */
+}
+
+.search-input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--inspiro-border-color);
+  border-radius: 4px;
+  background-color: var(--inspiro-bg-tertiary);
+  color: var(--inspiro-text-primary);
+  min-width: 250px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--inspiro-purple-primary);
+  box-shadow: 0 0 0 2px rgba(159, 112, 253, 0.3);
+}
+
+/* Sortable Table Headers */
+#coachAgentTable th.sortable {
+  cursor: pointer;
+  position: relative;
+}
+
+#coachAgentTable th.sortable i.fas {
+  margin-left: 0.5em;
+  color: var(--inspiro-text-secondary);
+  transition: color 0.2s ease;
+}
+
+#coachAgentTable th.sortable:hover i.fas {
+  color: var(--inspiro-text-primary);
+}
+
+#coachAgentTable th.sortable.sort-asc i.fas,
+#coachAgentTable th.sortable.sort-desc i.fas {
+  color: var(--inspiro-purple-primary);
+}
+
+/* View Toggle Button uses .button.secondary-button now, can be more specific if needed */
+#viewToggleBtn {
+  min-width: 130px; 
+}
+
+/* Helper for hidden class */
+.hidden {
+  display: none !important;
+}
+
+#coachingDashboard header.flex {
+    align-items: center;
+}
+
+/* Agent Call Details Modal */
+#agentCallDetailsModal.modal {
+  display: none; /* Hidden by default, JS will toggle */
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0,0,0,0.6); /* Dimmed background */
+}
+
+#agentCallDetailsModal.modal.hidden {
+    display: none;
+}
+#agentCallDetailsModal.modal:not(.hidden) {
+    display: flex; /* Use flex to center modal content */
+    align-items: center;
+    justify-content: center;
+}
+
+#agentCallDetailsModal .modal-content {
+  background-color: var(--inspiro-bg-secondary);
+  margin: auto;
+  padding: 1.5rem;
+  border: 1px solid var(--inspiro-border-color);
+  border-radius: 8px;
+  width: 90%;
+  max-width: 700px; /* Max width for the modal */
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  color: var(--inspiro-text-primary);
+}
+
+#agentCallDetailsModal .modal-header {
+  border-bottom: 1px solid var(--inspiro-border-color);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+#agentCallDetailsModal .modal-header h3 {
+  color: var(--inspiro-purple-primary);
+  margin: 0; /* Reset margin if any from general h3 */
+  font-size: 1.25rem;
+  border: none; /* Override general h3 border */
+  padding: 0; /* Override general h3 padding */
+}
+
+#agentCallDetailsModal .modal-close-button {
+  color: var(--inspiro-text-secondary);
+  background: none;
+  border: none;
+  font-size: 2rem;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0 0.5rem;
+  line-height: 1;
+}
+
+#agentCallDetailsModal .modal-close-button:hover,
+#agentCallDetailsModal .modal-close-button:focus {
+  color: var(--inspiro-text-primary);
+  text-decoration: none;
+}
+
+#agentCallDetailsModal .modal-body ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+#agentCallDetailsModal .modal-body li {
+  background-color: var(--inspiro-bg-tertiary);
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--inspiro-border-color);
+  font-size: 0.9rem;
+}
+
+#agentCallDetailsModal .modal-body li strong {
+  color: var(--inspiro-purple-primary);
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+/* Utility classes if needed locally, or ensure they are global */
+.hidden {
+  display: none !important; /* Important to override other display settings */
+}
+
+#coachingDashboard header.flex {
+    align-items: center;
+}

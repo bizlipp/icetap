@@ -1,0 +1,169 @@
+/* Callback tracer dashboard styles */
+:root {
+  --inspiro-bg-dark: #161a25;
+  --inspiro-bg-secondary: #202634;
+  --inspiro-bg-tertiary: #2f384c;
+  --inspiro-purple-primary: #9F70FD;
+  --inspiro-purple-secondary: #7a52cc;
+  --inspiro-orange-primary: #FF8C00;
+  --inspiro-orange-secondary: #cc7000;
+  --inspiro-text-primary: #E8E8FB;
+  --inspiro-text-secondary: #A8A8C8;
+  --inspiro-border-color: #384259;
+  --inspiro-positive-color: #34D399;
+  --inspiro-negative-color: #F87171; /* Used for flagged risks */
+  --inspiro-warning-color: #FBBF24; /* Yellow/Amber for repeat contacts */
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--inspiro-bg-dark);
+  color: var(--inspiro-text-primary);
+  margin: 0;
+  padding: 1rem;
+  line-height: 1.6;
+}
+
+#callbackDashboard {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+#callbackDashboard h2 {
+  color: var(--inspiro-purple-primary);
+  border-bottom: 2px solid var(--inspiro-border-color);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1.5rem;
+  font-size: 1.75rem;
+  display: flex;
+  align-items: center;
+}
+#callbackDashboard h2 i.fas {
+  margin-right: 0.75rem;
+}
+
+.dashboard-section {
+  background-color: var(--inspiro-bg-secondary);
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1.5rem; /* Matches analytics dashboard */
+}
+
+.stat-card {
+  background-color: var(--inspiro-bg-tertiary);
+  padding: 1.25rem;
+  border-radius: 6px;
+  border: 1px solid var(--inspiro-border-color);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.stat-card .label {
+  font-size: 0.9rem;
+  color: var(--inspiro-text-secondary);
+  margin-bottom: 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-card .value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--inspiro-text-primary);
+  line-height: 1.2;
+}
+
+#cbRepeatContactsValue { /* More specific ID for the value span */
+  color: var(--inspiro-warning-color);
+}
+
+#cbFlaggedRisksValue { /* More specific ID for the value span */
+  color: var(--inspiro-negative-color);
+}
+
+.table-section h3 {
+  color: var(--inspiro-text-primary);
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+  font-weight: 600;
+  border-bottom: 1px solid var(--inspiro-border-color);
+  padding-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+}
+.table-section h3 i.fas {
+  margin-right: 0.5rem;
+  color: var(--inspiro-orange-primary);
+}
+
+#cbTraceTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  background-color: var(--inspiro-bg-secondary); 
+  border: 1px solid var(--inspiro-border-color);
+  border-radius: 4px;
+  overflow: hidden; 
+}
+
+#cbTraceTable th,
+#cbTraceTable td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--inspiro-border-color);
+  vertical-align: middle;
+}
+
+#cbTraceTable th {
+  background-color: var(--inspiro-bg-tertiary);
+  color: var(--inspiro-text-primary);
+  font-weight: 600;
+}
+
+#cbTraceTable tbody tr:hover {
+  background-color: var(--inspiro-bg-tertiary);
+}
+
+#cbTraceTable td .flag-indicator {
+    color: var(--inspiro-negative-color);
+    font-weight: bold;
+}
+
+/* Fallback for Tailwind-like classes */
+.grid { display: grid; }
+.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.md\\:grid-cols-3 { @media (min-width: 768px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.gap-4 { gap: 1rem; }
+.mb-6 { margin-bottom: 1.5rem; }
+.mt-6 { margin-top: 1.5rem; }
+.p-4 { padding: 1rem; }
+.rounded { border-radius: 0.25rem; }
+.text-sm { font-size: 0.875rem; }
+.text-gray-400 { color: var(--inspiro-text-secondary); }
+.text-2xl { font-size: 1.5rem; }
+.font-semibold { font-weight: 600; }
+.text-white { color: var(--inspiro-text-primary); }
+.text-yellow-400 { color: var(--inspiro-warning-color); }
+.text-red-500 { color: var(--inspiro-negative-color); } 
+.text-lg { font-size: 1.125rem; }
+.w-full { width: 100%; }
+.bg-gray-800 { background-color: var(--inspiro-bg-tertiary); }
+.bg-gray-900 { background-color: var(--inspiro-bg-dark); }
+.bg-gray-700 { background-color: var(--inspiro-bg-tertiary); }
+.text-left { text-align: left; }
+.text-gray-300 { color: var(--inspiro-text-primary); }
+.text-gray-200 { color: var(--inspiro-text-primary); }
+.overflow-hidden { overflow: hidden; }
+
+/* Remove old generic styles */

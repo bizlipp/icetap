@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Callback Tracer Dashboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="callback.css">
+  <script src="../../js/config.js"></script>
+  <script src="../../js/storage.js"></script>
+  <script src="../../js/schema.js"></script>
+  <script src="../../js/transform.js"></script>
+  <script src="../../js/index.js"></script>
+  
+  <!-- Initialize DataStackULTRA -->
+  <script>
+    (async () => {
+      try {
+        if (!window.AppStorageManager) {
+          console.error(`AppStorageManager not found, cannot initialize DataStackULTRA for ${document.title}.`);
+          const mainDashboardArea = document.getElementById('callbackDashboard'); // Or a generic ID if needed
+          if(mainDashboardArea) mainDashboardArea.innerHTML = '<p class="no-data-message card p-4 text-center"><i class="fas fa-exclamation-triangle mr-2"></i>FATAL: AppStorageManager not found. Dashboard cannot load.</p>';
+          return;
+        }
+
+        const inspiroCallsData = localStorage.getItem("inspiroCallData");
+
+        if (!window.DataStackULTRA) {
+          window.DataStackULTRA = new AppStorageManager({ encryptionEnabled: false });
+          console.log(`DataStackULTRA initialized for ${document.title} (encryption disabled).`);
+        } else {
+          console.log(`DataStackULTRA already exists for ${document.title}. It will be used/overwritten with inspiroCallData if present.`);
+        }
+
+        if (inspiroCallsData) {
+          try {
+            const parsedCalls = JSON.parse(inspiroCallsData);
+            if (Array.isArray(parsedCalls) && parsedCalls.length > 0) {
+              await window.DataStackULTRA.set('loadedCalls', parsedCalls, { persistent: false });
+              console.log(`Loaded/Overwrote ${parsedCalls.length} calls from localStorage into DataStackULTRA (memory) for ${document.title}.`);
+            } else {
+              console.log(`No calls found in localStorage's inspiroCallData or data was empty for ${document.title}. Existing DataStackULTRA.loadedCalls will be used (if any).`);
+            }
+          } catch (parseError) {
+            console.error(`Failed to parse inspiroCallData from localStorage for ${document.title}:`, parseError);
+          }
+        } else {
+          console.log(`No 'inspiroCallData' found in localStorage for ${document.title}. DataStackULTRA will use existing loadedCalls (if any, e.g., from index.html).`);
+        }
+        
+      } catch (e) {
+        console.error(`Failed to initialize/load DataStackULTRA in ${document.title}:`, e);
+        const mainDashboardArea = document.getElementById('callbackDashboard'); // Or a generic ID
+        if(mainDashboardArea) mainDashboardArea.innerHTML = '<p class="no-data-message card p-4 text-center"><i class="fas fa-exclamation-triangle mr-2"></i>FATAL: DataStackULTRA could not be initialized/loaded. Dashboard cannot load.</p>';
+      }
+    })();
+  </script>
+
+  <script src="../../js/audit-merge.js"></script>
+  <script src="../../js/call-analysis.js"></script>
+  <script src="callback.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <style>
+    body {
+      margin: 0;
+      padding: 1rem;
+      font-family: sans-serif;
+      background: #111;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <section id="callbackDashboard" class="p-4">
+    <h2 class="text-xl font-bold mb-6"><i class="fas fa-phone-volume mr-2"></i>Callback Analysis Dashboard</h2>
+    <div id="callbackFilenameDisplay" class="text-sm text-gray-400 mb-2">Loading file info...</div>
+    
+    <div class="stats-grid dashboard-section">
+      <div class="stat-card">
+        <div class="label"><i class="fas fa-headset mr-1"></i>Total Calls</div>
+        <div id="cbTotalCalls" class="value">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label"><i class="fas fa-redo-alt mr-1"></i>Repeat Contacts</div>
+        <div id="cbRepeatContactsValue" class="value">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label"><i class="fas fa-exclamation-triangle mr-1"></i>Flagged Risks</div>
+        <div id="cbFlaggedRisksValue" class="value">0</div>
+      </div>
+      <!-- New Stat Cards -->
+      <div class="stat-card">
+        <div class="label"><i class="fas fa-phone-slash mr-1"></i>Avg. Calls/Repeat Cust.</div>
+        <div id="cbAvgCallsPerRepeater" class="value">0.0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label"><i class="fas fa-percentage mr-1"></i>% Callbacks of Total</div>
+        <div id="cbPercentCallbacks" class="value">0%</div>
+      </div>
+      <div class="stat-card">
+        <div class="label"><i class="fas fa-random mr-1"></i>Avg. Agent Hops/Sequence</div>
+        <div id="cbAvgAgentHops" class="value">0.0</div>
+      </div>
+    </div>
+
+    <div class="table-section dashboard-section mt-6">
+      <h3><i class="fas fa-search-location mr-2"></i>Repeat Call Traces</h3>
+      <div class="table-container">
+        <table id="cbTraceTable" class="w-full text-sm">
+          <thead class="text-left">
+            <tr>
+              <th class="p-2">Customer</th>
+              <th class="p-2">Call Count</th>
+              <th class="p-2">Agents Involved</th>
+              <th class="p-2">Repeat Span</th>
+              <th class="p-2">Flags Present</th>
+            </tr>
+          </thead>
+          <tbody id="cbTraceBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="callback-flags-section dashboard-section mt-6 card p-4">
+      <h3 class="text-lg font-semibold mb-2"><i class="fas fa-tags mr-2"></i>Most Common Flags in Callback Sequences</h3>
+      <ul id="cbCommonFlagsInCallbacks">
+        <li class="text-sm text-gray-400">Data will load here...</li>
+      </ul>
+    </div>
+
+  </section>
+
+  <!-- Modal for Deep Dive -->
+  <div id="callbackDeepDiveModal" class="modal hidden">
+    <div class="modal-content card">
+      <span class="close-button">&times;</span>
+      <h4 id="modalCustomerIdentifier" class="text-lg font-semibold mb-2">Callback Sequence for: </h4>
+      <div id="modalCallSequenceDetails">
+        <!-- Detailed call list will be injected here -->
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,367 @@
+/* Editor dashboard styles */
+:root {
+  --inspiro-bg-dark: #1a1a1a; /* Darker than original for more contrast */
+  --inspiro-bg-secondary: #2c2c2c; /* Slightly lighter card/element bg */
+  --inspiro-bg-tertiary: #383838; /* Input field bg */
+  --inspiro-purple-primary: #a45eff; /* Brighter purple for dark mode */
+  --inspiro-purple-secondary: #874de0; 
+  --inspiro-orange-primary: #ff9a2a;
+  --inspiro-orange-secondary: #d97f1c;
+  --inspiro-text-primary: #e0e0e0; /* Light gray for main text */
+  --inspiro-text-secondary: #b0b0b0; /* Medium gray for labels/secondary text */
+  --inspiro-border-color: #4a4a4a; /* Darker border */
+  --inspiro-button-primary-bg: var(--inspiro-purple-primary);
+  --inspiro-button-primary-text: #0f0f0f; /* Dark text on bright button for contrast */
+  --inspiro-button-primary-hover-bg: var(--inspiro-purple-secondary);
+  --inspiro-button-secondary-bg: var(--inspiro-bg-tertiary);
+  --inspiro-button-secondary-text: var(--inspiro-text-primary);
+  --inspiro-button-secondary-hover-bg: #454545;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--inspiro-bg-dark);
+  color: var(--inspiro-text-primary);
+  margin: 0;
+  padding: 1rem;
+  line-height: 1.6;
+}
+
+#editorDashboard {
+  max-width: 900px; /* Slightly narrower for forms */
+  margin: 0 auto;
+}
+
+#editorDashboard h2 {
+  color: var(--inspiro-purple-primary);
+  border-bottom: 2px solid var(--inspiro-border-color);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1.5rem;
+  font-size: 1.75rem;
+  display: flex;
+  align-items: center;
+}
+#editorDashboard h2 i.fas {
+  margin-right: 0.75rem;
+}
+
+.editor-grid {
+    display: grid;
+    grid-template-columns: 1fr; /* Default to single column */
+    gap: 1.5rem;
+}
+
+@media (min-width: 768px) { /* Two columns on medium screens and up */
+    .editor-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.editor-field-group {
+  margin-bottom: 1rem;
+  background-color: var(--inspiro-bg-secondary);
+  padding: 1.25rem;
+  border-radius: 6px;
+  border: 1px solid var(--inspiro-border-color);
+}
+
+.editor-field-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--inspiro-text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.editor-field,
+#editCategories {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--inspiro-border-color);
+  border-radius: 4px;
+  background-color: var(--inspiro-bg-tertiary);
+  color: var(--inspiro-text-primary);
+  font-size: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box; /* Ensure padding doesn't increase width */
+}
+
+.editor-field:focus,
+#editCategories:focus {
+  outline: none;
+  border-color: var(--inspiro-purple-primary);
+  box-shadow: 0 0 0 3px rgba(159, 112, 253, 0.25);
+}
+
+#tagDropZone {
+  margin-top: 0.75rem;
+  padding: 1.5rem;
+  border: 2px dashed var(--inspiro-border-color);
+  border-radius: 4px;
+  text-align: center;
+  color: var(--inspiro-text-secondary);
+  background-color: rgba(var(--inspiro-bg-tertiary-rgb, 47, 56, 76), 0.5); /* Define --inspiro-bg-tertiary-rgb if needed or use a fixed value */
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+#tagDropZone.dragover {
+  border-color: var(--inspiro-orange-primary);
+  background-color: rgba(var(--inspiro-bg-tertiary-rgb, 47, 56, 76), 0.7);
+}
+
+.save-button-container {
+    grid-column: 1 / -1; /* Span full width if in grid */
+    text-align: right; /* Align button to the right */
+    margin-top: 1rem;
+}
+
+#saveEdits {
+  background-color: var(--inspiro-button-primary-bg);
+  color: var(--inspiro-button-primary-text);
+  padding: 0.75rem 1.75rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  display: inline-flex; /* For icon alignment */
+  align-items: center;
+}
+#saveEdits i.fas {
+    margin-right: 0.5rem;
+}
+
+#saveEdits:hover {
+  background-color: var(--inspiro-button-primary-hover-bg);
+  transform: translateY(-1px);
+}
+
+/* Fallback for Tailwind grid classes if not fully implemented in HTML */
+.p-4 { padding: 1rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mt-4 { margin-top: 1rem; }
+.mt-2 { margin-top: 0.5rem; }
+.w-full { width: 100%; }
+.border { border-width: 1px; }
+.rounded { border-radius: 0.25rem; }
+.text-sm { font-size: 0.875rem; }
+.text-gray-500 { color: var(--inspiro-text-secondary); }
+.text-lg { font-size: 1.125rem; }
+.font-bold { font-weight: 700; }
+.bg-green-500 { background-color: var(--inspiro-button-primary-bg); }
+.hover\\:bg-green-600:hover { background-color: var(--inspiro-button-primary-hover-bg); }
+.text-white { color: var(--inspiro-button-primary-text); }
+
+/* Remove old generic styles */
+
+.dashboard-container {
+  max-width: 900px;
+  margin: 20px auto;
+  padding: 15px;
+}
+
+.card {
+  background-color: var(--inspiro-bg-secondary);
+  border: 1px solid var(--inspiro-border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  color: var(--inspiro-text-primary);
+}
+
+.editor-section {
+  margin-bottom: 1.5rem;
+}
+
+.editor-section h3 {
+  font-size: 1.2em;
+  font-weight: 600;
+  color: var(--inspiro-orange-primary); /* Use orange for section titles */
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+}
+
+.collapsible-summary {
+  cursor: pointer;
+  border-bottom: 1px solid var(--inspiro-border-color); /* Add border to summary for clarity */
+  display: block; /* Ensure it takes full width for click */
+}
+
+.collapsible-summary:hover {
+  color: var(--inspiro-orange-secondary);
+}
+
+.collapsible-section[open] > .collapsible-summary {
+  margin-bottom: 0.75rem;
+}
+
+.collapsible-section ul {
+  list-style-type: none;
+  padding-left: 0.5rem;
+}
+
+.collapsible-section ul li {
+  padding: 0.35rem 0;
+  font-size: 0.9em;
+  border-bottom: 1px dashed var(--inspiro-border-color);
+  color: var(--inspiro-text-secondary);
+}
+.collapsible-section ul li strong {
+    color: var(--inspiro-text-primary);
+}
+.collapsible-section ul li:last-child {
+  border-bottom: none;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--inspiro-text-secondary);
+}
+
+.editor-field, textarea.editor-field {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--inspiro-border-color);
+  border-radius: 4px;
+  background-color: var(--inspiro-bg-tertiary);
+  color: var(--inspiro-text-primary);
+  font-size: 0.95em;
+  box-sizing: border-box;
+}
+
+.editor-field:focus, textarea.editor-field:focus {
+  outline: none;
+  border-color: var(--inspiro-purple-primary);
+  box-shadow: 0 0 0 2px var(--inspiro-purple-secondary);
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap; /* Allow wrapping for jump to ID */
+}
+
+.button {
+  padding: 0.6rem 1.2rem;
+  border: 1px solid var(--inspiro-border-color);
+  background-color: var(--inspiro-button-secondary-bg);
+  color: var(--inspiro-button-secondary-text);
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.button:hover {
+  background-color: var(--inspiro-button-secondary-hover-bg);
+  border-color: var(--inspiro-purple-primary);
+}
+
+.button.primary {
+  background-color: var(--inspiro-button-primary-bg);
+  color: var(--inspiro-button-primary-text);
+  border-color: var(--inspiro-button-primary-bg);
+}
+
+.button.primary:hover {
+  background-color: var(--inspiro-button-primary-hover-bg);
+  border-color: var(--inspiro-button-primary-hover-bg);
+}
+
+.status-message {
+  font-size: 0.9em;
+  color: var(--inspiro-text-secondary);
+}
+
+.filename-display {
+  font-size: 0.85em;
+  color: var(--inspiro-text-secondary);
+  margin-top: 0.25rem;
+}
+
+/* Custom Tags Styling */
+.tags-display-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--inspiro-border-color);
+  border-radius: 4px;
+  min-height: 40px; 
+  background-color: var(--inspiro-bg-dark); /* Darker bg for tag area */
+}
+
+.custom-tag {
+  display: inline-flex;
+  align-items: center;
+  background-color: var(--inspiro-purple-primary); 
+  color: var(--inspiro-button-primary-text); /* Dark text on bright tag */
+  padding: 4px 10px;
+  border-radius: 12px; 
+  font-size: 0.85em;
+  font-weight: 500;
+}
+
+.remove-tag-button {
+  margin-left: 8px;
+  background: none;
+  border: none;
+  color: var(--inspiro-button-primary-text); /* Same as tag text for subtlety */
+  opacity: 0.7;
+  cursor: pointer;
+  font-size: 1.1em;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.remove-tag-button:hover {
+  opacity: 1;
+  color: #ff4d4d; /* Red on hover for delete action */
+}
+
+.transcript-list li {
+  padding: 6px 2px;
+  border-bottom: 1px dotted var(--inspiro-border-color);
+}
+
+.transcript-list .ts-speaker {
+  font-weight: bold;
+  color: var(--inspiro-orange-primary);
+  margin-right: 8px;
+}
+
+.transcript-list .ts-text {
+  color: var(--inspiro-text-secondary);
+}
+
+.no-data-message {
+    padding: 1rem;
+    text-align: center;
+    color: var(--inspiro-text-secondary); 
+}
+
+/* Specificity for form actions container to ensure its visibility */
+.editor-main-content > .form-actions {
+    padding: 1rem;
+    background-color: var(--inspiro-bg-secondary); /* Match card background */
+    border-top: 1px solid var(--inspiro-border-color);
+    margin-top: -1px; /* Align with card padding if form is empty */
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+#originalCategoriesDisplay {
+    background-color: var(--inspiro-bg-tertiary);
+    color: var(--inspiro-text-secondary);
+    padding: 0.5rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.form-group.editor-section.card {
+    background-color: var(--inspiro-bg-secondary);
+    border: 1px solid var(--inspiro-border-color);
+}

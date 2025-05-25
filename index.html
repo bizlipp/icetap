@@ -7,6 +7,19 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <!-- 🔧 Core config comes first -->
+  <script src="js/config.js"></script>
+  <!-- 💾 Storage engine before anything that uses it -->
+  <script src="js/storage.js"></script>
+  <!-- 📐 Schema and transformation modules -->
+  <script src="js/schema.js"></script>
+  <script src="js/transform.js"></script>
+  <!-- 🧠 Master logic -->
+  <script src="js/index.js"></script>
+  <!-- ✅ Optional utilities AFTER index.js -->
+  <script src="js/audit-merge.js"></script>
+  <script src="js/call-analysis.js"></script>
+  
   <style>
     body { font-family: monospace; background: #111; color: #eee; padding: 20px; }
     input[type=file] { margin-bottom: 20px; }
@@ -242,6 +255,7 @@
   
   <div class="controls-container">
     <div id="status">🟡 Waiting for file...</div>
+    <button id="refreshMasterLogButton" class="primary-button" style="display: none;">🔄 Refresh Master Log</button>
     <button id="exportButton" class="primary-button" style="display: none;">Export as JSON</button>
     <button id="exportExcelButton" class="primary-button" style="display: none;">Export as Excel</button>
     <button id="exportAuditButton" class="primary-button" style="display: none;">Export as Audit Template</button>
@@ -249,6 +263,17 @@
     <button id="clearButton" class="primary-button">Clear Data</button>
   </div>
   
+  <div class="dashboard-launcher" style="margin-bottom: 20px;">
+    <h3 style="color: #aaa; font-size: 16px; margin-bottom: 10px;">📂 Dashboards</h3>
+    <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+      <button onclick="launchDashboard('analytics')" class="primary-button">📊 Analytics</button>
+      <button onclick="launchDashboard('callback')" class="primary-button">📞 Callback</button>
+      <button onclick="launchDashboard('editor')" class="primary-button">🛠️ Editor</button>
+      <button onclick="launchDashboard('coaching')" class="primary-button">🎯 Coaching</button>
+      <button onclick="launchDashboard('reports')" class="primary-button">📤 Reports</button>
+    </div>
+  </div>
+
   <div class="uploaded-files-container" style="background: #222; padding: 15px; border: 1px solid #444; margin-bottom: 20px; display: none;">
     <h3 style="margin-top: 0; color: #aaa;">Uploaded Files:</h3>
     <ul id="uploadedFilesList" style="color: #ccc; margin-bottom: 0;"></ul>
@@ -290,6 +315,10 @@
     let uploadedFiles = [];
     let currentZipFile = null; // For storing the current ZIP file being processed
     let contactIdSet = new Set(); // Track unique Contact IDs to prevent duplicates
+
+    // Configuration for Master Log
+    const MASTER_LOG_REMOTE_URL = 'https://yourcompany.sharepoint.com/.../master_audit_log.csv'; // Placeholder URL
+    let masterLogInMemoryCache = []; // For holding the currently parsed Master Log from remote or file
 
     const CONTACT_ID_REGEX = /^[a-f0-9\-]{36}$/i;
     // Positive triggers for identifying good interactions
@@ -416,36 +445,18 @@
         this.classList.remove('active');
       });
       
-      dropZone.addEventListener('drop', function(e) {
+      dropZone.addEventListener('drop', async function(e) { // Made async
         e.preventDefault();
         e.stopPropagation();
         this.classList.remove('active');
         
         const files = e.dataTransfer.files;
         if (files && files.length > 0) {
-          // Check file types for special handling
-          if (files.length === 1) {
-            const fileName = files[0].name.toLowerCase();
-            
-            // Handle ZIP files
-            if (fileName.endsWith('.zip')) {
-              // Show password field
-              document.getElementById('zipPasswordContainer').style.display = 'block';
-              document.getElementById('zipPassword').focus();
-              currentZipFile = files[0]; // Store the ZIP file for later processing
-              document.getElementById("status").textContent = "Enter password for ZIP file";
-              return;
-            }
-            
-            // Handle Excel/CSV files
-            if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.csv')) {
-              processSpreadsheetFile(files[0]);
-              return;
-            }
-          }
-          
-          // Process multiple files
-          processMultipleFiles(Array.from(files));
+          // Hide ZIP password field initially, processDroppedFiles or processSingleFileContent will manage it
+          document.getElementById('zipPasswordContainer').style.display = 'none'; 
+          currentZipFile = null; // Reset currentZipFile
+
+          await processDroppedFiles(Array.from(files)); // New centralized processing
         }
       });
       
@@ -484,6 +495,13 @@
         document.querySelector('.controls-container').appendChild(clearButton);
       }
       
+      // Add event listener for the new Master Log refresh button
+      const refreshMasterLogBtn = document.getElementById('refreshMasterLogButton');
+      if (refreshMasterLogBtn) {
+        refreshMasterLogBtn.style.display = 'inline-block'; // Make it visible
+        refreshMasterLogBtn.addEventListener('click', fetchAndProcessRemoteMasterLog);
+      }
+      
       // Processes ZIP with entered password
       function processZipWithPassword() {
         const password = document.getElementById('zipPassword').value;
@@ -502,29 +520,8 @@
       
       document.getElementById("status").textContent = `⏳ Processing ${files.length} file(s)...`;
       
-      // Check file types for special handling
-      if (files.length === 1) {
-        const fileName = files[0].name.toLowerCase();
-        
-        // Handle ZIP files
-        if (fileName.endsWith('.zip')) {
-          // Show password field
-          document.getElementById('zipPasswordContainer').style.display = 'block';
-          document.getElementById('zipPassword').focus();
-          currentZipFile = files[0]; // Store the ZIP file for later processing
-          document.getElementById("status").textContent = "Enter password for ZIP file";
-          return;
-        }
-        
-        // Handle Excel/CSV files
-        if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.csv')) {
-          processSpreadsheetFile(files[0]);
-          return;
-        }
-      }
-      
-      // Process multiple files sequentially
-      processMultipleFiles(Array.from(files));
+      // Pass files to the enhanced file processing logic
+      processDroppedFiles(Array.from(files)); 
     }
     
     // Process a ZIP file
@@ -588,6 +585,19 @@
         updateUploadedFilesList();
         document.getElementById("status").textContent = `✅ Processed ${fileCount} files from ZIP archive`;
         
+        // Sync with DataStackULTRA
+        if (window.DataStackULTRA && typeof window.DataStackULTRA.set === 'function') {
+          window.DataStackULTRA.set('loadedCalls', parsedCalls)
+            .then(() => {
+              console.log(`✅ Synced all parsed calls to DataStackULTRA.loadedCalls after processZipFile (${parsedCalls.length} calls)`);
+            })
+            .catch(err => {
+              console.error("Error syncing parsedCalls to DataStackULTRA.loadedCalls after processZipFile:", err);
+            });
+        } else {
+          console.warn("window.DataStackULTRA not available or .set is not a function after processZipFile. Cannot sync loadedCalls.");
+        }
+        
         // Hide the password field
         document.getElementById('zipPasswordContainer').style.display = 'none';
         document.getElementById('zipPassword').value = '';
@@ -603,559 +613,26 @@
       try {
         document.getElementById("status").textContent = "⏳ Processing spreadsheet file...";
         
-        const fileName = file.name.toLowerCase();
-        const fileData = await file.arrayBuffer();
-        
-        // Process based on file type
-        if (fileName.endsWith('.csv')) {
-          // Handle CSV using PapaParse
-          const text = await file.text();
-          Papa.parse(text, {
-            header: true,
-            complete: function(results) {
-              // Check if this is a metadata-only CSV (Contact Search Results)
-              if (results.data.length > 0 && results.data[0].hasOwnProperty('Contact ID') && 
-                  !results.data[0].hasOwnProperty('transcript') && !results.data[0].hasOwnProperty('Issue')) {
-                // This appears to be a metadata-only CSV - offer to enhance existing calls
-                enhanceExistingCallsWithCSV(results.data, file.name);
-              } else {
-                // Regular processing for transcript data
-                processSpreadsheetData(results.data, file.name);
-              }
-            },
-            error: function(error) {
-              document.getElementById("status").textContent = `❌ Error parsing CSV: ${error.message}`;
-            }
-          });
-        } else {
-          // Handle Excel files using SheetJS
-          const workbook = XLSX.read(fileData, { type: 'array' });
-          const firstSheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[firstSheetName];
-          const data = XLSX.utils.sheet_to_json(worksheet);
-          
-          // Check if this is a metadata-only sheet
-          if (data.length > 0 && data[0].hasOwnProperty('Contact ID') && 
-              !data[0].hasOwnProperty('transcript') && !data[0].hasOwnProperty('Issue')) {
-            enhanceExistingCallsWithCSV(data, file.name);
-          } else {
-            processSpreadsheetData(data, file.name);
-          }
-        }
+        // This function will now be part of the broader processDroppedFiles logic
+        // For now, we assume processDroppedFiles will handle its logic or call it.
+        // The key change is that processSpreadsheetFile itself should not directly call
+        // enhanceExistingCallsWithCSV or processSpreadsheetData without context of whether it's a MasterLog or CallDump
+
+        // For simplicity in this step, we will call a generic processor
+        // that will be refined when we integrate the smart file detection.
+        await processSingleFileContent(file, await file.text(), file.name.toLowerCase().endsWith('.csv') ? 'csv' : 'excel');
+
       } catch (error) {
         console.error("Spreadsheet processing error:", error);
         document.getElementById("status").textContent = `❌ Error processing file: ${error.message}`;
       }
     }
     
-    // New function to enhance existing calls with metadata from CSV/Excel
-    function enhanceExistingCallsWithCSV(data, fileName) {
-      // Check if we have any existing call data to enhance
-      if (parsedCalls.length === 0) {
-        // No existing calls to enhance - ask user what to do
-        if (confirm("No existing call data found to enhance. Would you like to import this as new call data instead? (Note: No transcript data will be available)")) {
-          processSpreadsheetData(data, fileName);
-        } else {
-          document.getElementById("status").textContent = "❌ Import cancelled. Load call transcript files first.";
-        }
-        return;
-      }
-      
-      // Create a map of existing calls by Contact ID for faster lookup
-      const existingCallMap = new Map();
-      parsedCalls.forEach(call => {
-        const contactId = call.meta["Contact ID"];
-        if (contactId && contactId !== "N/A" && contactId !== "Unknown") {
-          existingCallMap.set(contactId, call);
-        }
-      });
-      
-      // Track enhancement statistics
-      let enhancedCount = 0;
-      let notFoundCount = 0;
-      
-      // Process each row in the CSV data
-      data.forEach(row => {
-        // Normalize the Contact ID field (it might be named differently)
-        const contactId = row['Contact ID'] || row['ContactID'] || row['tact ID'] || row['contact_id'];
-        
-        if (!contactId) return; // Skip rows without a Contact ID
-        
-        // Look for matching call in our existing data
-        const existingCall = existingCallMap.get(contactId);
-        if (existingCall) {
-          enhancedCount++;
-          
-          // Update the existing call's metadata with any new fields from the CSV
-          Object.entries(row).forEach(([key, value]) => {
-            // Skip empty values
-            if (!value || value === "" || value === "N/A") return;
-            
-            // Normalize field name to match our metadata format
-            let normalizedKey = key;
-            
-            // Map common CSV field names to our expected metadata fields
-            if (key === 'tact ID') normalizedKey = 'Contact ID';
-            else if (key === 'System phone number') normalizedKey = 'System phone number / email address';
-            else if (key === 'Customer phone number') normalizedKey = 'Customer phone number / email address';
-            
-            // Only update if the value is meaningful
-            if (value && value !== existingCall.meta[normalizedKey]) {
-              existingCall.meta[normalizedKey] = value;
-            }
-          });
-        } else {
-          notFoundCount++;
-        }
-      });
-      
-      // Update UI with results
-      if (enhancedCount > 0) {
-        document.getElementById("status").textContent = 
-          `✅ Enhanced ${enhancedCount} existing call(s) with metadata from ${fileName}. ${notFoundCount} contact(s) not found.`;
-        
-        // Re-render calls to show updated metadata
-        renderCalls(parsedCalls);
-        
-        // Add to uploaded files list
-        uploadedFiles.push(`${fileName} (metadata enhancement)`);
-        updateUploadedFilesList();
-      } else {
-        document.getElementById("status").textContent = 
-          `⚠️ No matching calls found to enhance. CSV has ${data.length} contact(s), but none match existing Contact IDs.`;
-      }
-    }
-    
-    // Process data from spreadsheet and convert to call format
-    function processSpreadsheetData(data, fileName) {
-      try {
-        // If no data, show error
-        if (!data || data.length === 0) {
-          document.getElementById("status").textContent = "❌ No valid data found in spreadsheet";
-          return;
-        }
-        
-        document.getElementById("status").textContent = `⏳ Converting ${data.length} spreadsheet rows to call format...`;
-        
-        // Check for raw JSON data in our exported format
-        if (data.length === 1 && data[0]["Raw JSON Data (Do not modify)"]) {
-          try {
-            // Try to parse raw JSON data from our export format
-            const rawData = JSON.parse(data[0]["Raw JSON Data (Do not modify)"]);
-            if (Array.isArray(rawData) && rawData.length > 0) {
-              // Successfully parsed raw data
-              processRawJsonData(rawData, fileName);
-              return;
-            }
-          } catch (jsonError) {
-            console.warn("Failed to parse raw JSON data", jsonError);
-            // Continue with normal processing
-          }
-        }
-        
-        // Check if this is our exported format
-        const isOurFormat = data[0] && (
-          data[0].hasOwnProperty('Contact ID') || 
-          data[0].hasOwnProperty('contactId') ||
-          data[0].hasOwnProperty('meta')
-        );
-        
-        let convertedCalls = [];
-        let duplicateCount = 0;
-        
-        if (isOurFormat) {
-          // Our exported format - either from JSON or CSV export
-          for (const row of data) {
-            // Normalize field names from both export formats
-            const contactId = row['Contact ID'] || row.contactId || (row.meta && row.meta['Contact ID']) || "Unknown";
-            
-            // Skip duplicate Contact IDs
-            if (contactId !== "Unknown" && contactIdSet.has(contactId)) {
-              duplicateCount++;
-              continue;
-            }
-            
-            // Not a duplicate - add to tracking set
-            if (contactId !== "Unknown") {
-              contactIdSet.add(contactId);
-            }
-            
-            const agent = row['Agent name'] || row.agent || row['Agent'] || (row.meta && row.meta['Agent name']) || (row.meta && row.meta['Agent']) || "Unknown";
-            const timestamp = row['Initiation timestamp'] || row.timestamp || (row.meta && row.meta['Initiation timestamp']) || new Date().toISOString();
-            const duration = row['Contact duration'] || row.duration || (row.meta && row.meta['Contact duration']) || "0";
-            const flags = row.flags ? (Array.isArray(row.flags) ? row.flags : row.flags.split(';').map(f => f.trim())) : [];
-            const positiveFlags = row.positiveFlags ? (Array.isArray(row.positiveFlags) ? row.positiveFlags : row.positiveFlags.split(';').map(f => f.trim())) : [];
-            const issue = row.issue || "";
-            const outcome = row.outcome || "";
-            const summary = row.summary || "";
-            const positiveScore = row.positiveScore || (positiveFlags.length - flags.length);
-            
-            // Create a meta object
-            let meta = {};
-            if (row.meta && typeof row.meta === 'object') {
-              // Use provided meta if available
-              meta = row.meta;
-            } else {
-              // Create meta from fields
-              meta = {
-                "Contact ID": contactId,
-                "Agent name": agent,
-                "Initiation timestamp": timestamp,
-                "Contact duration": duration,
-                "Channel": row['Channel'] || "Unknown"
-              };
-              
-              // Add any other metadata fields that might be present
-              metadataFieldOrder.forEach(field => {
-                if (row[field] && !meta[field]) {
-                  meta[field] = row[field];
-                }
-              });
-            }
-            
-            // Handle transcript data
-            let transcript = [];
-            if (row.transcript) {
-              // Handle different transcript formats
-              if (Array.isArray(row.transcript)) {
-                // Direct array format
-                transcript = row.transcript.map(entry => {
-                  if (typeof entry === 'object') {
-                    // Make sure the entry has all required fields
-                    return {
-                      speaker: entry.speaker || "Unknown",
-                      timestamp: entry.timestamp || "00:00",
-                      text: entry.text || "",
-                      flags: entry.flags || [],
-                      positiveFlags: entry.positiveFlags || []
-                    };
-                  } else {
-                    // Handle string entries
-                    return {
-                      speaker: "Unknown",
-                      timestamp: "00:00",
-                      text: entry.toString(),
-                      flags: [],
-                      positiveFlags: []
-                    };
-                  }
-                });
-              } else if (typeof row.transcript === 'string') {
-                // Convert string to simple transcript entry
-                transcript = [{
-                  speaker: "Unknown",
-                  timestamp: "00:00",
-                  text: row.transcript,
-                  flags: [],
-                  positiveFlags: []
-                }];
-              }
-            } else if (row.Speaker && row.Message) {
-              // CSV format with flattened transcript
-              transcript = [{
-                speaker: row.Speaker || "Unknown",
-                timestamp: row.Timestamp || "00:00",
-                text: row.Message || "",
-                flags: [],
-                positiveFlags: []
-              }];
-            }
-            
-            convertedCalls.push({
-              meta,
-              transcript,
-              flags,
-              positiveFlags,
-              issue,
-              outcome,
-              summary,
-              positiveScore
-            });
-          }
-        } else {
-          // Generic format - try to map common column names
-          for (const row of data) {
-            // Try to find useful fields with common column names
-            const possibleIdFields = ['id', 'callId', 'contactId', 'contact_id', 'ID', 'Contact ID'];
-            const possibleAgentFields = ['agent', 'agentName', 'agent_name', 'rep', 'employee', 'Agent', 'Agent name'];
-            const possibleTimestampFields = ['timestamp', 'date', 'time', 'callTime', 'call_time', 'Date', 'Time', 'Initiation timestamp'];
-            const possibleTextFields = ['transcript', 'text', 'content', 'message', 'conversation', 'Text', 'Message'];
-            
-            // Try to find id
-            let contactId = null;
-            for (const field of possibleIdFields) {
-              if (row[field]) {
-                contactId = row[field];
-                break;
-              }
-            }
-            
-            // Skip duplicate Contact IDs if a valid ID was found
-            if (contactId && contactIdSet.has(contactId)) {
-              duplicateCount++;
-              continue;
-            }
-            
-            // Not a duplicate - add to tracking set if we have an ID
-            if (contactId) {
-              contactIdSet.add(contactId);
-            } else {
-              contactId = "Unknown";
-            }
-            
-            // Try to find agent
-            let agent = "Unknown";
-            for (const field of possibleAgentFields) {
-              if (row[field]) {
-                agent = row[field];
-                break;
-              }
-            }
-            
-            // Try to find timestamp
-            let timestamp = new Date().toISOString();
-            for (const field of possibleTimestampFields) {
-              if (row[field]) {
-                timestamp = row[field];
-                break;
-              }
-            }
-            
-            // Try to find text/transcript
-            let text = "";
-            for (const field of possibleTextFields) {
-              if (row[field]) {
-                text = row[field];
-                break;
-              }
-            }
-            
-            // Look for fields that might contain flag data
-            const possibleFlagFields = ['flags', 'flag', 'triggers', 'issues', 'problems'];
-            const possiblePositiveFields = ['positiveFlags', 'positive', 'goodTriggers', 'positives'];
-            
-            let flags = [];
-            for (const field of possibleFlagFields) {
-              if (row[field]) {
-                if (Array.isArray(row[field])) {
-                  flags = row[field];
-                } else if (typeof row[field] === 'string') {
-                  flags = row[field].split(/[;,]/).map(f => f.trim()).filter(f => f);
-                }
-                break;
-              }
-            }
-            
-            let positiveFlags = [];
-            for (const field of possiblePositiveFields) {
-              if (row[field]) {
-                if (Array.isArray(row[field])) {
-                  positiveFlags = row[field];
-                } else if (typeof row[field] === 'string') {
-                  positiveFlags = row[field].split(/[;,]/).map(f => f.trim()).filter(f => f);
-                }
-                break;
-              }
-            }
-            
-            // Create a basic meta object
-            const meta = {
-              "Contact ID": contactId,
-              "Agent name": agent,
-              "Initiation timestamp": timestamp,
-              "Contact duration": row.duration || "0:00:00"
-            };
-            
-            // Add any other potential metadata fields
-            Object.entries(row).forEach(([key, value]) => {
-              // Skip fields we've already processed or that are not metadata
-              const skipFields = [...possibleTextFields, ...possibleFlagFields, ...possiblePositiveFields, 
-                'issue', 'outcome', 'summary', 'transcript', 'positiveScore'];
-              
-              if (!skipFields.includes(key) && !meta[key] && value) {
-                meta[key] = value;
-              }
-            });
-            
-            // Create a transcript entry if we have text
-            const transcript = text ? [{
-              speaker: row.speaker || "Agent",
-              timestamp: "00:00",
-              text: text,
-              flags: [],
-              positiveFlags: []
-            }] : [];
-            
-            // Look for specific text fields
-            const issue = row.issue || "";
-            const outcome = row.outcome || "";
-            const summary = row.summary || "";
-            const positiveScore = row.positiveScore || (positiveFlags.length - flags.length);
-            
-            convertedCalls.push({
-              meta,
-              transcript,
-              flags,
-              positiveFlags,
-              issue,
-              outcome,
-              summary,
-              positiveScore
-            });
-          }
-        }
-        
-        // Update status with duplicate information
-        let statusText = `✅ Converted ${convertedCalls.length} rows from spreadsheet`;
-        if (duplicateCount > 0) {
-          statusText += ` (skipped ${duplicateCount} duplicates)`;
-        }
-        document.getElementById("status").textContent = statusText;
-        
-        // Add to uploaded files
-        uploadedFiles.push(fileName);
-        updateUploadedFilesList();
-        
-        // Add the calls
-        if (parsedCalls.length > 0) {
-          // Append to existing calls
-          parsedCalls = [...parsedCalls, ...convertedCalls];
-          document.getElementById("status").textContent = `✅ Added ${convertedCalls.length} call(s) from spreadsheet. Total: ${parsedCalls.length}`;
-          if (duplicateCount > 0) {
-            document.getElementById("status").textContent += ` (skipped ${duplicateCount} duplicates)`;
-          }
-        } else {
-          // First calls being added
-          parsedCalls = convertedCalls;
-          document.getElementById("status").textContent = `✅ Loaded ${convertedCalls.length} call(s) from spreadsheet`;
-          if (duplicateCount > 0) {
-            document.getElementById("status").textContent += ` (skipped ${duplicateCount} duplicates)`;
-          }
-        }
-        
-        // Show action buttons
-        document.getElementById('exportButton').style.display = 'inline-block';
-        document.getElementById('exportExcelButton').style.display = 'inline-block';
-        document.getElementById('exportAuditButton').style.display = 'inline-block';
-        document.getElementById('dashboardButton').style.display = 'inline-block';
-        
-        // Update analytics and render
-        updateAnalytics();
-        renderCalls(parsedCalls);
-        
-      } catch (error) {
-        console.error("Error processing spreadsheet data:", error);
-        document.getElementById("status").textContent = `❌ Error converting spreadsheet data: ${error.message}`;
-      }
-    }
-    
-    // New function to handle raw JSON data from Excel exports
-    function processRawJsonData(rawData, fileName) {
-      try {
-        if (!Array.isArray(rawData) || rawData.length === 0) {
-          document.getElementById("status").textContent = "❌ Invalid raw data format";
-          return;
-        }
-        
-        let convertedCalls = [];
-        let duplicateCount = 0;
-        
-        for (const call of rawData) {
-          // Get Contact ID and check for duplicates
-          const contactId = call.contactId || (call.meta && call.meta['Contact ID']) || "Unknown";
-          
-          if (contactId !== "Unknown" && contactIdSet.has(contactId)) {
-            duplicateCount++;
-            continue;
-          }
-          
-          // Not a duplicate - add to tracking set
-          if (contactId !== "Unknown") {
-            contactIdSet.add(contactId);
-          }
-          
-          // Process transcript data
-          let transcript = [];
-          if (call.transcript && Array.isArray(call.transcript)) {
-            transcript = call.transcript.map(entry => ({
-              speaker: entry.speaker || "Unknown",
-              timestamp: entry.timestamp || "00:00",
-              text: entry.text || "",
-              flags: entry.flags || [],
-              positiveFlags: entry.positiveFlags || []
-            }));
-          }
-          
-          // Add to converted calls
-          convertedCalls.push({
-            meta: call.meta || {
-              "Contact ID": contactId,
-              "Agent name": call.agent || "Unknown",
-              "Initiation timestamp": call.timestamp || new Date().toISOString(),
-              "Contact duration": call.duration || "0:00:00"
-            },
-            transcript,
-            flags: call.flags || [],
-            positiveFlags: call.positiveFlags || [],
-            issue: call.issue || "",
-            outcome: call.outcome || "",
-            summary: call.summary || "",
-            positiveScore: call.positiveScore || 0
-          });
-        }
-        
-        // Update status
-        document.getElementById("status").textContent = `✅ Imported ${convertedCalls.length} call(s) from raw data`;
-        if (duplicateCount > 0) {
-          document.getElementById("status").textContent += ` (skipped ${duplicateCount} duplicates)`;
-        }
-        
-        // Add to uploaded files
-        uploadedFiles.push(fileName);
-        updateUploadedFilesList();
-        
-        // Add the calls
-        if (parsedCalls.length > 0) {
-          // Append to existing calls
-          parsedCalls = [...parsedCalls, ...convertedCalls];
-        } else {
-          // First calls being added
-          parsedCalls = convertedCalls;
-        }
-        
-        // Show action buttons
-        document.getElementById('exportButton').style.display = 'inline-block';
-        document.getElementById('exportExcelButton').style.display = 'inline-block';
-        document.getElementById('exportAuditButton').style.display = 'inline-block';
-        document.getElementById('dashboardButton').style.display = 'inline-block';
-        
-        // Update analytics and render
-        updateAnalytics();
-        renderCalls(parsedCalls);
-        
-      } catch (error) {
-        console.error("Error processing raw JSON data:", error);
-        document.getElementById("status").textContent = `❌ Error processing raw data: ${error.message}`;
-      }
-    }
-    
     // Process multiple files sequentially
     async function processMultipleFiles(files) {
-      let processedCount = 0;
-      const totalFiles = files.length;
-      
-      // Process each file
-      for (const file of files) {
-        try {
-          await processFile(file);
-          processedCount++;
-          document.getElementById("status").textContent = `⏳ Processed ${processedCount}/${totalFiles} files...`;
-        } catch (error) {
-          console.error(`Error processing file ${file.name}:`, error);
-        }
-      }
-      
-      document.getElementById("status").textContent = `✅ Completed processing ${processedCount}/${totalFiles} files`;
+      // This function will be replaced by processDroppedFiles
+      // which includes the smart file detection logic.
+      await processDroppedFiles(files); 
     }
     
     // Process a single file
@@ -1227,6 +704,21 @@
         // Update the UI
         updateAnalytics();
         renderCalls(parsedCalls);
+        renderTopStatsBar(parsedCalls); // Added call
+
+        // Sync with DataStackULTRA
+        if (window.DataStackULTRA && typeof window.DataStackULTRA.set === 'function') {
+          window.DataStackULTRA.set('loadedCalls', parsedCalls)
+            .then(() => {
+              console.log(`✅ Synced all parsed calls to DataStackULTRA.loadedCalls after appendFile (${parsedCalls.length} calls)`);
+            })
+            .catch(err => {
+              console.error("Error syncing parsedCalls to DataStackULTRA.loadedCalls after appendFile:", err);
+            });
+        } else {
+          console.warn("window.DataStackULTRA not available or .set is not a function after appendFile. Cannot sync loadedCalls.");
+        }
+        
         return newCalls.length;
       } else {
         if (!filename.includes('zip:')) {
@@ -1254,6 +746,20 @@
       // Update analytics and render
       updateAnalytics();
       renderCalls(calls);
+      renderTopStatsBar(calls); // Added call
+
+      // Sync with DataStackULTRA
+      if (window.DataStackULTRA && typeof window.DataStackULTRA.set === 'function') {
+        window.DataStackULTRA.set('loadedCalls', parsedCalls)
+          .then(() => {
+            console.log(`✅ Synced all parsed calls to DataStackULTRA.loadedCalls after parse (${parsedCalls.length} calls)`);
+          })
+          .catch(err => {
+            console.error("Error syncing parsedCalls to DataStackULTRA.loadedCalls after parse:", err);
+            });
+        } else {
+          console.warn("window.DataStackULTRA not available or .set is not a function after parse. Cannot sync loadedCalls.");
+        }
       
       return calls.length;
     }
@@ -2097,25 +1603,40 @@
       }
     }
 
-    // Open the analytics dashboard in a new window
+    // Open the analytics dashboard in a new window using window.name for offline-safe transfer
     function openDashboard() {
-      if (!parsedCalls.length) {
-        document.getElementById("status").textContent = "⚠️ No data available for dashboard.";
-        return;
-      }
-      
-      try {
-        // Store the current data in localStorage for the dashboard to access
-        localStorage.setItem('inspiroCallData', JSON.stringify(parsedCalls));
-        document.getElementById("status").textContent = "✅ Data prepared for dashboard";
-        
-        // Open the dashboard in a new window
-        window.open('dashboard.html', '_blank');
-      } catch (error) {
-        console.error("Error saving data to localStorage:", error);
-        document.getElementById("status").textContent = "❌ Error preparing dashboard data: " + error.message;
-      }
+    if (!parsedCalls.length) {
+    document.getElementById("status").textContent = "⚠️ No data available for dashboard.";
+    return;
+  }
+
+  try {
+    // Store parsedCalls in window.name for transfer to the new tab
+    window.name = JSON.stringify(parsedCalls);
+
+    document.getElementById("status").textContent = "✅ Data prepared and dashboard opening...";
+
+    // Open the dashboard (this will be able to access window.name)
+    window.open('./dashboards/analytics/analytics.html', '_blank');
+
+    // Also store in DataStackULTRA for dashboards that use it
+    if (window.DataStackULTRA && typeof window.DataStackULTRA.set === 'function') {
+      window.DataStackULTRA.set('loadedCalls', parsedCalls)
+        .then(() => {
+          console.log("✅ Synced all parsed calls to DataStackULTRA.loadedCalls in launchDashboard (" + parsedCalls.length + " calls)");
+        })
+        .catch(err => {
+          console.error("Error syncing parsedCalls to DataStackULTRA.loadedCalls in launchDashboard:", err);
+        });
+    } else {
+      console.warn("window.DataStackULTRA not available or .set is not a function in launchDashboard. Cannot sync loadedCalls.");
     }
+
+  } catch (error) {
+    console.error("Error preparing dashboard data:", error);
+    document.getElementById("status").textContent = "❌ Error: " + error.message;
+  }
+}
     
     // Export to Excel using xlsx library for a proper Excel file with multiple sheets
     function exportToExcel() {
@@ -2387,8 +1908,22 @@
       
       // Hide action buttons
       updateExportButtons();
+      renderTopStatsBar([]); // Added call with empty array
       
       document.getElementById("status").textContent = "🟡 Data cleared. Waiting for file...";
+
+      // Sync with DataStackULTRA (to clear it)
+      if (window.DataStackULTRA && typeof window.DataStackULTRA.set === 'function') {
+        window.DataStackULTRA.set('loadedCalls', parsedCalls) // parsedCalls is now empty
+          .then(() => {
+            console.log(`✅ Cleared DataStackULTRA.loadedCalls after clearAllData.`);
+          })
+          .catch(err => {
+            console.error("Error clearing DataStackULTRA.loadedCalls after clearAllData:", err);
+          });
+      } else {
+        console.warn("window.DataStackULTRA not available or .set is not a function after clearAllData. Cannot sync loadedCalls.");
+      }
     }
 
     // Add a utility function to verify if a spreadsheet is a metadata-only format
@@ -3261,6 +2796,1225 @@
         year: 'numeric'
       });
     }
+  
+    function renderTopStatsBar(calls = []) {
+      const totalCalls = calls.length;
+
+      // Remove existing summary bar container to prevent duplicates or showing when no calls
+      let summaryBarContainer = document.getElementById('summaryBarContainer');
+      if (summaryBarContainer) {
+        summaryBarContainer.remove();
+      }
+
+      if (totalCalls === 0) { // If no calls, ensure it's removed and do nothing else
+        return;
+      }
+
+      const totalSeconds = calls.reduce((sum, call) => {
+        const duration = call?.meta?.["Contact duration"] || "00:00:00";
+        const [h, m, s] = duration.split(':').map(Number);
+        return sum + h * 3600 + m * 60 + s;
+      }, 0);
+
+      const avgSeconds = Math.floor(totalSeconds / totalCalls);
+
+      function fmt(secs) {
+        const h = String(Math.floor(secs / 3600)).padStart(2, '0');
+        const m = String(Math.floor((secs % 3600) / 60)).padStart(2, '0');
+        const s = String(secs % 60).padStart(2, '0');
+        return `${h}:${m}:${s}`;
+      }
+
+      const avg = fmt(avgSeconds);
+      const total = fmt(totalSeconds);
+
+      // Create the container for the summary bar - this will have the background and spacing
+      summaryBarContainer = document.createElement('div');
+      summaryBarContainer.id = 'summaryBarContainer'; 
+      summaryBarContainer.style.background = '#222';
+      summaryBarContainer.style.padding = '10px 15px';
+      summaryBarContainer.style.border = '1px solid #444';
+      summaryBarContainer.style.marginBottom = '20px';
+      summaryBarContainer.style.borderRadius = '5px';
+      summaryBarContainer.style.display = 'flex'; 
+
+      // Create the actual summary bar content
+      const summaryBarContent = document.createElement('div');
+      summaryBarContent.id = 'summaryBar'; 
+
+      summaryBarContent.style.fontSize = '13px'; 
+      summaryBarContent.style.color = '#ccc';    
+      summaryBarContent.style.marginLeft = 'auto'; 
+      summaryBarContent.style.display = 'flex';    
+      summaryBarContent.style.gap = '1rem';        
+      summaryBarContent.style.cursor = 'pointer';  
+      summaryBarContent.style.transition = 'color 0.2s'; 
+
+      summaryBarContent.onmouseover = () => summaryBarContent.style.color = '#fff'; 
+      summaryBarContent.onmouseout = () => summaryBarContent.style.color = '#ccc';  
+
+      summaryBarContent.innerHTML = `
+          <div>🧮 Total: ${totalCalls}</div>
+          <div>⏱️ Avg: ${avg}</div>
+          <div>🎙️ Talk: ${total}</div>
+      `;
+      summaryBarContent.onclick = () => document.querySelector('#analytics-panel')?.scrollIntoView({ behavior: 'smooth' });
+
+      summaryBarContainer.appendChild(summaryBarContent);
+
+      const searchContainerElement = document.querySelector('.search-container');
+      if (searchContainerElement && searchContainerElement.parentNode) {
+        searchContainerElement.parentNode.insertBefore(summaryBarContainer, searchContainerElement);
+      } else {
+        const controlsContainer = document.querySelector('.controls-container');
+        if (controlsContainer && controlsContainer.parentNode) {
+            controlsContainer.parentNode.insertBefore(summaryBarContainer, controlsContainer.nextSibling);
+        } else {
+            console.warn('Target for stats bar not found. Appending to body.');
+            document.body.appendChild(summaryBarContainer); 
+        }
+      }
+    }
+
+    function launchDashboard(name) {
+      if (!parsedCalls.length) {
+        alert("⚠️ Load call data before opening dashboards.");
+        return;
+      }
+
+      try {
+        localStorage.setItem("inspiroCallData", JSON.stringify(parsedCalls));
+        // Also store in DataStackULTRA for dashboards that use it
+        if (window.DataStackULTRA && typeof window.DataStackULTRA.set === 'function') {
+          window.DataStackULTRA.set('loadedCalls', parsedCalls)
+            .then(() => {
+              console.log("✅ Synced all parsed calls to DataStackULTRA.loadedCalls in launchDashboard (" + parsedCalls.length + " calls)");
+            })
+            .catch(err => {
+              console.error("Error syncing parsedCalls to DataStackULTRA.loadedCalls in launchDashboard:", err);
+            });
+        } else {
+          console.warn("window.DataStackULTRA not available or .set is not a function in launchDashboard. Cannot sync loadedCalls.");
+        }
+
+        const w = 1080, h = 720;
+        const left = (screen.width - w) / 2;
+        const top = (screen.height - h) / 2;
+        window.open(
+          `dashboards/${name}/${name}.html`,
+          "_blank",
+          `width=${w},height=${h},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
+        );
+      } catch (err) {
+        console.error("Dashboard launch failed:", err);
+        alert("❌ Failed to launch dashboard.");
+      }
+    }
+
+    // --- NEW MASTER LOG FUNCTIONS ---
+    function updateMasterLogStatus(message, isError = false) {
+      const statusEl = document.getElementById('masterLogStatus');
+      const containerEl = document.getElementById('masterLogStatusContainer');
+      if (statusEl && containerEl) {
+        statusEl.textContent = message;
+        statusEl.style.color = isError ? '#ff4d4d' : '#ccc';
+        containerEl.style.display = 'block';
+        containerEl.style.borderColor = isError ? '#ff4d4d' : '#a43ec9'; 
+      }
+      console.log(`Master Log Status: ${message}`);
+    }
+
+    async function fetchAndProcessRemoteMasterLog() {
+      updateMasterLogStatus('🔄 Fetching Master Log from remote...');
+      try {
+        const response = await fetch(MASTER_LOG_REMOTE_URL);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status} while fetching Master Log.`);
+        }
+        const csvText = await response.text();
+        
+        // Assuming PapaParse is available or we have a window.parseCSV function
+        let parsedCsv;
+        if (typeof Papa !== 'undefined') {
+            parsedCsv = Papa.parse(csvText, { header: true, skipEmptyLines: true }).data;
+        } else if (typeof window.parseCSV === 'function') { // Fallback to a global parser if Papa not there
+            parsedCsv = window.parseCSV(csvText); // Ensure this function returns an array of objects
+        } else {
+            updateMasterLogStatus('❌ CSV Parsing library (PapaParse or window.parseCSV) not found.', true);
+            console.error('CSV Parsing library not found.');
+            return;
+        }
+
+        if (!parsedCsv || parsedCsv.length === 0) {
+          updateMasterLogStatus('🔸 Remote Master Log is empty or failed to parse correctly.', true);
+          return;
+        }
+
+        masterLogInMemoryCache = parsedCsv; // Update in-memory representation for immediate use
+        await window.DataStackULTRA.set('masterLogCache', masterLogInMemoryCache);
+        updateMasterLogStatus(`✅ Successfully fetched and processed Master Log from remote. ${masterLogInMemoryCache.length} entries cached.`);
+        
+        // After updating master log, re-process existing calls to enrich them if any exist
+        if(parsedCalls.length > 0){
+            await enrichAndStoreParsedCalls(parsedCalls, true); // true to indicate re-enrichment
+        }
+
+      } catch (error) {
+        console.error('Error fetching or processing remote Master Log:', error);
+        updateMasterLogStatus(`❌ Error fetching remote Master Log: ${error.message}`, true);
+        // Offer to load from local backup/drag-drop might be good here
+      }
+
+      // After successfully fetching and processing the remote log
+      if (masterLogInMemoryCache && masterLogInMemoryCache.length > 0) {
+        // Example: if you merge this into parsedCalls or use it to update them
+        // For now, let's assume it might lead to an update of parsedCalls indirectly
+        // or that a subsequent action will. If parsedCalls is directly updated here, sync it.
+        // For instance, if mergeAuditDataIntoCalls modified parsedCalls:
+        // parsedCalls = mergeAuditDataIntoCalls(parsedCalls, masterLogInMemoryCache); 
+        // Then you would sync here.
+
+        // Generic sync if parsedCalls *could* have changed due to master log integration
+        if (window.DataStackULTRA && typeof window.DataStackULTRA.set === 'function') {
+          window.DataStackULTRA.set('loadedCalls', parsedCalls)
+            .then(() => {
+              console.log(`✅ Synced parsedCalls to DataStackULTRA after fetchAndProcessRemoteMasterLog (${parsedCalls.length} calls)`);
+            })
+            .catch(err => {
+              console.error("Error syncing parsedCalls to DataStackULTRA after fetchAndProcessRemoteMasterLog:", err);
+            });
+        } else {
+          console.warn("window.DataStackULTRA not available or .set is not a function after fetchAndProcessRemoteMasterLog. Cannot sync loadedCalls.");
+        }
+      }
+    }
+    
+    // Function to parse CSV text to an array of objects.
+    // This is a simple example; a robust library like PapaParse is recommended.
+    // PapaParse is already included via CDN, so this can be a fallback or be removed if Papa.parse is used directly.
+    window.parseCSV = function(csvText) {
+        const lines = csvText.split(/\r?\n/).filter(line => line.trim() !== '');
+        if (lines.length < 2) return []; // Needs header and at least one data row
+        const headers = lines[0].split(',').map(header => header.trim());
+        const data = [];
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(','); // Simple split, doesn't handle quotes/commas in fields
+            const entry = {};
+            for (let j = 0; j < headers.length; j++) {
+                entry[headers[j]] = values[j] ? values[j].trim() : '';
+            }
+            data.push(entry);
+        }
+        return data;
+    };
+
+    // --- END NEW MASTER LOG FUNCTIONS ---
+
+    // --- MODIFIED FILE PROCESSING LOGIC ---
+    async function processDroppedFiles(files) {
+  document.getElementById("status").textContent = `⏳ Processing ${files.length} file(s)...`;
+
+  let callFilesProcessed = 0;
+  let masterLogFileProcessed = false;
+
+  for (const file of files) {
+    const reader = new FileReader();
+
+    await new Promise((resolveFile, rejectFile) => {
+      reader.onload = async function (e) {
+        const content = e.target.result;
+        const fileName = file.name.toLowerCase();
+        let fileType = 'unknown';
+
+        if (fileName.endsWith('.zip')) fileType = 'zip';
+        else if (fileName.endsWith('.csv')) fileType = 'csv';
+        else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) fileType = 'excel';
+        else if (fileName.endsWith('.txt') || fileName.endsWith('.html')) fileType = 'text';
+
+        const processingResult = await processSingleFileContent(file, content, fileType, fileName);
+        if (processingResult === 'master_log_processed') masterLogFileProcessed = true;
+        else if (processingResult === 'call_file_processed') callFilesProcessed++;
+
+        resolveFile(); 
+      };
+
+      reader.onerror = rejectFile;
+      reader.readAsText(file); // TXT, HTML, CSV assumed for now
+    });
+  }
+
+  const finalStatus = [];
+  if (masterLogFileProcessed) finalStatus.push("Master Log updated");
+  if (callFilesProcessed > 0) finalStatus.push(`${callFilesProcessed} call transcript file(s) processed`);
+
+  if (callFilesProcessed > 0 && parsedCalls.length > 0) {
+    // ✅ Store to localStorage
+    localStorage.setItem("inspiroCallData", JSON.stringify(parsedCalls));
+    console.log("✅ Calls saved to localStorage:", parsedCalls.length);
+
+    // ✅ UI updates
+    renderCalls(parsedCalls);
+    updateAnalytics();
+    renderTopStatsBar(parsedCalls);
+    updateExportButtons();
+
+    // ✅ Final success status
+    document.getElementById("status").textContent = `✅ ${finalStatus.join(', ')}.`;
+  } else {
+    // No valid calls
+    document.getElementById("status").textContent = "🟡 No new data processed or files were unrecognized.";
+  }
+
+  // Sync with DataStackULTRA after all dropped files are processed
+  if (window.DataStackULTRA && typeof window.DataStackULTRA.set === 'function') {
+    window.DataStackULTRA.set('loadedCalls', parsedCalls)
+      .then(() => {
+        console.log(`✅ Synced all parsed calls to DataStackULTRA.loadedCalls after processDroppedFiles (${parsedCalls.length} calls)`);
+      })
+      .catch(err => {
+        console.error("Error syncing parsedCalls to DataStackULTRA.loadedCalls after processDroppedFiles:", err);
+      });
+  }
+}
+
+    async function processSingleFileContent(file, content, fileType, fileNameWithCase) {
+        // Smart File Detection Logic
+        let parsedContent;
+        let isMasterLog = false;
+        let isCallDump = false;
+
+        if (fileType === 'zip') {
+            // If it's a zip, we assume it contains call transcripts for now.
+            // The processZipFile function will handle extracting and processing them.
+            // processZipFile itself calls appendFile which calls parseContent, then enrichAndStoreParsedCalls
+            // This path doesn't directly return master_log_processed or call_file_processed from here.
+            // It manages its own status updates. For simplicity, we'll let it run and not try to classify its contents here.
+            const password = document.getElementById('zipPassword').value;
+            if (file.name.toLowerCase().endsWith('.zip') && document.getElementById('zipPasswordContainer').style.display === 'block' && !password){
+                document.getElementById("status").textContent = "🔑 Please enter ZIP password or re-drop if not password protected.";
+                return 'skipped'; // Needs password
+            }
+            await processZipFile(file, password);
+            return 'zip_processed'; // Special status for ZIPs as they are containers
+        }
+        
+        // Attempt to parse (CSV or JSON for Master Log, HTML/TXT for calls)
+        try {
+            if (fileType === 'csv') {
+                if (typeof Papa !== 'undefined') {
+                    parsedContent = Papa.parse(content, { header: true, skipEmptyLines: true }).data;
+                } else {
+                    parsedContent = window.parseCSV(content);
+                }
+            } else if (fileType === 'excel') {
+                 // ProcessExcelFile needs to be adapted to return parsed data rather than directly processing it
+                 // For now, this is a placeholder showing where it would fit.
+                 // This requires a more significant refactor of processSpreadsheetFile to fit the new flow.
+                 // Let's assume it will eventually feed into the parsedContent variable.
+                console.warn("Direct Excel processing in this flow needs refactoring. Treating as potential call dump for now.");
+                // For now, let the existing processSpreadsheetFile handle it if it was the entry point.
+                // This new smart detection is primarily for files dropped directly.
+                // If processSpreadsheetFile was called, it has its own logic.
+                // This path is for direct drop of excel.
+                const data = await file.arrayBuffer();
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                parsedContent = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName]);
+                // === Handle Audit Template Format with Embedded JSON ===
+if (Array.isArray(parsedContent) && parsedContent.some(row => row["Raw JSON Data (Do not modify)"])) {
+  const embeddedJSONCalls = [];
+
+  for (const row of parsedContent) {
+    const raw = row["Raw JSON Data (Do not modify)"];
+    if (raw) {
+      try {
+        const call = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (call.meta && call.meta["Contact ID"]) {
+          embeddedJSONCalls.push(call);
+        }
+      } catch (e) {
+        console.warn("❌ Failed to parse Raw JSON in row:", row, e);
+      }
+    }
+  }
+
+  if (embeddedJSONCalls.length > 0) {
+    const uniqueNewCalls = embeddedJSONCalls.filter(nc => !contactIdSet.has(nc.meta["Contact ID"]));
+    uniqueNewCalls.forEach(nc => contactIdSet.add(nc.meta["Contact ID"]));
+
+    parsedCalls.push(...uniqueNewCalls);
+    await enrichAndStoreParsedCalls(uniqueNewCalls);
+
+    uploadedFiles.push(fileNameWithCase);
+    updateUploadedFilesList();
+
+    return 'call_file_processed';
+  }
+}
+
+            } else if (fileType === 'text') { // .txt, .html for call transcripts
+                parsedContent = content; // Will be processed by parseContent later
+            } else if (file.name.toLowerCase().endsWith('.json')) { // Explicit JSON check for potential master log backup
+                parsedContent = JSON.parse(content);
+            } else {
+                console.warn(`Unsupported file type for smart detection: ${fileNameWithCase}`);
+                return 'unrecognized';
+            }
+
+            // SMART FILE DETECTION LOGIC (applied if parsedContent is an array of objects from CSV/JSON/Excel)
+            if (Array.isArray(parsedContent)) {
+                 // Check if it looks like a Master Log (has contactId or meta.contactId)
+                 isMasterLog = parsedContent.some(row => 
+                    row && (row.contactId || (row.meta && (row.meta.contactId || row.meta["Contact ID"])))
+                 );
+                 // Check if it looks like our call dump format (has transcript, flags, summary etc.)
+                 isCallDump = parsedContent.some(row => 
+                    row && (row.transcript || row.flags || row.summary || row.issue || row.outcome || row.meta)
+                 );
+            }
+
+        } catch (err) {
+            console.warn(`Failed to parse file ${fileNameWithCase} for smart detection:`, err);
+            // Fallback: if it's a text or html file, assume it's a call transcript dump
+            if (fileType === 'text') {
+                isCallDump = true; // Treat as call dump if parsing fails but it's a text type
+                parsedContent = content; // keep raw content for parseContent
+            } else {
+                return 'parsing_failed';
+            }
+        }
+
+        // Decision time
+        if (isMasterLog && !isCallDump && Array.isArray(parsedContent)) { // Pure Master Log (e.g., CSV or JSON array)
+            updateMasterLogStatus(`Processing Master Log file: ${fileNameWithCase}...`);
+            masterLogInMemoryCache = parsedContent; // Update in-memory representation
+            await window.DataStackULTRA.set('masterLogCache', masterLogInMemoryCache);
+            updateMasterLogStatus(`✅ Master Log updated from ${fileNameWithCase}. ${masterLogInMemoryCache.length} entries cached.`);
+            // Re-enrich calls if any are loaded
+            if(parsedCalls.length > 0){
+                await enrichAndStoreParsedCalls(parsedCalls, true);
+            }
+            return 'master_log_processed';
+        } else if (isCallDump) { // Call transcript dump (text, html, or structured like JSON/CSV from our export)
+            document.getElementById("status").textContent = `Processing call transcript file: ${fileNameWithCase}...`;
+            let newCalls;
+            if (typeof parsedContent === 'string') { // From TXT/HTML
+                newCalls = parseContent(parsedContent); 
+            } else if (Array.isArray(parsedContent)) { // From our JSON/CSV/Excel export format
+                // This path assumes processSpreadsheetData or a similar converter
+                // We need to adapt processSpreadsheetData to return calls instead of directly setting globals
+                // For now, let's use a simplified version of what processSpreadsheetData does.
+                // This is a placeholder for a more robust conversion.
+                newCalls = convertSpreadsheetDataToCalls(parsedContent); 
+            }
+
+            if (newCalls && newCalls.length > 0) {
+                const uniqueNewCalls = newCalls.filter(nc => !contactIdSet.has(nc.meta["Contact ID"]));
+                uniqueNewCalls.forEach(nc => contactIdSet.add(nc.meta["Contact ID"]));
+                
+                parsedCalls.push(...uniqueNewCalls); // Add to global immediately for enrichment
+                await enrichAndStoreParsedCalls(uniqueNewCalls); // Enrich and store the new ones
+                
+                // The global parsedCalls is now updated with unique, enriched calls.
+                // No need to re-assign it from DataStackULTRA here for rendering this batch.
+
+                uploadedFiles.push(fileNameWithCase);
+                updateUploadedFilesList();
+                return 'call_file_processed';
+            } else {
+                 document.getElementById("status").textContent = `⚠️ No valid calls found in ${fileNameWithCase}.`;
+                 return 'no_calls_in_file';
+            }
+        } else {
+            console.warn(`Unrecognized file format or content for: ${fileNameWithCase}`);
+            document.getElementById("status").textContent = `⚠️ Unrecognized file format: ${fileNameWithCase}`;
+            return 'unrecognized';
+        }
+    }
+
+    // Placeholder for a function that converts spreadsheet data (from XLSX or PapaParse) to parsedCalls structure
+    // This would be a refactored version of parts of your existing processSpreadsheetData
+    function convertSpreadsheetDataToCalls(data, fileName = "spreadsheet.xlsx") { // Added fileName for context if needed
+        let convertedCalls = [];
+        // let duplicateCount = 0; // Local duplicate count for this batch - duplicates handled by caller against global set
+
+        if (!data || data.length === 0) {
+            console.warn("No data provided to convertSpreadsheetDataToCalls");
+            return [];
+        }
+
+        // Check if this is our exported format (has specific meta structure or known fields)
+        const isOurFormat = data[0] && (
+          data[0].hasOwnProperty('contactId') || // From JSON export
+          data[0].hasOwnProperty('meta') || // From JSON export
+          data[0].hasOwnProperty('Contact ID') // From CSV/Excel export
+        );
+
+        if (isOurFormat) {
+            console.log(`Spreadsheet data appears to be in "Our Exported Format" for file: ${fileName}`);
+            for (const row of data) {
+                // Prioritize explicit Contact ID fields, then meta, then generate a unique one
+                const contactId = row['Contact ID'] || row.contactId || (row.meta && row.meta['Contact ID']) || `unknown-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+                const agent = row['Agent name'] || row.agent || row['Agent'] || (row.meta && (row.meta['Agent name'] || row.meta['Agent'])) || "Unknown";
+                const timestamp = row['Initiation timestamp'] || row.timestamp || (row.meta && row.meta['Initiation timestamp']) || new Date().toISOString();
+                const duration = row['Contact duration'] || row.duration || (row.meta && row.meta['Contact duration']) || "0:00:00";
+                
+                let flags = [];
+                if (row.flags) {
+                    flags = Array.isArray(row.flags) ? row.flags : String(row.flags).split(';').map(f => f.trim()).filter(f => f);
+                }
+
+                let positiveFlags = [];
+                if (row.positiveFlags) {
+                    positiveFlags = Array.isArray(row.positiveFlags) ? row.positiveFlags : String(row.positiveFlags).split(';').map(f => f.trim()).filter(f => f);
+                }
+                
+                const issue = row.issue || "";
+                const outcome = row.outcome || "";
+                const summary = row.summary || "";
+                const positiveScore = typeof row.positiveScore === 'number' ? row.positiveScore : (positiveFlags.length - flags.length);
+
+                let meta = {};
+                if (row.meta && typeof row.meta === 'object') {
+                    meta = { ...row.meta }; // Create a copy
+                    if (!meta['Contact ID'] && contactId) meta['Contact ID'] = contactId; // Ensure Contact ID from row is in meta
+                } else {
+                    // Create meta from known fields if meta object isn't there
+                    metadataFieldOrder.forEach(field => {
+                        if (row[field] !== undefined) meta[field] = row[field];
+                    });
+                     if (!meta['Contact ID']) meta['Contact ID'] = contactId; // Fallback if not in row's direct properties
+                }
+                // Ensure essential fields are present in meta, using extracted values as defaults
+                if (!meta["Contact ID"]) meta["Contact ID"] = contactId;
+                if (!meta["Agent name"] && agent !== "Unknown") meta["Agent name"] = agent;
+                else if (!meta["Agent"] && agent !== "Unknown") meta["Agent"] = agent; // Check for "Agent" as well
+                if (!meta["Initiation timestamp"]) meta["Initiation timestamp"] = timestamp;
+                if (!meta["Contact duration"]) meta["Contact duration"] = duration;
+                if (!meta["Channel"] && row['Channel']) meta["Channel"] = row['Channel'];
+
+
+                let transcript = [];
+                if (row.transcript) {
+                    if (Array.isArray(row.transcript)) {
+                        transcript = row.transcript.map(entry => ({
+                            speaker: entry.speaker || "Unknown",
+                            timestamp: entry.timestamp || "00:00",
+                            text: entry.text || "",
+                            flags: entry.flags || [],
+                            positiveFlags: entry.positiveFlags || []
+                        }));
+                    } else if (typeof row.transcript === 'string') {
+                        // Attempt to parse if it's a JSON string of transcript entries
+                        try {
+                            const parsedTranscript = JSON.parse(row.transcript);
+                            if (Array.isArray(parsedTranscript)) {
+                                transcript = parsedTranscript.map(entry => ({
+                                    speaker: entry.speaker || "Unknown",
+                                    timestamp: entry.timestamp || "00:00",
+                                    text: entry.text || "",
+                                    flags: entry.flags || [],
+                                    positiveFlags: entry.positiveFlags || []
+                                }));
+                            } else {
+                                transcript = [{ speaker: "System", timestamp: "00:00", text: row.transcript, flags: [], positiveFlags: [] }];
+                            }
+                        } catch (e) {
+                             transcript = [{ speaker: "System", timestamp: "00:00", text: row.transcript, flags: [], positiveFlags: [] }];
+                        }
+                    }
+                } else if (row.Speaker && row.Message) { // Flattened CSV transcript
+                    transcript = [{
+                        speaker: row.Speaker || "Unknown",
+                        timestamp: row.Timestamp || "00:00",
+                        text: row.Message || "",
+                        flags: (row.Flags ? String(row.Flags).split(';').map(f=>f.trim()).filter(Boolean) : []), // Ensure empty strings are filtered
+                        positiveFlags: (row.PositiveFlags ? String(row.PositiveFlags).split(';').map(f=>f.trim()).filter(Boolean) : [])
+                    }];
+                }
+
+                convertedCalls.push({
+                    meta,
+                    transcript,
+                    flags,
+                    positiveFlags,
+                    issue,
+                    outcome,
+                    summary,
+                    positiveScore
+                });
+            }
+        } else {
+            console.warn(`Spreadsheet data in ${fileName} does not match "Our Exported Format". Attempting generic mapping.`);
+            data.forEach((row, index) => {
+                const contactId = row['Contact ID'] || row.contactId || row.id || `generic-${fileName}-${index}-${Date.now()}`;
+                
+                let agent = "Unknown";
+                const possibleAgentFields = ['agent', 'agentName', 'agent_name', 'rep', 'employee', 'Agent', 'Agent name'];
+                for (const field of possibleAgentFields) { if (row[field]) { agent = row[field]; break; } }
+
+                let timestamp = new Date().toISOString();
+                const possibleTimestampFields = ['timestamp', 'date', 'time', 'callTime', 'call_time', 'Date', 'Time', 'Initiation timestamp'];
+                for (const field of possibleTimestampFields) { if (row[field]) { timestamp = new Date(row[field]).toISOString(); break; } } // Attempt to parse date
+
+                let text = "";
+                const possibleTextFields = ['transcript', 'text', 'content', 'message', 'conversation', 'Text', 'Message'];
+                for (const field of possibleTextFields) { if (row[field]) { text = row[field]; break; } }
+                
+                const meta = { "Contact ID": contactId, "Agent name": agent, "Initiation timestamp": timestamp, "SourceFile": fileName };
+                 // Add all other row properties to meta, avoiding overwrite of core identified fields
+                Object.entries(row).forEach(([key, value]) => {
+                    if (!meta.hasOwnProperty(key) && 
+                        !possibleAgentFields.includes(key) && 
+                        !possibleTimestampFields.includes(key) && 
+                        !possibleTextFields.includes(key) &&
+                        key !== 'Contact ID' && key !== 'id' && key !== 'contactId') {
+                        meta[key] = value;
+                    }
+                });
+
+                convertedCalls.push({
+                    meta,
+                    transcript: text ? [{ speaker: "System", text: text, timestamp: "00:00", flags: [], positiveFlags: [] }] : [],
+                    flags: [],
+                    positiveFlags: [],
+                    issue: row.issue || "",
+                    outcome: row.outcome || "",
+                    summary: row.summary || (text ? "Content from generic spreadsheet row." : ""),
+                    positiveScore: 0
+                });
+            });
+        }
+        
+        console.log(`Converted ${convertedCalls.length} calls from ${fileName}.`);
+        return convertedCalls;
+    }
+
+
+    async function enrichAndStoreParsedCalls(callsToProcess, isReEnrichment = false) {
+        if (!callsToProcess || callsToProcess.length === 0) return;
+
+        // Ensure CallAnalyzer is available
+        if (typeof window.CallAnalyzer !== 'object' || typeof window.CallAnalyzer.analyzeCall !== 'function') {
+            console.error("CallAnalyzer or its analyzeCall function is not available. Skipping full analysis and enrichment.");
+            // Fallback: Store calls as is, or with minimal enrichment if possible
+            // For now, we'll proceed, but calls will lack detailed analysis.
+        }
+
+        let currentMasterLog = masterLogInMemoryCache;
+        if (!currentMasterLog || currentMasterLog.length === 0) {
+            currentMasterLog = await window.DataStackULTRA.get('masterLogCache', []);
+            masterLogInMemoryCache = currentMasterLog; // Update in-memory if fetched
+        }
+
+        const processedAndEnrichedCalls = callsToProcess.map(call => {
+            let enrichedCall = { ...call }; // Start with the existing call data
+
+            // 1. Perform core analysis using CallAnalyzer
+            if (window.CallAnalyzer && typeof window.CallAnalyzer.analyzeCall === 'function') {
+                const analysisOptions = {
+                    // includeSentiment: true, // Default is true in CallAnalyzer
+                    // includeKeywordStats: true, // Default is true
+                    // ... other options if needed
+                };
+                const analysisResult = window.CallAnalyzer.analyzeCall(call, analysisOptions);
+                if (analysisResult) {
+                    enrichedCall = { ...enrichedCall, ...analysisResult }; // Merge analysis results
+                }
+            }
+
+            // 2. Add/Update historySummary (Master Log integration)
+            const currentContactId = enrichedCall.meta?.["Contact ID"];
+            const customerIdentifier = enrichedCall.meta?.["Customer phone number / email address"] || enrichedCall.meta?.customerIdentifier || enrichedCall.meta?.customerId;
+
+            let historySummary = {
+                repeatCount: 0,
+                pastFlags: [],
+                avgHandleTimeText: null,
+                avgHandleTimeSeconds: null,
+                recentOutcomes: [], 
+                riskTags: [],
+                // Add any fields that CallAnalyzer might have already populated if history is part of its scope
+                ...(enrichedCall.historySummary || {}) // Preserve if CallAnalyzer added it
+            };
+
+            if (customerIdentifier && customerIdentifier !== "Unknown" && customerIdentifier !== "N/A" && currentMasterLog && currentMasterLog.length > 0) {
+                const customerHistory = currentMasterLog.filter(logEntry => {
+                    const logContactId = logEntry.meta?.["Contact ID"];
+                    const logCustomerIdentifier = logEntry.meta?.["Customer phone number / email address"] || logEntry.meta?.customerIdentifier || logEntry.meta?.customerId;
+                    
+                    // Match by customerIdentifier and ensure it's not the current call itself
+                    return logCustomerIdentifier === customerIdentifier && logContactId !== currentContactId;
+                });
+
+                if (customerHistory.length > 0) {
+                    historySummary.repeatCount = customerHistory.length; // This now represents other contacts from the same customer
+                    let totalDurationSeconds = 0;
+                    let durationCount = 0;
+
+                    customerHistory.forEach(h => {
+                        if (h.flags && Array.isArray(h.flags)) historySummary.pastFlags.push(...h.flags);
+                        if (h.outcome) historySummary.recentOutcomes.push(h.outcome);
+                        
+                        const durationStr = h.duration || (h.meta && h.meta["Contact duration"]) || 
+                                          (window.CallAnalyzer && h.durationMinutes ? null : "0:00:00");
+                        let entryDurationMinutes = h.durationMinutes;
+
+                        if(entryDurationMinutes === undefined && window.CallAnalyzer && durationStr !== null) {
+                            entryDurationMinutes = window.CallAnalyzer.parseDuration(durationStr);
+                        }
+
+                        if (entryDurationMinutes !== null && entryDurationMinutes !== undefined) {
+                            totalDurationSeconds += entryDurationMinutes * 60;
+                            durationCount++;
+                        }
+                        
+                        // Basic risk tagging (example)
+                        if (h.flags && h.flags.some(f => ['supervisor', 'escalate', 'cancel'].includes(f.toLowerCase()))) {
+                            historySummary.riskTags.push("Escalation/Cancel Risk (Past)");
+                        }
+                        if (h.meta && h.meta["Disconnect reason"] && String(h.meta["Disconnect reason"]).toLowerCase().includes('customer_disconnect')){
+                            historySummary.riskTags.push("Customer Disconnect History (Past)");
+                        }
+                    });
+                    historySummary.pastFlags = [...new Set(historySummary.pastFlags)];
+                    historySummary.recentOutcomes = [...new Set(historySummary.recentOutcomes)].slice(-3); 
+                    historySummary.riskTags = [...new Set(historySummary.riskTags)];
+
+                    if (durationCount > 0) {
+                        const avgSeconds = Math.round(totalDurationSeconds / durationCount);
+                        historySummary.avgHandleTimeSeconds = avgSeconds;
+                        historySummary.avgHandleTimeText = formatDuration(avgSeconds); // formatDuration is local to index.html
+                    }
+                }
+            }
+            enrichedCall.historySummary = historySummary;
+
+            // 3. Generate Coaching Note if CallAnalyzer is available
+            if (window.CallAnalyzer && typeof window.CallAnalyzer.generateCoachingNote === 'function') {
+                enrichedCall.coachingNote = window.CallAnalyzer.generateCoachingNote(enrichedCall); // Pass the fully enriched call
+            }
+
+            return enrichedCall;
+        });
+
+        if (isReEnrichment) {
+            processedAndEnrichedCalls.forEach(enrichedCall => {
+                const index = parsedCalls.findIndex(pCall => pCall.meta["Contact ID"] === enrichedCall.meta["Contact ID"]);
+                if (index !== -1) {
+                    parsedCalls[index] = enrichedCall;
+                }
+            });
+        } else {
+            // For new calls, they were already pushed to parsedCalls. Now update those specific entries.
+            callsToProcess.forEach(originalCall => {
+                const enrichedVersion = processedAndEnrichedCalls.find(ec => ec.meta["Contact ID"] === originalCall.meta["Contact ID"]);
+                if (enrichedVersion) {
+                    const index = parsedCalls.findIndex(pCall => pCall.meta["Contact ID"] === originalCall.meta["Contact ID"]);
+                    if (index !== -1) {
+                        parsedCalls[index] = enrichedVersion;
+                    }
+                }
+            });
+        }
+
+        await window.DataStackULTRA.set('loadedCalls', [...parsedCalls]); 
+        const currentActiveFile = await window.DataStackULTRA.get('activeAuditFile', 'File not set');
+        if(uploadedFiles.length > 0 && currentActiveFile !== uploadedFiles.join(', ')){
+             await window.DataStackULTRA.set('activeAuditFile', uploadedFiles.join(', '));
+        } else if (uploadedFiles.length === 0 && !currentActiveFile) {
+             await window.DataStackULTRA.set('activeAuditFile', 'No files loaded');
+        }
+        console.log("Enriched, analyzed, and stored/updated calls in DataStackULTRA.");
+
+        if (parsedCalls.length > 0) {
+            renderCalls(parsedCalls);
+            updateAnalytics();
+            renderTopStatsBar(parsedCalls);
+            updateExportButtons();
+        }
+    }
+    // Initial load of Master Log from cache, if available
+    
+if (!window.DataStackULTRA) {
+  window.DataStackULTRA = new AppStorageManager ({
+    encryptionEnabled: true
+  });
+}
+
+(async () => {
+        const cachedLog = await window.DataStackULTRA.get('masterLogCache', []);
+        if (cachedLog && cachedLog.length > 0) {
+            masterLogInMemoryCache = cachedLog;
+            updateMasterLogStatus(`✅ Loaded ${cachedLog.length} Master Log entries from local cache.`);
+        } else {
+            updateMasterLogStatus('🟡 Master Log cache is empty. Fetch from remote or drop a file.');
+        }
+        // Attempt to also load existing calls and enrich them if both are present
+        const existingCalls = await window.DataStackULTRA.get('loadedCalls', []);
+        if (existingCalls && existingCalls.length > 0) {
+            parsedCalls = existingCalls;
+            contactIdSet = new Set(parsedCalls.map(c => c.meta["Contact ID"]).filter(id => id && id !== "N/A" && id !== "Unknown"));
+            document.getElementById("status").textContent = `📝 Loaded ${parsedCalls.length} calls from previous session.`;
+            await enrichAndStoreParsedCalls(parsedCalls, true); // Re-enrich on load
+            updateUploadedFilesList(); // If you store uploadedFiles names in DataStackULTRA too
+        }
+    })();
+
+    // --- END MODIFIED FILE PROCESSING LOGIC ---
+
+    // Main parse function (for initial load of standard transcript files, less relevant with smart detection)
+    function parse(text, filename = "unknown.txt") {
+      const calls = parseContent(text);
+      
+      // Store globally
+      parsedCalls = calls;
+      
+      // Don't update status if processing multiple files (handled by the caller)
+      if (!filename.includes('zip:')) {
+        document.getElementById("status").textContent = `✅ Parsed ${calls.length} call(s) from ${filename}.`;
+      }
+      
+      // Show action buttons
+      updateExportButtons();
+      
+      // Update analytics and render
+      updateAnalytics();
+      renderCalls(calls);
+      renderTopStatsBar(calls); // Added call
+      
+      return calls.length;
+    }
+    
+    // Common parsing logic - extracts calls from text content
+    function parseContent(text) {
+      const lines = text.split(/\r?\n/).map(l => l.trim());
+      const calls = [];
+      let i = 0;
+      let duplicateCount = 0;
+
+      while (i < lines.length) {
+        // Start parsing when we find a Contact ID (our primary landmark)
+        if (CONTACT_ID_REGEX.test(lines[i])) {
+          // Get the Contact ID for duplicate checking
+          const contactId = lines[i];
+          
+          // Check if this is a duplicate - if so, skip it
+          if (contactIdSet.has(contactId)) {
+            // Skip to next contact
+            duplicateCount++;
+            while (i < lines.length && !CONTACT_ID_REGEX.test(lines[i]) || i === lines.indexOf(contactId)) {
+              i++;
+            }
+            continue;
+          }
+          
+          // Not a duplicate, add to our set
+          contactIdSet.add(contactId);
+          
+          // Initialize metadata object with all fields set to N/A
+          const meta = {};
+          metadataFieldOrder.forEach(field => {
+            meta[field] = "N/A";
+          });
+          
+          // Set the Contact ID
+          meta["Contact ID"] = contactId;
+          i++; // Move past the contact ID
+          
+          // Skip empty lines
+          while (i < lines.length && !lines[i]) i++;
+          
+          // Process short metadata (first tab-delimited row)
+          if (i < lines.length) {
+            const shortMetaValues = lines[i++].split("\t");
+            
+            // Map values to their respective fields using exact indices
+            for (let j = 0; j < shortMetadataFields.length && j < shortMetaValues.length; j++) {
+              meta[shortMetadataFields[j]] = shortMetaValues[j] || "N/A";
+            }
+            
+            // Skip empty lines
+            while (i < lines.length && !lines[i]) i++;
+            
+            // Process long metadata (second tab-delimited row)
+            if (i < lines.length) {
+              const longMetaValues = lines[i++].split("\t");
+              
+              // Map values to their respective fields using exact indices
+              for (let j = 0; j < longMetadataFields.length && j < longMetaValues.length; j++) {
+                meta[longMetadataFields[j]] = longMetaValues[j] || "N/A";
+              }
+            }
+          }
+          
+          // Process transcript and other sections
+          const transcript = [];
+          const flags = [];
+          const positiveFlags = [];
+          let issue = "", outcome = "", summary = "";
+          let currentLabel = "";
+          let categories = "";
+          
+          // Track section markers
+          let inTranscriptSection = false;
+          let foundTranscriptMarker = false;
+          
+          while (i < lines.length && !CONTACT_ID_REGEX.test(lines[i])) {
+            const line = lines[i];
+            
+            // Skip empty lines
+            if (!line) { 
+              i++; 
+              continue; 
+            }
+            
+            // Look for the transcript marker
+            if (!foundTranscriptMarker && (line === "Transcript" || line.trim() === "Transcript")) {
+              foundTranscriptMarker = true;
+              i++;
+              continue;
+            }
+            
+            // Check for Categories section header
+            if (line === "Categories" || line.trim() === "Categories") {
+              currentLabel = "categories";
+              i++;
+              continue;
+            }
+            
+            // If we've found the transcript marker, look for the start of the actual transcript
+            if (foundTranscriptMarker && !inTranscriptSection) {
+              if (line === "Agent" || line === "Customer" || line === "System" || 
+                  line.trim() === "Agent" || line.trim() === "Customer" || line.trim() === "System") {
+                inTranscriptSection = true;
+                // Exit categories collection if we were in that section
+                if (currentLabel === "categories") {
+                  currentLabel = "";
+                }
+                // Don't continue here - process this line as the start of the transcript
+              } else {
+                // If we're in categories section, collect the content
+                if (currentLabel === "categories") {
+                  categories += line + ", ";
+                }
+                // Still looking for the start of the transcript
+                i++;
+                continue;
+              }
+            }
+            
+            // Process transcript entries
+            if (inTranscriptSection) {
+              // Exit categories collection if we were in that section
+              if (currentLabel === "categories") {
+                currentLabel = "";
+              }
+              
+              // Check if this is a speaker line (Agent, Customer, System)
+              const isSpeakerLine = line === "Agent" || line === "Customer" || line === "System" || 
+                                  line.trim() === "Agent" || line.trim() === "Customer" || line.trim() === "System";
+              
+              if (isSpeakerLine && i + 2 < lines.length) {
+                const speaker = line.trim();
+                
+                // Next line should be timestamp
+                const timestampLine = lines[i + 1];
+                const timeMatch = timestampLine.match(/^\d{2}:\d{2}/);
+                
+                if (timeMatch) {
+                  // We have a valid speaker and timestamp, now get the text
+                  const text = lines[i + 2] || "";
+                  
+                  // Check for negative flags
+                  const hit = triggers.filter(t => text.toLowerCase().includes(t));
+                  
+                  // Check for positive flags
+                  const positiveHit = positiveTriggers.filter(t => text.toLowerCase().includes(t));
+                  
+                  transcript.push({ 
+                    speaker, 
+                    timestamp: timestampLine, 
+                    text, 
+                    flags: hit,
+                    positiveFlags: positiveHit
+                  });
+                  
+                  flags.push(...hit);
+                  positiveFlags.push(...positiveHit);
+                  
+                  // Skip past text line
+                  i += 3;
+                  continue;
+                }
+              }
+              
+              // If we didn't match the structure above, continue looking
+              i++;
+              continue;
+            }
+            
+            // Handle other sections
+            const lower = line.toLowerCase();
+            if (["audio", "summary"].includes(lower)) {
+              currentLabel = lower === "summary" ? "summary" : "";
+              i++;
+              continue;
+            }
+            
+            if (["issue", "outcome"].includes(lower)) {
+              currentLabel = lower;
+              i++;
+              continue;
+            }
+            
+            // Process content in labeled sections
+            if (currentLabel) {
+              const clean = line.replace(/^Generated by AI\s*/i, "").trim();
+              if (currentLabel === "issue") issue += clean + " ";
+              else if (currentLabel === "outcome") outcome += clean + " ";
+              else if (currentLabel === "summary") summary += clean + " ";
+              else if (currentLabel === "categories") categories += clean + ", ";
+              i++;
+              continue;
+            }
+            
+            // Default action - move to next line
+            i++;
+          }
+
+          // Store categories in metadata (trim trailing comma and space)
+          if (categories) {
+            meta["Categories"] = categories.replace(/,\s*$/, "").trim();
+          }
+
+          calls.push({ 
+            meta, 
+            transcript, 
+            flags: [...new Set(flags)],
+            positiveFlags: [...new Set(positiveFlags)], 
+            issue: issue.trim(), 
+            outcome: outcome.trim(), 
+            summary: summary.trim(),
+            positiveScore: positiveFlags.length - flags.length // Calculate a positivity score
+          });
+        } else {
+          i++;
+        }
+      }
+      
+      // Update status with information about duplicates
+      if (duplicateCount > 0) {
+        const statusElement = document.getElementById("status");
+        if (statusElement.textContent.includes('Parsed')) {
+          statusElement.textContent = statusElement.textContent.replace(
+            'Parsed', 
+            `Parsed ${calls.length} call(s), skipped ${duplicateCount} duplicate(s)`
+          );
+        }
+      }
+      
+      return calls;
+    }
+
+    // New function to allow dashboards to update a call in the main parsedCalls array
+    window.updateGlobalParsedCall = function(contactId, updatedCall) {
+        if (!parsedCalls || !Array.isArray(parsedCalls)) {
+            console.warn("Main parsedCalls array is not available for update.");
+            return false;
+        }
+        if (!contactId || !updatedCall) {
+            console.warn("Contact ID or updated call data missing for global update.");
+            return false;
+        }
+
+        const index = parsedCalls.findIndex(call => call.meta && call.meta["Contact ID"] === contactId);
+
+        if (index !== -1) {
+            parsedCalls[index] = { ...parsedCalls[index], ...updatedCall }; // Merge to retain any non-edited fields not sent back
+            console.log(`Globally updated call ${contactId} in parsedCalls. Re-rendering.`);
+            
+            // Re-render calls and update analytics
+            renderCalls(parsedCalls);
+            updateAnalytics();
+            renderTopStatsBar(parsedCalls);
+            
+            // Optionally, save the entire updated parsedCalls back to DataStackULTRA
+            // This ensures consistency if other dashboards are opened or main page is reloaded later.
+            (async () => {
+                try {
+                    await window.DataStackULTRA.set('loadedCalls', [...parsedCalls]);
+                    console.log("Saved updated parsedCalls to DataStackULTRA after global update from editor.");
+                } catch (error) {
+                    console.error("Error saving updated parsedCalls to DataStackULTRA:", error);
+                }
+            })();
+            return true;
+        } else {
+            console.warn(`Call with Contact ID ${contactId} not found in main parsedCalls for update.`);
+            return false;
+        }
+    };
   </script>
+
+<div id="dashboardContainer" class="mt-8"></div>
+
+<script>
+  window.icetapConfig = {
+    dashboards: ['editor', 'analytics', 'coaching', 'callback', 'reports']
+  };
+</script>
+
+<script>
+  function loadDashboard(dashboard) {
+    if (document.getElementById(`dashboard-${dashboard}`)) return;
+
+    const frame = document.createElement('iframe');
+    frame.id = `dashboard-${dashboard}`;
+    frame.src = `dashboards/${dashboard}/${dashboard}.html`;
+    frame.style.width = '100%';
+    frame.style.height = '600px';
+    frame.style.border = 'none';
+    frame.style.marginBottom = '20px';
+
+    document.getElementById("dashboardContainer").appendChild(frame);
+  }
+</script>
+
+<script>
+  window.APP_LOAD_ERROR = false; // Initialize error flag
+  if (typeof window.DEFAULT_CONFIG === 'undefined' || typeof window.createConfig === 'undefined') {
+    console.error("FATAL: config.js did not load correctly. window.DEFAULT_CONFIG or window.createConfig is undefined.");
+    window.APP_LOAD_ERROR = true;
+  }
+</script>
+
+<script>
+  if (!window.APP_LOAD_ERROR && typeof window.SchemaManager === 'undefined') {
+    console.error("FATAL: schema.js did not load correctly. window.SchemaManager is undefined.");
+    window.APP_LOAD_ERROR = true;
+  }
+</script>
+
+<script>
+  if (!window.APP_LOAD_ERROR && typeof window.AppStorageManager === 'undefined') {
+    console.error("FATAL: storage.js did not load correctly. window.AppStorageManager is undefined.");
+    window.APP_LOAD_ERROR = true;
+  }
+</script>
+
+<script>
+  if (!window.APP_LOAD_ERROR && typeof window.TransformManager === 'undefined') {
+    console.error("FATAL: transform.js did not load correctly. window.TransformManager is undefined.");
+    window.APP_LOAD_ERROR = true;
+  }
+</script>
+
+<script>
+  if (!window.APP_LOAD_ERROR && (typeof window.CallAnalyzer === 'undefined' || typeof window.CallAnalyzer.analyzeCall === 'undefined')) {
+    console.error("FATAL: js/call-analysis.js did not load correctly. window.CallAnalyzer or window.CallAnalyzer.analyzeCall is undefined.");
+    window.APP_LOAD_ERROR = true;
+  }
+</script>
+
+<script>
+  if (!window.APP_LOAD_ERROR && typeof window.DataStack === 'undefined') {
+    console.error("FATAL: index.js (DataStackULTRA core) did not load correctly. window.DataStack is undefined.");
+    window.APP_LOAD_ERROR = true;
+  }
+</script>
+
+<script>
+  // audit-merge.js might define window.updateMasterLogCache, window.mergeAuditData etc.
+  // Add checks if these are critical for immediate startup, e.g.:
+  if (!window.APP_LOAD_ERROR && typeof window.updateMasterLogCache === 'undefined') {
+    console.warn("WARNING: audit-merge.js or its window.updateMasterLogCache function seems to be missing or loaded incorrectly.");
+    // Decide if this is a fatal error for your app's core functionality
+    // window.APP_LOAD_ERROR = true;
+  }
+</script>
+
+<!-- Initialize DataStackULTRA and run startup logic -->
+<script>
+  if (!window.APP_LOAD_ERROR) {
+    try {
+      window.DataStackULTRA = new AppStorageManager ({
+        // You can override DEFAULT_CONFIG options here if needed for this specific ICETAP instance
+        // storage: { encryptionKey: 'a-very-specific-key-for-icetap' }
+      });
+      console.log("DataStackULTRA instance created on window.DataStackULTRA");
+
+      // Startup data loading logic (moved from index.js)
+      (async () => {
+        if (window.DataStackULTRA) {
+          try {
+            const masterLogCache = await window.DataStackULTRA.get('masterLogCache', [], {persistent: true});
+            if (masterLogCache && masterLogCache.length > 0) {
+                console.log("Successfully loaded masterLogCache from DataStackULTRA storage on startup:", masterLogCache.length, "entries.");
+                // If masterLogInMemoryCache is used directly by other functions on this page:
+                if(typeof masterLogInMemoryCache !== 'undefined') masterLogInMemoryCache = masterLogCache;
+            } else {
+                console.log("No pre-existing masterLogCache found in DataStackULTRA storage or cache is empty.");
+            }
+
+            const loadedCalls = await window.DataStackULTRA.get('loadedCalls', [], {persistent: true});
+            if (loadedCalls && loadedCalls.length > 0) {
+              console.log("Successfully loaded loadedCalls from DataStackULTRA storage on startup:", loadedCalls.length, "entries.");
+              // If index.html uses a global parsedCalls (it does):
+              if (window.parsedCalls !== undefined) window.parsedCalls = loadedCalls;
+              // If index.html has these functions for UI update (it does):
+              if (typeof renderSessionList === 'function' && typeof parsedCalls !== 'undefined') renderSessionList(parsedCalls);
+              if (typeof renderCalls === 'function' && typeof parsedCalls !== 'undefined') renderCalls(parsedCalls); // Assuming renderCalls might be the one for detailed view
+              if (typeof updateAnalytics === 'function') updateAnalytics();
+              if (typeof renderTopStatsBar === 'function' && typeof parsedCalls !== 'undefined') renderTopStatsBar(parsedCalls);
+
+
+            } else {
+              console.log("No pre-existing loadedCalls found in DataStackULTRA storage or cache is empty.");
+            }
+
+            const activeAuditFile = await window.DataStackULTRA.get('activeAuditFile', null, {persistent: true});
+            if (activeAuditFile) {
+                console.log("Successfully loaded activeAuditFile from DataStackULTRA storage on startup:", activeAuditFile);
+                // Update UI elements if they exist
+                if (document.getElementById('fileNameDisplay')) document.getElementById('fileNameDisplay').textContent = activeAuditFile;
+                if (document.getElementById('status')) document.getElementById('status').textContent = `Loaded: ${activeAuditFile}`;
+
+            } else {
+                console.log("No activeAuditFile found in DataStackULTRA storage.");
+            }
+          } catch (error) {
+            console.error("Error during DataStackULTRA startup data load:", error);
+            document.getElementById('status').textContent = "⚠️ Error loading startup data. Check console.";
+          }
+        } else {
+          // This case should ideally be caught by APP_LOAD_ERROR already
+          console.error("DataStackULTRA not initialized on window when attempting startup load.");
+          document.getElementById('status').textContent = "⚠️ FATAL: Core library not loaded. Check console.";
+        }
+      })();
+    } catch (e) {
+      console.error("FATAL error during DataStackULTRA instantiation:", e);
+      window.APP_LOAD_ERROR = true; // Set error flag if instantiation fails
+      document.getElementById('status').textContent = "⚠️ FATAL: Application core failed. Check console.";
+    }
+  }
+
+  if (window.APP_LOAD_ERROR) {
+    console.error("DataStackULTRA application cannot start due to script loading errors or instantiation failure.");
+    // You might want to display a more prominent error message to the user on the page itself.
+    const statusElement = document.getElementById('status');
+    if (statusElement) {
+        statusElement.innerHTML = "<strong style='color:red;'>FATAL Error: Application failed to load. Please check console (F12) for details.</strong>";
+    } else {
+        document.body.insertAdjacentHTML('afterbegin', "<p style='color:red; font-size:18px; text-align:center; background: #333; padding: 10px;'>FATAL Error: Application failed to load. Please check console (F12) for details.</p>");
+    }
+    // Disable UI elements like drop zone if app load failed
+    const dropZone = document.getElementById('dropZone');
+    if(dropZone) dropZone.style.display = 'none';
+  }
+</script>
+
 </body>
 </html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ICETAP - Reports Dashboard</title>
+  <link rel="stylesheet" href="../../js/style.css">
+  <link rel="stylesheet" href="reports.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/date-fns@2.x/dist/date-fns.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.x/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <!-- TODO: Replace 'your-fontawesome-kit.js' with your actual Font Awesome Kit ID or install Font Awesome locally -->
+  <script src="https://kit.fontawesome.com/your-fontawesome-kit.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div class="dashboard-container" id="reportsDashboard">
+    <header class="dashboard-header">
+      <h1><i class="fas fa-chart-bar mr-2"></i>Reports Dashboard</h1>
+      <div id="reportsFilenameDisplay" class="filename-display">No file loaded</div>
+    </header>
+
+    <section class="dashboard-section card report-selection-section mb-4">
+      <h2 class="section-title"><i class="fas fa-puzzle-piece mr-2"></i>Select Report Type</h2>
+      <div class="button-group" id="reportTypeSelector">
+        <button class="button report-type-button active" data-report-type="filteredCallList"><i class="fas fa-list-alt mr-1"></i>Filtered Call List</button>
+        <button class="button report-type-button" data-report-type="agentPerformance"><i class="fas fa-user-chart mr-1"></i>Agent Performance</button>
+        <button class="button report-type-button" data-report-type="flagFrequency"><i class="fas fa-flag-checkered mr-1"></i>Flag Frequency</button>
+      </div>
+    </section>
+
+    <section class="dashboard-section filters-section card mb-4">
+      <h2 class="section-title"><i class="fas fa-filter mr-2"></i>Filters</h2>
+      <div class="filter-controls-grid">
+        <div class="form-group">
+          <label for="reportDateFrom">Date From:</label>
+          <input type="date" id="reportDateFrom" name="reportDateFrom" class="form-control">
+        </div>
+        <div class="form-group">
+          <label for="reportDateTo">Date To:</label>
+          <input type="date" id="reportDateTo" name="reportDateTo" class="form-control">
+        </div>
+        <div class="form-group">
+          <label for="reportAgentFilter">Agent:</label>
+          <select id="reportAgentFilter" name="reportAgentFilter" class="form-control">
+            <option value="all">All Agents</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="reportFlagFilter">Flag:</label>
+          <select id="reportFlagFilter" name="reportFlagFilter" class="form-control">
+            <option value="all">All Flags</option>
+            <!-- Flag options will be populated by JS -->
+          </select>
+        </div>
+      </div>
+      <div class="filter-actions mt-3">
+        <button id="applyReportFilters" class="button primary"><i class="fas fa-check mr-2"></i>Apply Filters</button>
+        <button id="resetReportFilters" class="button"><i class="fas fa-undo mr-2"></i>Reset Filters</button>
+      </div>
+    </section>
+
+    <!-- Report Output Sections -->
+    <div id="reportOutputContainer">
+      <section id="filteredCallListReport" class="report-output-section dashboard-section card mt-4">
+        <h2 class="section-title"><i class="fas fa-list-alt mr-2"></i>Filtered Call List</h2>
+        <div id="reportSummary" class="mb-3">
+          <p>Apply filters to generate the call list.</p>
+        </div>
+        <div class="table-responsive">
+          <table class="dashboard-table">
+            <thead>
+              <tr>
+                <th>Contact ID</th>
+                <th>Date & Time</th>
+                <th>Agent</th>
+                <th>Duration</th>
+                <th>Flags</th>
+                <th>Positive Flags</th>
+                <th>Issue</th>
+                <th>Summary</th>
+              </tr>
+            </thead>
+            <tbody id="reportTableBody">
+              <tr>
+                <td colspan="8" class="no-data-message p-4 text-center">No data to display. Apply filters.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="report-actions mt-3">
+             <button id="exportFilteredListButton" class="button success"><i class="fas fa-file-excel mr-2"></i>Export List to Excel</button>
+        </div>
+      </section>
+
+      <section id="agentPerformanceReport" class="report-output-section dashboard-section card mt-4" style="display: none;">
+        <h2 class="section-title"><i class="fas fa-user-chart mr-2"></i>Agent Performance Summary</h2>
+        <div id="agentPerformanceSummaryContainer" class="table-responsive">
+          <!-- Agent performance table will be rendered here by JS -->
+           <p class="no-data-message p-4 text-center">Apply filters to generate the agent performance report.</p>
+        </div>
+         <div class="report-actions mt-3">
+             <button id="exportAgentPerformanceButton" class="button success"><i class="fas fa-file-excel mr-2"></i>Export Agent Report</button>
+        </div>
+      </section>
+
+      <section id="flagFrequencyReport" class="report-output-section dashboard-section card mt-4" style="display: none;">
+        <h2 class="section-title"><i class="fas fa-flag-checkered mr-2"></i>Flag Frequency Report</h2>
+        <div id="flagFrequencyChartContainer" style="max-width: 700px; margin: auto;">
+          <canvas id="flagFrequencyChart"></canvas>
+          <p class="no-data-message p-4 text-center">Apply filters to generate the flag frequency report.</p>
+        </div>
+        <div class="report-actions mt-3">
+             <button id="exportFlagFrequencyButton" class="button success"><i class="fas fa-file-excel mr-2"></i>Export Flag Report</button>
+        </div>
+      </section>
+    </div>
+    
+    <div class="no-data-message-container dashboard-section">
+      <!-- This will be populated by JS if no calls are loaded at all -->
+    </div>
+
+  </div>
+
+  <!-- Common ICETAP JS libraries -->
+  <script src="../../js/config.js"></script>
+  <script src="../../js/storage.js"></script>
+  <script src="../../js/schema.js"></script>
+  <script src="../../js/transform.js"></script>
+  <script src="../../js/index.js"></script>
+
+  <!-- Initialize DataStackULTRA for standalone use -->
+  <script>
+    (async () => {
+      try {
+        if (!window.AppStorageManager) {
+          console.error(`AppStorageManager not found, cannot initialize DataStackULTRA for ${document.title}.`);
+          const mainDashboardArea = document.getElementById('reportsDashboard'); 
+          if(mainDashboardArea) mainDashboardArea.innerHTML = '<p class="no-data-message card p-4 text-center"><i class="fas fa-exclamation-triangle mr-2"></i>FATAL: AppStorageManager not found. Dashboard cannot load.</p>';
+          return;
+        }
+
+        const inspiroCallsData = localStorage.getItem("inspiroCallData");
+
+        if (!window.DataStackULTRA) {
+          window.DataStackULTRA = new AppStorageManager({ encryptionEnabled: false });
+          console.log(`DataStackULTRA initialized for ${document.title} (encryption disabled).`);
+        } else {
+          console.log(`DataStackULTRA already exists for ${document.title}. It will be used/overwritten with inspiroCallData if present.`);
+        }
+
+        if (inspiroCallsData) {
+          try {
+            const parsedCalls = JSON.parse(inspiroCallsData);
+            if (Array.isArray(parsedCalls) && parsedCalls.length > 0) {
+              await window.DataStackULTRA.set('loadedCalls', parsedCalls, { persistent: false });
+              console.log(`Loaded/Overwrote ${parsedCalls.length} calls from localStorage into DataStackULTRA (memory) for ${document.title}.`);
+            } else {
+              console.log(`No calls found in localStorage's inspiroCallData or data was empty for ${document.title}. Existing DataStackULTRA.loadedCalls will be used (if any).`);
+            }
+          } catch (parseError) {
+            console.error(`Failed to parse inspiroCallData from localStorage for ${document.title}:`, parseError);
+          }
+        } else {
+          console.log(`No 'inspiroCallData' found in localStorage for ${document.title}. DataStackULTRA will use existing loadedCalls (if any, e.g., from index.html).`);
+        }
+        
+      } catch (e) {
+        console.error(`Failed to initialize/load DataStackULTRA in ${document.title}:`, e);
+        const mainDashboardArea = document.getElementById('reportsDashboard'); 
+        if(mainDashboardArea) mainDashboardArea.innerHTML = '<p class="no-data-message card p-4 text-center"><i class="fas fa-exclamation-triangle mr-2"></i>FATAL: DataStackULTRA could not be initialized/loaded. Dashboard cannot load.</p>';
+      }
+    })();
+  </script>
+
+  <script src="../../js/audit-merge.js"></script> 
+  <script src="../../js/call-analysis.js"></script>
+  <script src="reports.js"></script>
+</body>
+</html>

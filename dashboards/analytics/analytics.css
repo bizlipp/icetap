@@ -1,0 +1,177 @@
+/* Analytics dashboard styles */
+:root {
+  --inspiro-bg-dark: #161a25;
+  --inspiro-bg-secondary: #202634;
+  --inspiro-bg-tertiary: #2f384c;
+  --inspiro-purple-primary: #9F70FD;
+  --inspiro-purple-secondary: #7a52cc;
+  --inspiro-orange-primary: #FF8C00;
+  --inspiro-orange-secondary: #cc7000;
+  --inspiro-text-primary: #E8E8FB;
+  --inspiro-text-secondary: #A8A8C8;
+  --inspiro-border-color: #384259;
+  --inspiro-positive-color: #34D399; /* Tailwind green-400 like */
+  --inspiro-negative-color: #F87171; /* Tailwind red-400 like */
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--inspiro-bg-dark);
+  color: var(--inspiro-text-primary);
+  margin: 0;
+  padding: 1rem; /* Keep padding for overall content */
+  line-height: 1.6;
+}
+
+#analyticsDashboard {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+#analyticsDashboard h2 {
+  color: var(--inspiro-purple-primary);
+  border-bottom: 2px solid var(--inspiro-border-color);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1.5rem;
+  font-size: 1.75rem; /* Larger main title */
+  display: flex;
+  align-items: center;
+}
+#analyticsDashboard h2 i.fas {
+  margin-right: 0.75rem;
+}
+
+.dashboard-section {
+  background-color: var(--inspiro-bg-secondary);
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  background-color: var(--inspiro-bg-tertiary); /* Slightly different for cards */
+  padding: 1.25rem;
+  border-radius: 6px;
+  border: 1px solid var(--inspiro-border-color);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Center content in stat card */
+  text-align: center;
+}
+
+.stat-card .label {
+  font-size: 0.9rem;
+  color: var(--inspiro-text-secondary);
+  margin-bottom: 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-card .value {
+  font-size: 2rem; /* Larger value text */
+  font-weight: 700; /* Bolder */
+  color: var(--inspiro-text-primary);
+  line-height: 1.2;
+}
+
+.stat-card .value.positive {
+  color: var(--inspiro-positive-color);
+}
+.stat-card .value.negative {
+  color: var(--inspiro-negative-color);
+}
+
+.chart-section h3,
+.top-flags-section h3 {
+  color: var(--inspiro-text-primary);
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+  font-weight: 600;
+  border-bottom: 1px solid var(--inspiro-border-color);
+  padding-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+}
+.chart-section h3 i.fas,
+.top-flags-section h3 i.fas {
+  margin-right: 0.5rem;
+  color: var(--inspiro-orange-primary); /* Orange for section icons */
+}
+
+#hourlyChart {
+  background-color: var(--inspiro-bg-secondary);
+  border-radius: 4px;
+  padding: 1rem; 
+  border: 1px solid var(--inspiro-border-color);
+  max-width: 100%; 
+  height: 300px; /* Fixed height for better layout consistency */
+}
+
+#anTopFlags {
+  list-style-type: none;
+  padding-left: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 0.75rem;
+}
+
+#anTopFlags li {
+  background-color: var(--inspiro-bg-tertiary);
+  color: var(--inspiro-text-secondary);
+  padding: 0.75rem 1rem;
+  margin-bottom: 0; /* Handled by grid gap */
+  border-radius: 4px;
+  border: 1px solid var(--inspiro-border-color);
+  font-size: 0.9rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#anTopFlags li .flag-name {
+  flex-grow: 1;
+}
+#anTopFlags li .flag-count {
+  font-weight: bold;
+  color: var(--inspiro-orange-primary);
+  margin-left: 0.5rem;
+  background-color: var(--inspiro-bg-secondary);
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.8em;
+}
+
+
+/* Fallback for Tailwind-like classes if still used in HTML, map to variables */
+.p-4 { padding: 1rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mb-6 { margin-bottom: 1.5rem; }
+.text-xl { font-size: 1.25rem; }
+.font-bold { font-weight: 700; }
+.grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+.md\\:grid-cols-3 { @media (min-width: 768px) { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.gap-4 { gap: 1rem; }
+.bg-gray-800 { background-color: var(--inspiro-bg-tertiary); } 
+.rounded { border-radius: 0.25rem; }
+.text-sm { font-size: 0.875rem; }
+.text-gray-400 { color: var(--inspiro-text-secondary); }
+.text-2xl { font-size: 1.5rem; }
+.font-semibold { font-weight: 600; }
+.text-white { color: var(--inspiro-text-primary); }
+.text-green-400 { color: var(--inspiro-positive-color); }
+.text-red-400 { color: var(--inspiro-negative-color); }
+.text-lg { font-size: 1.125rem; }
+.list-disc { /* Custom styling for lists is preferred over browser default */ }
+.list-inside { /* Custom styling for lists is preferred */ }
+
+/* Remove old generic styles that are no longer needed */
+/* .dashboard-container, .dashboard-card, .card-header, .accent-color, etc. */
