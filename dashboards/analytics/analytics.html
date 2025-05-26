@@ -18,45 +18,34 @@
   <!-- Initialize DataStackULTRA -->
   <script>
     (async () => {
-      try {
-        if (!window.AppStorageManager) {
-          console.error(`AppStorageManager not found, cannot initialize DataStackULTRA for ${document.title}.`);
-          const mainDashboardArea = document.getElementById('analyticsDashboard'); 
-          if(mainDashboardArea) mainDashboardArea.innerHTML = '<p class="no-data-message card p-4 text-center"><i class="fas fa-exclamation-triangle mr-2"></i>FATAL: AppStorageManager not found. Dashboard cannot load.</p>';
-          return;
-        }
+  try {
+    if (!window.DataStackULTRA) {
+      window.DataStackULTRA = new AppStorageManager({ encryptionEnabled: false });
+      console.log(`DataStackULTRA initialized for ${document.title} (encryption disabled).`);
+    } else {
+      console.log(`DataStackULTRA already exists for ${document.title}.`);
+    }
 
-        const inspiroCallsData = localStorage.getItem("inspiroCallData");
+    const existingCalls = await window.DataStackULTRA.get('loadedCalls');
+    if (Array.isArray(existingCalls) && existingCalls.length > 0) {
+      console.log(`✅ ${existingCalls.length} calls loaded from DataStackULTRA memory for ${document.title}.`);
+    } else {
+      console.warn(`⚠️ No calls found in 'loadedCalls'. Dashboard may be empty until a file is loaded.`);
+    }
 
-        if (!window.DataStackULTRA) {
-          window.DataStackULTRA = new AppStorageManager({ encryptionEnabled: false });
-          console.log(`DataStackULTRA initialized for ${document.title} (encryption disabled).`);
-        } else {
-          console.log(`DataStackULTRA already exists for ${document.title}. It will be used/overwritten with inspiroCallData if present.`);
-        }
+  } catch (e) {
+    console.error(`❌ Failed to initialize/load DataStackULTRA in ${document.title}:`, e);
+    const mainDashboardArea = document.getElementById('analyticsDashboard'); 
+    if(mainDashboardArea) {
+      mainDashboardArea.innerHTML = `
+        <p class="no-data-message card p-4 text-center">
+          <i class="fas fa-exclamation-triangle mr-2"></i>
+          FATAL: DataStackULTRA could not be initialized/loaded. Dashboard cannot load.
+        </p>`;
+    }
+  }
+})();
 
-        if (inspiroCallsData) {
-          try {
-            const parsedCalls = JSON.parse(inspiroCallsData);
-            if (Array.isArray(parsedCalls) && parsedCalls.length > 0) {
-              await window.DataStackULTRA.set('loadedCalls', parsedCalls, { persistent: false });
-              console.log(`Loaded/Overwrote ${parsedCalls.length} calls from localStorage into DataStackULTRA (memory) for ${document.title}.`);
-            } else {
-              console.log(`No calls found in localStorage's inspiroCallData or data was empty for ${document.title}. Existing DataStackULTRA.loadedCalls will be used (if any).`);
-            }
-          } catch (parseError) {
-            console.error(`Failed to parse inspiroCallData from localStorage for ${document.title}:`, parseError);
-          }
-        } else {
-          console.log(`No 'inspiroCallData' found in localStorage for ${document.title}. DataStackULTRA will use existing loadedCalls (if any, e.g., from index.html).`);
-        }
-        
-      } catch (e) {
-        console.error(`Failed to initialize/load DataStackULTRA in ${document.title}:`, e);
-        const mainDashboardArea = document.getElementById('analyticsDashboard'); 
-        if(mainDashboardArea) mainDashboardArea.innerHTML = '<p class="no-data-message card p-4 text-center"><i class="fas fa-exclamation-triangle mr-2"></i>FATAL: DataStackULTRA could not be initialized/loaded. Dashboard cannot load.</p>';
-      }
-    })();
   </script>
 
   <script src="../../js/audit-merge.js"></script>

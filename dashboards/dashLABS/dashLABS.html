@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ICETAP loadedCalls Test (Enhanced)</title>
+  <style>
+    body { font-family: sans-serif; background: #191924; color: #fafaff; padding: 2em; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 2em; }
+    th, td { border: 1px solid #444; padding: 8px; }
+    th { background: #292941; }
+    tr:nth-child(even) { background: #22223a; }
+    .card { background: #23234a; border-radius: 12px; margin: 2em auto; max-width: 900px; padding: 2em; box-shadow: 0 2px 12px #0006;}
+    .meta-list, .transcript-list { font-size: 0.98em; color: #e1e1f1; list-style: none; padding: 0; margin: 0; }
+    .meta-key { color: #a3bffa; font-weight: bold; }
+    details { background: #181836; margin: 0.5em 0; border-radius: 6px; }
+    summary { cursor: pointer; padding: 6px 0; font-weight: bold; }
+    .flags { color: #ffd478; }
+    .pos-flags { color: #97f7a8; }
+    .summary { color: #fff6bb; }
+    .issue, .outcome { color: #fda4af; }
+    .transcript-entry { margin-bottom: 3px; }
+    .transcript-speaker { color: #a3bffa; }
+    .transcript-text { color: #fafaff; }
+  </style>
+  <script src="../../js/config.js"></script>
+  <script src="../../js/storage.js"></script>
+  <script src="../../js/schema.js"></script>
+  <script src="../../js/transform.js"></script>
+  <script src="../../js/index.js"></script>
+</head>
+<body>
+  <div class="card">
+    <h1>ICETAP loadedCalls Test (Enhanced)</h1>
+    <p>This dashboard displays the <b>first 5 calls</b> found in <code>loadedCalls</code> (DataStackULTRA only).</p>
+    <div id="callsTableContainer">
+      <em>Loading calls...</em>
+    </div>
+  </div>
+  <script>
+    (function waitForAppStorageManager(callback, retries = 30) {
+      if (window.AppStorageManager) {
+        if (!window.DataStackULTRA) {
+          window.DataStackULTRA = new AppStorageManager({ encryptionEnabled: false });
+          console.log('DataStackULTRA initialized (encryption disabled)');
+        }
+        callback();
+      } else if (retries > 0) {
+        setTimeout(() => waitForAppStorageManager(callback, retries - 1), 100);
+      } else {
+        document.getElementById('callsTableContainer').innerHTML =
+          "<b>FATAL: AppStorageManager/DataStackULTRA unavailable.</b>";
+      }
+    })(async function(){
+      const calls = await window.DataStackULTRA.get('loadedCalls', []);
+      if (!calls || !Array.isArray(calls) || calls.length === 0) {
+        document.getElementById('callsTableContainer').innerHTML = "<b>No calls found in loadedCalls.</b>";
+        return;
+      }
+      let html = "<table><thead><tr><th>#</th><th>Contact ID</th><th>Details</th></tr></thead><tbody>";
+      calls.slice(0,5).forEach((call, i) => {
+        // Transcript preview
+        let transcriptBlock = "";
+        if (Array.isArray(call.transcript) && call.transcript.length) {
+          transcriptBlock = `<details><summary>Transcript (${call.transcript.length} entries)</summary>
+            <ul class="transcript-list">${
+              call.transcript.slice(0,10).map(
+                t => `<li class="transcript-entry"><span class="transcript-speaker">${t.speaker || "?"}</span> <span class="transcript-text">${t.text || ""}</span> <span style="color:#a1a1a1">[${t.timestamp || ""}]</span></li>`
+              ).join('')
+            }${call.transcript.length > 10 ? "<li>...</li>" : ""}</ul></details>`;
+        }
+        html += `<tr>
+          <td>${i+1}</td>
+          <td>${call.contactId || (call.meta && (call.meta["Contact ID"] || call.meta.contactId)) || '<i>none</i>'}</td>
+          <td>
+            <ul class="meta-list">${
+              Object.entries(call.meta || {}).map(
+                ([k,v]) => `<li><span class="meta-key">${k}:</span> ${typeof v === 'object' ? JSON.stringify(v) : v}</li>`
+              ).join('')
+            }</ul>
+            ${call.summary ? `<div class="summary"><b>Summary:</b> ${call.summary}</div>` : ""}
+            ${call.issue ? `<div class="issue"><b>Issue:</b> ${call.issue}</div>` : ""}
+            ${call.outcome ? `<div class="outcome"><b>Outcome:</b> ${call.outcome}</div>` : ""}
+            <div class="flags"><b>Flags:</b> ${Array.isArray(call.flags) ? call.flags.join(', ') : '-'}</div>
+            <div class="pos-flags"><b>Positive Flags:</b> ${Array.isArray(call.positiveFlags) ? call.positiveFlags.join(', ') : '-'}</div>
+            ${transcriptBlock}
+          </td>
+        </tr>`;
+      });
+      html += "</tbody></table>";
+      document.getElementById('callsTableContainer').innerHTML = html;
+    });
+  </script>
+</body>
+</html>

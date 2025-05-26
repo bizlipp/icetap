@@ -315,6 +315,7 @@
       <button id="exportAuditButton" class="primary-button" style="display: none;">Export as Audit Template</button>
       <button id="refreshMasterLogButton" class="primary-button" style="display: none;">🔄 Refresh Master Log</button>
       <button id="clearButton" class="primary-button">🗑️Clear Data</button>
+      <button id="exportToMasterLogBtn" class="button primary"> <i class="fas fa-database"></i> Export to Master Log</button>
     </div>
   </div>
 
@@ -538,7 +539,37 @@
         clearButton.className = 'primary-button';
         document.querySelector('.controls-container').appendChild(clearButton);
       }
-      
+      // Export to Master Log button
+      document.getElementById('exportToMasterLogBtn').addEventListener('click', async () => {
+  try {
+    // Get all current session calls from loadedCalls
+    const loadedCalls = await window.DataStackULTRA.get('loadedCalls', []);
+    if (!Array.isArray(loadedCalls) || loadedCalls.length === 0) {
+      alert("No calls loaded! Please load or create calls before exporting to Master Log.");
+      return;
+    }
+
+    // Merge with masterLogCache using your audit-merge logic
+    const merged = await window.updateMasterLogCache(loadedCalls);
+
+    // Download as .json for backup/transfer (optional)
+    const blob = new Blob([JSON.stringify(merged, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `icetap_masterlog_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    alert(`Exported ${loadedCalls.length} calls to Master Log! Master log now contains ${merged.length} calls.`);
+  } catch (err) {
+    alert("Failed to export to Master Log: " + err.message);
+    console.error("Export to Master Log error:", err);
+  }
+});
+
+
       // Add event listener for the new Master Log refresh button
       const refreshMasterLogBtn = document.getElementById('refreshMasterLogButton');
       if (refreshMasterLogBtn) {
@@ -752,13 +783,18 @@
 
         // Sync with DataStackULTRA
         if (window.DataStackULTRA && typeof window.DataStackULTRA.set === 'function') {
-          window.DataStackULTRA.set('loadedCalls', parsedCalls)
-            .then(() => {
-              console.log(`✅ Synced all parsed calls to DataStackULTRA.loadedCalls after appendFile (${parsedCalls.length} calls)`);
-            })
-            .catch(err => {
-              console.error("Error syncing parsedCalls to DataStackULTRA.loadedCalls after appendFile:", err);
-            });
+          try {
+            const sanitizedCalls = JSON.parse(JSON.stringify(parsedCalls));
+            window.DataStackULTRA.set('loadedCalls', sanitizedCalls)
+              .then(() => {
+                console.log(`✅ Synced all parsed calls to DataStackULTRA.loadedCalls after appendFile (${parsedCalls.length} calls)`);
+              })
+              .catch(err => {
+                console.error("Error syncing parsedCalls to DataStackULTRA.loadedCalls after appendFile:", err);
+              });
+          } catch (e) {
+            console.error("Error sanitizing parsedCalls for DataStackULTRA after appendFile:", e);
+          }
         } else {
           console.warn("window.DataStackULTRA not available or .set is not a function after appendFile. Cannot sync loadedCalls.");
         }
@@ -794,16 +830,21 @@
 
       // Sync with DataStackULTRA
       if (window.DataStackULTRA && typeof window.DataStackULTRA.set === 'function') {
-        window.DataStackULTRA.set('loadedCalls', parsedCalls)
-          .then(() => {
-            console.log(`✅ Synced all parsed calls to DataStackULTRA.loadedCalls after parse (${parsedCalls.length} calls)`);
-          })
-          .catch(err => {
-            console.error("Error syncing parsedCalls to DataStackULTRA.loadedCalls after parse:", err);
+        try {
+          const sanitizedCalls = JSON.parse(JSON.stringify(parsedCalls));
+          window.DataStackULTRA.set('loadedCalls', sanitizedCalls)
+            .then(() => {
+              console.log(`✅ Synced all parsed calls to DataStackULTRA.loadedCalls after parse (${parsedCalls.length} calls)`);
+            })
+            .catch(err => {
+              console.error("Error syncing parsedCalls to DataStackULTRA.loadedCalls after parse:", err);
             });
-        } else {
-          console.warn("window.DataStackULTRA not available or .set is not a function after parse. Cannot sync loadedCalls.");
+        } catch (e) {
+          console.error("Error sanitizing parsedCalls for DataStackULTRA after parse:", e);
         }
+      } else {
+        console.warn("window.DataStackULTRA not available or .set is not a function after parse. Cannot sync loadedCalls.");
+      }
       
       return calls.length;
     }
@@ -1938,35 +1979,57 @@
     }
 
     // Function to clear all data
-    function clearAllData() {
+    async function clearAllData() { // Made async to handle DataStackULTRA operations
       parsedCalls = [];
       contactIdSet.clear();
       currentSearchTerm = '';
       uploadedFiles = [];
+      masterLogInMemoryCache = []; // Clear in-memory master log
+      currentZipFile = null; // Clear current ZIP file reference
       
-      // Update UI
+      let statusMessage = "🟡 Data cleared. Waiting for file...";
+      let clearingError = false;
+
+      // Clear from DataStackULTRA and localStorage
+      try {
+        if (window.DataStackULTRA && typeof window.DataStackULTRA.remove === 'function') {
+          console.log("Attempting to clear DataStackULTRA keys...");
+          await window.DataStackULTRA.remove('loadedCalls');
+          console.log("  -> 'loadedCalls' removal attempted.");
+          await window.DataStackULTRA.remove('masterLogCache');
+          console.log("  -> 'masterLogCache' removal attempted.");
+          await window.DataStackULTRA.remove('activeAuditFile');
+          console.log("  -> 'activeAuditFile' removal attempted.");
+          await window.DataStackULTRA.remove('empData'); 
+          console.log("  -> 'empData' removal attempted.");
+          console.log("✅ Finished attempting to clear DataStackULTRA storage.");
+        } else {
+          console.warn("window.DataStackULTRA not available or .remove is not a function. Cannot clear DataStackULTRA.");
+          clearingError = true;
+        }
+        
+        if (localStorage.getItem("inspiroCallData")) {
+            localStorage.removeItem("inspiroCallData");
+            console.log("✅ Cleared 'inspiroCallData' from localStorage.");
+        }
+
+      } catch (error) {
+        console.error("Error clearing data from storage:", error);
+        statusMessage = "⚠️ Error clearing stored data. Check console.";
+        clearingError = true;
+      }
+      
+      // Update UI - this should happen regardless of storage clearing success to give user feedback
       renderCalls([]);
       updateAnalytics();
       document.getElementById('uploadedFilesList').innerHTML = '';
       document.querySelector('.uploaded-files-container').style.display = 'none';
-      
-      // Hide action buttons
+      document.getElementById('searchInput').value = ''; // Clear search input
       updateExportButtons();
-      renderTopStatsBar([]); // Added call with empty array
-      
-      document.getElementById("status").textContent = "🟡 Data cleared. Waiting for file...";
-
-      // Sync with DataStackULTRA (to clear it)
-      if (window.DataStackULTRA && typeof window.DataStackULTRA.set === 'function') {
-        window.DataStackULTRA.set('loadedCalls', parsedCalls) // parsedCalls is now empty
-          .then(() => {
-            console.log(`✅ Cleared DataStackULTRA.loadedCalls after clearAllData.`);
-          })
-          .catch(err => {
-            console.error("Error clearing DataStackULTRA.loadedCalls after clearAllData:", err);
-          });
-      } else {
-        console.warn("window.DataStackULTRA not available or .set is not a function after clearAllData. Cannot sync loadedCalls.");
+      renderTopStatsBar([]); 
+      document.getElementById("status").textContent = statusMessage;
+      if (clearingError) {
+          alert("Some data might not have been cleared from persistent storage due to an error. Check the console (F12) for details. In-memory data has been cleared.");
       }
     }
 
@@ -2995,8 +3058,14 @@
         }
 
         masterLogInMemoryCache = parsedCsv; // Update in-memory representation for immediate use
-        await window.DataStackULTRA.set('masterLogCache', masterLogInMemoryCache);
-        updateMasterLogStatus(`✅ Successfully fetched and processed Master Log from remote. ${masterLogInMemoryCache.length} entries cached.`);
+        try {
+          const sanitizedMasterLog = JSON.parse(JSON.stringify(masterLogInMemoryCache));
+          await window.DataStackULTRA.set('masterLogCache', sanitizedMasterLog);
+          updateMasterLogStatus(`✅ Successfully fetched and processed Master Log from remote. ${masterLogInMemoryCache.length} entries cached.`);
+        } catch (e) {
+          console.error("Error sanitizing masterLogInMemoryCache for DataStackULTRA:", e);
+          updateMasterLogStatus(`⚠️ Error saving Master Log to cache: ${e.message}. Log is in memory.`, true);
+        }
         
         // After updating master log, re-process existing calls to enrich them if any exist
         if(parsedCalls.length > 0){
@@ -3020,13 +3089,18 @@
 
         // Generic sync if parsedCalls *could* have changed due to master log integration
         if (window.DataStackULTRA && typeof window.DataStackULTRA.set === 'function') {
-          window.DataStackULTRA.set('loadedCalls', parsedCalls)
-            .then(() => {
-              console.log(`✅ Synced parsedCalls to DataStackULTRA after fetchAndProcessRemoteMasterLog (${parsedCalls.length} calls)`);
-            })
-            .catch(err => {
-              console.error("Error syncing parsedCalls to DataStackULTRA after fetchAndProcessRemoteMasterLog:", err);
-            });
+          try {
+            const sanitizedCalls = JSON.parse(JSON.stringify(parsedCalls));
+            window.DataStackULTRA.set('loadedCalls', sanitizedCalls)
+              .then(() => {
+                console.log(`✅ Synced parsedCalls to DataStackULTRA after fetchAndProcessRemoteMasterLog (${parsedCalls.length} calls)`);
+              })
+              .catch(err => {
+                console.error("Error syncing parsedCalls to DataStackULTRA after fetchAndProcessRemoteMasterLog:", err);
+              });
+          } catch (e) {
+            console.error("Error sanitizing parsedCalls for DataStackULTRA after fetchAndProcessRemoteMasterLog:", e);
+          }
         } else {
           console.warn("window.DataStackULTRA not available or .set is not a function after fetchAndProcessRemoteMasterLog. Cannot sync loadedCalls.");
         }
@@ -3111,13 +3185,18 @@
 
   // Sync with DataStackULTRA after all dropped files are processed
   if (window.DataStackULTRA && typeof window.DataStackULTRA.set === 'function') {
-    window.DataStackULTRA.set('loadedCalls', parsedCalls)
-      .then(() => {
-        console.log(`✅ Synced all parsed calls to DataStackULTRA.loadedCalls after processDroppedFiles (${parsedCalls.length} calls)`);
-      })
-      .catch(err => {
-        console.error("Error syncing parsedCalls to DataStackULTRA.loadedCalls after processDroppedFiles:", err);
-      });
+    try {
+      const sanitizedCalls = JSON.parse(JSON.stringify(parsedCalls));
+      window.DataStackULTRA.set('loadedCalls', sanitizedCalls)
+        .then(() => {
+          console.log(`✅ Synced all parsed calls to DataStackULTRA.loadedCalls after processDroppedFiles (${parsedCalls.length} calls)`);
+        })
+        .catch(err => {
+          console.error("Error syncing parsedCalls to DataStackULTRA.loadedCalls after processDroppedFiles:", err);
+        });
+    } catch (e) {
+      console.error("Error sanitizing parsedCalls for DataStackULTRA after processDroppedFiles:", e);
+    }
   }
 }
 
@@ -3232,8 +3311,14 @@ if (Array.isArray(parsedContent) && parsedContent.some(row => row["Raw JSON Data
         if (isMasterLog && !isCallDump && Array.isArray(parsedContent)) { // Pure Master Log (e.g., CSV or JSON array)
             updateMasterLogStatus(`Processing Master Log file: ${fileNameWithCase}...`);
             masterLogInMemoryCache = parsedContent; // Update in-memory representation
-            await window.DataStackULTRA.set('masterLogCache', masterLogInMemoryCache);
-            updateMasterLogStatus(`✅ Master Log updated from ${fileNameWithCase}. ${masterLogInMemoryCache.length} entries cached.`);
+            try {
+              const sanitizedMasterLog = JSON.parse(JSON.stringify(masterLogInMemoryCache));
+              await window.DataStackULTRA.set('masterLogCache', sanitizedMasterLog);
+              updateMasterLogStatus(`✅ Master Log updated from ${fileNameWithCase}. ${masterLogInMemoryCache.length} entries cached.`);
+            } catch (e) {
+              console.error("Error sanitizing masterLogInMemoryCache for DataStackULTRA from file:", e);
+              updateMasterLogStatus(`⚠️ Error saving Master Log to cache from file: ${e.message}. Log is in memory.`, true);
+            }
             // Re-enrich calls if any are loaded
             if(parsedCalls.length > 0){
                 await enrichAndStoreParsedCalls(parsedCalls, true);
@@ -3563,7 +3648,16 @@ if (Array.isArray(parsedContent) && parsedContent.some(row => row["Raw JSON Data
             });
         }
 
-        await window.DataStackULTRA.set('loadedCalls', [...parsedCalls]); 
+        try {
+          const sanitizedParsedCalls = JSON.parse(JSON.stringify(parsedCalls));
+          await window.DataStackULTRA.set('loadedCalls', sanitizedParsedCalls); 
+        } catch (e) {
+          console.error("Error sanitizing parsedCalls for DataStackULTRA in enrichAndStoreParsedCalls:", e);
+          // Potentially try to save non-sanitized if sanitization itself fails, or alert user.
+          // For now, log the error and proceed with in-memory changes. The next load might fail.
+          await window.DataStackULTRA.set('loadedCalls', parsedCalls).catch(finalErr => console.error("Final attempt to save non-sanitized parsedCalls also failed:", finalErr));
+        }
+
         const currentActiveFile = await window.DataStackULTRA.get('activeAuditFile', 'File not set');
         if(uploadedFiles.length > 0 && currentActiveFile !== uploadedFiles.join(', ')){
              await window.DataStackULTRA.set('activeAuditFile', uploadedFiles.join(', '));
