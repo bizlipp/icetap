@@ -14,6 +14,8 @@
   <!-- 📐 Schema and transformation modules -->
   <script src="js/schema.js"></script>
   <script src="js/transform.js"></script>
+  <!-- 🔄 Master Log Utility before master logic -->
+  <script src="js/MasterLogUtil.js"></script>
   <!-- 🧠 Master logic -->
   <script src="js/index.js"></script>
   <!-- ✅ Optional utilities AFTER index.js -->
@@ -314,7 +316,7 @@
       <button id="exportExcelButton" class="primary-button" style="display: none;">Export as Excel</button>
       <button id="exportAuditButton" class="primary-button" style="display: none;">Export as Audit Template</button>
       <button id="refreshMasterLogButton" class="primary-button" style="display: none;">🔄 Refresh Master Log</button>
-      <button id="clearButton" class="primary-button">🗑️Clear Data</button>
+      <button id="clearButton" class="primary-button" onclick="clearAllData()">🗑️ Clear All Data</button>
       <button id="exportToMasterLogBtn" class="button primary"> <i class="fas fa-database"></i> Export to Master Log</button>
     </div>
   </div>
@@ -529,15 +531,52 @@
         }
       });
       
-      // Add clear data button to controls
-      // Check if it already exists first
-      if (!document.getElementById('clearButton')) {
-        const clearButton = document.createElement('button');
-        clearButton.id = 'clearButton';
-        clearButton.textContent = 'Clear Data';
-        clearButton.addEventListener('click', clearAllData);
-        clearButton.className = 'primary-button';
-        document.querySelector('.controls-container').appendChild(clearButton);
+      // Ensure Clear Data button is properly connected
+      const clearButton = document.getElementById('clearButton');
+      if (clearButton) {
+        // Clear any existing listeners first to prevent duplicates
+        const newClearButton = clearButton.cloneNode(true);
+        clearButton.parentNode.replaceChild(newClearButton, clearButton);
+        
+        // Add the event listener
+        newClearButton.addEventListener('click', async function() {
+          if (confirm('Are you sure you want to clear all data? This cannot be undone.')) {
+            try {
+              document.getElementById('status').textContent = '⏳ Clearing all data...';
+              const success = await clearAllData();
+              if (success) {
+                console.log('Data cleared successfully');
+              }
+            } catch (err) {
+              console.error('Error during data clearing:', err);
+              alert('An error occurred while clearing data. See console for details.');
+            }
+          }
+        });
+      } else {
+        // Create the button if it doesn't exist
+        console.warn('Clear button not found in DOM, creating one dynamically');
+        const newClearButton = document.createElement('button');
+        newClearButton.id = 'clearButton';
+        newClearButton.textContent = '🗑️ Clear All Data';
+        newClearButton.className = 'primary-button';
+        newClearButton.addEventListener('click', async function() {
+          if (confirm('Are you sure you want to clear all data? This cannot be undone.')) {
+            try {
+              document.getElementById('status').textContent = '⏳ Clearing all data...';
+              await clearAllData();
+            } catch (err) {
+              console.error('Error during data clearing:', err);
+              alert('An error occurred while clearing data. See console for details.');
+            }
+          }
+        });
+        
+        const controlsContainer = document.querySelector('.controls-container') || 
+                                document.querySelector('.dashboard-launcher');
+        if (controlsContainer) {
+          controlsContainer.appendChild(newClearButton);
+        }
       }
       // Export to Master Log button
       document.getElementById('exportToMasterLogBtn').addEventListener('click', async () => {
@@ -1979,7 +2018,8 @@
     }
 
     // Function to clear all data
-    async function clearAllData() { // Made async to handle DataStackULTRA operations
+    async function clearAllData() {
+      // Clear all in-memory data
       parsedCalls = [];
       contactIdSet.clear();
       currentSearchTerm = '';
@@ -1990,36 +2030,81 @@
       let statusMessage = "🟡 Data cleared. Waiting for file...";
       let clearingError = false;
 
-      // Clear from DataStackULTRA and localStorage
-      try {
-        if (window.DataStackULTRA && typeof window.DataStackULTRA.remove === 'function') {
-          console.log("Attempting to clear DataStackULTRA keys...");
-          await window.DataStackULTRA.remove('loadedCalls');
-          console.log("  -> 'loadedCalls' removal attempted.");
-          await window.DataStackULTRA.remove('masterLogCache');
-          console.log("  -> 'masterLogCache' removal attempted.");
-          await window.DataStackULTRA.remove('activeAuditFile');
-          console.log("  -> 'activeAuditFile' removal attempted.");
-          await window.DataStackULTRA.remove('empData'); 
-          console.log("  -> 'empData' removal attempted.");
-          console.log("✅ Finished attempting to clear DataStackULTRA storage.");
-        } else {
-          console.warn("window.DataStackULTRA not available or .remove is not a function. Cannot clear DataStackULTRA.");
+      // Clear from DataStackULTRA
+      if (window.DataStackULTRA) {
+        try {
+          console.log("Clearing all data from DataStackULTRA...");
+          
+          // Option 1: Use clear() method if available (clears all keys)
+          if (typeof window.DataStackULTRA.clear === 'function') {
+            await window.DataStackULTRA.clear();
+            console.log("✅ Successfully cleared all DataStackULTRA data using clear() method");
+          } 
+          // Option 2: Remove specific keys individually
+          else if (typeof window.DataStackULTRA.remove === 'function') {
+            console.log("Removing individual keys from DataStackULTRA...");
+            
+            const keysToRemove = [
+              'loadedCalls',
+              'masterLogCache',
+              'activeAuditFile',
+              'empData',
+              'lastSync',
+              'auditHistory',
+              'userPreferences',
+              'dashboardState',
+              'tempData'
+            ];
+            
+            // Remove each key with proper error handling
+            for (const key of keysToRemove) {
+              try {
+                await window.DataStackULTRA.remove(key);
+                console.log(`  ✓ Removed '${key}' from DataStackULTRA`);
+              } catch (keyError) {
+                console.warn(`  ⚠️ Could not remove '${key}' from DataStackULTRA:`, keyError);
+              }
+            }
+            
+            console.log("✅ Finished removing keys from DataStackULTRA");
+          } else {
+            console.error("DataStackULTRA doesn't have clear() or remove() methods available");
+            clearingError = true;
+          }
+        } catch (storageError) {
+          console.error("Error clearing data from DataStackULTRA:", storageError);
           clearingError = true;
         }
+      } else {
+        console.warn("DataStackULTRA not available. Cannot clear DataStackULTRA storage.");
+      }
+      
+      // Clear from localStorage (legacy and fallback storage)
+      try {
+        // Clear ICETAP-specific items
+        const icetapKeys = [
+          "inspiroCallData",
+          "icetap_settings",
+          "icetap_cache",
+          "dashboard_state",
+          "master_log_cache",
+          "user_preferences"
+        ];
         
-        if (localStorage.getItem("inspiroCallData")) {
-            localStorage.removeItem("inspiroCallData");
-            console.log("✅ Cleared 'inspiroCallData' from localStorage.");
+        for (const key of icetapKeys) {
+          if (localStorage.getItem(key)) {
+            localStorage.removeItem(key);
+            console.log(`✓ Removed '${key}' from localStorage`);
+          }
         }
-
-      } catch (error) {
-        console.error("Error clearing data from storage:", error);
-        statusMessage = "⚠️ Error clearing stored data. Check console.";
+        
+        console.log("✅ Cleared ICETAP data from localStorage");
+      } catch (localStorageError) {
+        console.error("Error clearing data from localStorage:", localStorageError);
         clearingError = true;
       }
       
-      // Update UI - this should happen regardless of storage clearing success to give user feedback
+      // Update UI - this should happen regardless of storage clearing success
       renderCalls([]);
       updateAnalytics();
       document.getElementById('uploadedFilesList').innerHTML = '';
@@ -2027,10 +2112,23 @@
       document.getElementById('searchInput').value = ''; // Clear search input
       updateExportButtons();
       renderTopStatsBar([]); 
-      document.getElementById("status").textContent = statusMessage;
+      
+      // Update status message based on clearing result
+      document.getElementById("status").textContent = clearingError ? 
+        "⚠️ Some errors occurred while clearing data. See console for details." : 
+        "✅ All data successfully cleared. Ready for new files.";
+      
+      // Show an alert for errors
       if (clearingError) {
-          alert("Some data might not have been cleared from persistent storage due to an error. Check the console (F12) for details. In-memory data has been cleared.");
+        alert("Some data might not have been cleared completely due to errors. Check the console (F12) for details. In-memory data has been cleared.");
       }
+      
+      // Force a page refresh if there were errors to ensure a clean state
+      if (clearingError && confirm("Would you like to refresh the page to ensure a clean state?")) {
+        window.location.reload();
+      }
+      
+      return !clearingError; // Return success status
     }
 
     // Add a utility function to verify if a spreadsheet is a metadata-only format
@@ -2990,32 +3088,50 @@
       }
 
       try {
-        localStorage.setItem("inspiroCallData", JSON.stringify(parsedCalls));
-        // Also store in DataStackULTRA for dashboards that use it
+        // Primary storage in DataStackULTRA
         if (window.DataStackULTRA && typeof window.DataStackULTRA.set === 'function') {
-          window.DataStackULTRA.set('loadedCalls', parsedCalls)
+          // First ensure the latest data is stored in DataStackULTRA
+          storeCallsToDataStackULTRA(parsedCalls)
             .then(() => {
-              console.log("✅ Synced all parsed calls to DataStackULTRA.loadedCalls in launchDashboard (" + parsedCalls.length + " calls)");
+              console.log(`✅ Data stored to DataStackULTRA.loadedCalls (${parsedCalls.length} calls)`);
+              
+              // Then open the dashboard
+              openDashboardWindow(name);
             })
             .catch(err => {
-              console.error("Error syncing parsedCalls to DataStackULTRA.loadedCalls in launchDashboard:", err);
+              console.error("Error storing to DataStackULTRA before launching dashboard:", err);
+              
+              // Fallback to localStorage if DataStackULTRA fails
+              localStorage.setItem("inspiroCallData", JSON.stringify(parsedCalls));
+              console.warn("⚠️ Using localStorage fallback for dashboard data");
+              
+              // Still open the dashboard using the fallback method
+              openDashboardWindow(name);
             });
         } else {
-          console.warn("window.DataStackULTRA not available or .set is not a function in launchDashboard. Cannot sync loadedCalls.");
+          // Fallback to localStorage if DataStackULTRA is not available
+          localStorage.setItem("inspiroCallData", JSON.stringify(parsedCalls));
+          console.warn("⚠️ DataStackULTRA not available. Using localStorage for dashboard data");
+          
+          // Open the dashboard using the fallback method
+          openDashboardWindow(name);
         }
-
-        const w = 1080, h = 720;
-        const left = (screen.width - w) / 2;
-        const top = (screen.height - h) / 2;
-        window.open(
-          `dashboards/${name}/${name}.html`,
-          "_blank",
-          `width=${w},height=${h},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
-        );
       } catch (err) {
-        console.error("Dashboard launch failed:", err);
-        alert("❌ Failed to launch dashboard.");
+        console.error("Dashboard launch preparation failed:", err);
+        alert("❌ Failed to prepare data for dashboard launch.");
       }
+    }
+    
+    // Helper function to open the dashboard window
+    function openDashboardWindow(name) {
+      const w = 1080, h = 720;
+      const left = (screen.width - w) / 2;
+      const top = (screen.height - h) / 2;
+      window.open(
+        `dashboards/${name}/${name}.html`,
+        "_blank",
+        `width=${w},height=${h},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes`
+      );
     }
 
     // --- NEW MASTER LOG FUNCTIONS ---
@@ -3166,9 +3282,27 @@
   if (callFilesProcessed > 0) finalStatus.push(`${callFilesProcessed} call transcript file(s) processed`);
 
   if (callFilesProcessed > 0 && parsedCalls.length > 0) {
-    // ✅ Store to localStorage
-    localStorage.setItem("inspiroCallData", JSON.stringify(parsedCalls));
-    console.log("✅ Calls saved to localStorage:", parsedCalls.length);
+    // ✅ Store to DataStackULTRA (replacing localStorage approach)
+    try {
+      if (window.DataStackULTRA && typeof window.DataStackULTRA.set === 'function') {
+        const sanitizedCalls = JSON.parse(JSON.stringify(parsedCalls));
+        await window.DataStackULTRA.set('loadedCalls', sanitizedCalls);
+        console.log(`✅ Synced all parsed calls to DataStackULTRA.loadedCalls (${parsedCalls.length} calls)`);
+      } else {
+        // Fallback to localStorage if DataStackULTRA not available
+        localStorage.setItem("inspiroCallData", JSON.stringify(parsedCalls));
+        console.log("⚠️ DataStackULTRA unavailable - Fallback: calls saved to localStorage:", parsedCalls.length);
+      }
+    } catch (e) {
+      console.error("Error storing calls to DataStackULTRA:", e);
+      // Fallback to localStorage on error
+      try {
+        localStorage.setItem("inspiroCallData", JSON.stringify(parsedCalls));
+        console.log("⚠️ DataStackULTRA error - Fallback: calls saved to localStorage:", parsedCalls.length);
+      } catch (localStorageError) {
+        console.error("Failed to save to localStorage as fallback:", localStorageError);
+      }
+    }
 
     // ✅ UI updates
     renderCalls(parsedCalls);
@@ -3182,22 +3316,6 @@
     // No valid calls
     document.getElementById("status").textContent = "🟡 No new data processed or files were unrecognized.";
   }
-
-  // Sync with DataStackULTRA after all dropped files are processed
-  if (window.DataStackULTRA && typeof window.DataStackULTRA.set === 'function') {
-    try {
-      const sanitizedCalls = JSON.parse(JSON.stringify(parsedCalls));
-      window.DataStackULTRA.set('loadedCalls', sanitizedCalls)
-        .then(() => {
-          console.log(`✅ Synced all parsed calls to DataStackULTRA.loadedCalls after processDroppedFiles (${parsedCalls.length} calls)`);
-        })
-        .catch(err => {
-          console.error("Error syncing parsedCalls to DataStackULTRA.loadedCalls after processDroppedFiles:", err);
-        });
-    } catch (e) {
-      console.error("Error sanitizing parsedCalls for DataStackULTRA after processDroppedFiles:", e);
-    }
-  }
 }
 
     async function processSingleFileContent(file, content, fileType, fileNameWithCase) {
@@ -3209,9 +3327,6 @@
         if (fileType === 'zip') {
             // If it's a zip, we assume it contains call transcripts for now.
             // The processZipFile function will handle extracting and processing them.
-            // processZipFile itself calls appendFile which calls parseContent, then enrichAndStoreParsedCalls
-            // This path doesn't directly return master_log_processed or call_file_processed from here.
-            // It manages its own status updates. For simplicity, we'll let it run and not try to classify its contents here.
             const password = document.getElementById('zipPassword').value;
             if (file.name.toLowerCase().endsWith('.zip') && document.getElementById('zipPasswordContainer').style.display === 'block' && !password){
                 document.getElementById("status").textContent = "🔑 Please enter ZIP password or re-drop if not password protected.";
@@ -3230,51 +3345,57 @@
                     parsedContent = window.parseCSV(content);
                 }
             } else if (fileType === 'excel') {
-                 // ProcessExcelFile needs to be adapted to return parsed data rather than directly processing it
-                 // For now, this is a placeholder showing where it would fit.
-                 // This requires a more significant refactor of processSpreadsheetFile to fit the new flow.
-                 // Let's assume it will eventually feed into the parsedContent variable.
-                console.warn("Direct Excel processing in this flow needs refactoring. Treating as potential call dump for now.");
-                // For now, let the existing processSpreadsheetFile handle it if it was the entry point.
-                // This new smart detection is primarily for files dropped directly.
-                // If processSpreadsheetFile was called, it has its own logic.
-                // This path is for direct drop of excel.
                 const data = await file.arrayBuffer();
                 const workbook = XLSX.read(data, { type: 'array' });
                 const firstSheetName = workbook.SheetNames[0];
                 parsedContent = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName]);
-                // === Handle Audit Template Format with Embedded JSON ===
-if (Array.isArray(parsedContent) && parsedContent.some(row => row["Raw JSON Data (Do not modify)"])) {
-  const embeddedJSONCalls = [];
+                
+                // Handle Audit Template Format with Embedded JSON
+                if (Array.isArray(parsedContent) && parsedContent.some(row => row["Raw JSON Data (Do not modify)"])) {
+                  const embeddedJSONCalls = [];
 
-  for (const row of parsedContent) {
-    const raw = row["Raw JSON Data (Do not modify)"];
-    if (raw) {
-      try {
-        const call = typeof raw === "string" ? JSON.parse(raw) : raw;
-        if (call.meta && call.meta["Contact ID"]) {
-          embeddedJSONCalls.push(call);
-        }
-      } catch (e) {
-        console.warn("❌ Failed to parse Raw JSON in row:", row, e);
-      }
-    }
-  }
+                  for (const row of parsedContent) {
+                    const raw = row["Raw JSON Data (Do not modify)"];
+                    if (raw) {
+                      try {
+                        const call = typeof raw === "string" ? JSON.parse(raw) : raw;
+                        if (call.meta && call.meta["Contact ID"]) {
+                          embeddedJSONCalls.push(call);
+                        }
+                      } catch (e) {
+                        console.warn("❌ Failed to parse Raw JSON in row:", row, e);
+                      }
+                    }
+                  }
 
-  if (embeddedJSONCalls.length > 0) {
-    const uniqueNewCalls = embeddedJSONCalls.filter(nc => !contactIdSet.has(nc.meta["Contact ID"]));
-    uniqueNewCalls.forEach(nc => contactIdSet.add(nc.meta["Contact ID"]));
+                  if (embeddedJSONCalls.length > 0) {
+                    const uniqueNewCalls = embeddedJSONCalls.filter(nc => !contactIdSet.has(nc.meta["Contact ID"]));
+                    uniqueNewCalls.forEach(nc => contactIdSet.add(nc.meta["Contact ID"]));
 
-    parsedCalls.push(...uniqueNewCalls);
-    await enrichAndStoreParsedCalls(uniqueNewCalls);
+                    // Use MasterLogUtil to merge with master log if available
+                    if (window.MasterLogUtil && typeof window.MasterLogUtil.enrichAndUpdateCalls === 'function' && 
+                        masterLogInMemoryCache && masterLogInMemoryCache.length > 0) {
+                      try {
+                        await window.MasterLogUtil.enrichAndUpdateCalls(uniqueNewCalls, masterLogInMemoryCache);
+                        console.log(`✅ Enriched ${uniqueNewCalls.length} calls with master log data using MasterLogUtil`);
+                      } catch (e) {
+                        console.error("Error using MasterLogUtil to enrich calls:", e);
+                        // Fall back to regular DataStackULTRA update
+                        parsedCalls.push(...uniqueNewCalls);
+                        await storeCallsToDataStackULTRA(parsedCalls);
+                      }
+                    } else {
+                      // Regular processing without MasterLogUtil
+                      parsedCalls.push(...uniqueNewCalls);
+                      await enrichAndStoreParsedCalls(uniqueNewCalls);
+                    }
 
-    uploadedFiles.push(fileNameWithCase);
-    updateUploadedFilesList();
+                    uploadedFiles.push(fileNameWithCase);
+                    updateUploadedFilesList();
 
-    return 'call_file_processed';
-  }
-}
-
+                    return 'call_file_processed';
+                  }
+                }
             } else if (fileType === 'text') { // .txt, .html for call transcripts
                 parsedContent = content; // Will be processed by parseContent later
             } else if (file.name.toLowerCase().endsWith('.json')) { // Explicit JSON check for potential master log backup
@@ -3310,30 +3431,50 @@ if (Array.isArray(parsedContent) && parsedContent.some(row => row["Raw JSON Data
         // Decision time
         if (isMasterLog && !isCallDump && Array.isArray(parsedContent)) { // Pure Master Log (e.g., CSV or JSON array)
             updateMasterLogStatus(`Processing Master Log file: ${fileNameWithCase}...`);
-            masterLogInMemoryCache = parsedContent; // Update in-memory representation
+            
+            // Store the master log data in memory and DataStackULTRA
+            masterLogInMemoryCache = parsedContent; 
             try {
               const sanitizedMasterLog = JSON.parse(JSON.stringify(masterLogInMemoryCache));
               await window.DataStackULTRA.set('masterLogCache', sanitizedMasterLog);
               updateMasterLogStatus(`✅ Master Log updated from ${fileNameWithCase}. ${masterLogInMemoryCache.length} entries cached.`);
+              
+              // If we have MasterLogUtil available, update the master log there too
+              if (window.MasterLogUtil && typeof window.MasterLogUtil.updateMasterLog === 'function') {
+                await window.MasterLogUtil.updateMasterLog(sanitizedMasterLog);
+              }
             } catch (e) {
               console.error("Error sanitizing masterLogInMemoryCache for DataStackULTRA from file:", e);
               updateMasterLogStatus(`⚠️ Error saving Master Log to cache from file: ${e.message}. Log is in memory.`, true);
             }
-            // Re-enrich calls if any are loaded
-            if(parsedCalls.length > 0){
+            
+            // Re-enrich existing calls with the new master log data
+            if (parsedCalls.length > 0) {
+              if (window.MasterLogUtil && typeof window.MasterLogUtil.mergeMasterLog === 'function') {
+                try {
+                  const enrichedCalls = window.MasterLogUtil.mergeMasterLog(parsedCalls, masterLogInMemoryCache);
+                  parsedCalls = enrichedCalls; // Update global variable
+                  await storeCallsToDataStackULTRA(enrichedCalls);
+                  console.log(`✅ Re-enriched ${parsedCalls.length} existing calls with new master log data using MasterLogUtil`);
+                } catch (e) {
+                  console.error("Error using MasterLogUtil to re-enrich calls:", e);
+                  // Fall back to regular enrichment
+                  await enrichAndStoreParsedCalls(parsedCalls, true);
+                }
+              } else {
+                // Regular enrichment without MasterLogUtil
                 await enrichAndStoreParsedCalls(parsedCalls, true);
+              }
             }
+            
             return 'master_log_processed';
         } else if (isCallDump) { // Call transcript dump (text, html, or structured like JSON/CSV from our export)
             document.getElementById("status").textContent = `Processing call transcript file: ${fileNameWithCase}...`;
             let newCalls;
+            
             if (typeof parsedContent === 'string') { // From TXT/HTML
                 newCalls = parseContent(parsedContent); 
             } else if (Array.isArray(parsedContent)) { // From our JSON/CSV/Excel export format
-                // This path assumes processSpreadsheetData or a similar converter
-                // We need to adapt processSpreadsheetData to return calls instead of directly setting globals
-                // For now, let's use a simplified version of what processSpreadsheetData does.
-                // This is a placeholder for a more robust conversion.
                 newCalls = convertSpreadsheetDataToCalls(parsedContent); 
             }
 
@@ -3341,12 +3482,30 @@ if (Array.isArray(parsedContent) && parsedContent.some(row => row["Raw JSON Data
                 const uniqueNewCalls = newCalls.filter(nc => !contactIdSet.has(nc.meta["Contact ID"]));
                 uniqueNewCalls.forEach(nc => contactIdSet.add(nc.meta["Contact ID"]));
                 
-                parsedCalls.push(...uniqueNewCalls); // Add to global immediately for enrichment
-                await enrichAndStoreParsedCalls(uniqueNewCalls); // Enrich and store the new ones
+                // Use MasterLogUtil for enrichment if available and we have master log data
+                if (window.MasterLogUtil && typeof window.MasterLogUtil.enrichAndUpdateCalls === 'function' && 
+                    masterLogInMemoryCache && masterLogInMemoryCache.length > 0) {
+                  try {
+                    // This will merge with master log, combine with existing calls in DataStackULTRA, and store the result
+                    const enrichedCalls = await window.MasterLogUtil.enrichAndUpdateCalls(uniqueNewCalls, masterLogInMemoryCache);
+                    
+                    // Update the global parsedCalls with the newly enriched calls
+                    parsedCalls = [...parsedCalls.filter(c => !uniqueNewCalls.some(nc => 
+                      nc.meta && c.meta && nc.meta["Contact ID"] === c.meta["Contact ID"])), ...enrichedCalls];
+                      
+                    console.log(`✅ Enriched ${uniqueNewCalls.length} new calls with master log data using MasterLogUtil`);
+                  } catch (e) {
+                    console.error("Error using MasterLogUtil to enrich new calls:", e);
+                    // Fall back to regular processing
+                    parsedCalls.push(...uniqueNewCalls);
+                    await enrichAndStoreParsedCalls(uniqueNewCalls);
+                  }
+                } else {
+                  // Regular processing without MasterLogUtil
+                  parsedCalls.push(...uniqueNewCalls);
+                  await enrichAndStoreParsedCalls(uniqueNewCalls);
+                }
                 
-                // The global parsedCalls is now updated with unique, enriched calls.
-                // No need to re-assign it from DataStackULTRA here for rendering this batch.
-
                 uploadedFiles.push(fileNameWithCase);
                 updateUploadedFilesList();
                 return 'call_file_processed';
@@ -3359,6 +3518,42 @@ if (Array.isArray(parsedContent) && parsedContent.some(row => row["Raw JSON Data
             document.getElementById("status").textContent = `⚠️ Unrecognized file format: ${fileNameWithCase}`;
             return 'unrecognized';
         }
+    }
+    
+    // Helper function to store calls to DataStackULTRA with error handling
+    async function storeCallsToDataStackULTRA(calls) {
+      if (!calls || calls.length === 0) return;
+      
+      if (window.DataStackULTRA && typeof window.DataStackULTRA.set === 'function') {
+        try {
+          const sanitizedCalls = JSON.parse(JSON.stringify(calls));
+          await window.DataStackULTRA.set('loadedCalls', sanitizedCalls);
+          console.log(`✅ Stored ${calls.length} calls to DataStackULTRA.loadedCalls`);
+          return true;
+        } catch (e) {
+          console.error("Error storing calls to DataStackULTRA:", e);
+          
+          // Fallback to localStorage
+          try {
+            localStorage.setItem("inspiroCallData", JSON.stringify(calls));
+            console.log("⚠️ DataStackULTRA error - Fallback: calls saved to localStorage");
+          } catch (localStorageError) {
+            console.error("Failed to save to localStorage as fallback:", localStorageError);
+          }
+          
+          return false;
+        }
+      } else {
+        // Fallback to localStorage if DataStackULTRA not available
+        try {
+          localStorage.setItem("inspiroCallData", JSON.stringify(calls));
+          console.log("⚠️ DataStackULTRA unavailable - Fallback: calls saved to localStorage");
+          return true;
+        } catch (e) {
+          console.error("Failed to save to localStorage:", e);
+          return false;
+        }
+      }
     }
 
     // Placeholder for a function that converts spreadsheet data (from XLSX or PapaParse) to parsedCalls structure
@@ -3524,28 +3719,123 @@ if (Array.isArray(parsedContent) && parsedContent.some(row => row["Raw JSON Data
     async function enrichAndStoreParsedCalls(callsToProcess, isReEnrichment = false) {
         if (!callsToProcess || callsToProcess.length === 0) return;
 
+        // Check if we can use MasterLogUtil for enrichment
+        const canUseMasterLogUtil = window.MasterLogUtil && 
+                                  typeof window.MasterLogUtil.mergeMasterLog === 'function' &&
+                                  typeof window.MasterLogUtil.enrichAndUpdateCalls === 'function';
+
         // Ensure CallAnalyzer is available
-        if (typeof window.CallAnalyzer !== 'object' || typeof window.CallAnalyzer.analyzeCall !== 'function') {
-            console.error("CallAnalyzer or its analyzeCall function is not available. Skipping full analysis and enrichment.");
-            // Fallback: Store calls as is, or with minimal enrichment if possible
-            // For now, we'll proceed, but calls will lack detailed analysis.
+        const canUseCallAnalyzer = typeof window.CallAnalyzer === 'object' && 
+                                 typeof window.CallAnalyzer.analyzeCall === 'function';
+        if (!canUseCallAnalyzer) {
+            console.warn("CallAnalyzer or its analyzeCall function is not available. Proceeding with basic enrichment only.");
         }
 
+        // Get master log data
         let currentMasterLog = masterLogInMemoryCache;
         if (!currentMasterLog || currentMasterLog.length === 0) {
-            currentMasterLog = await window.DataStackULTRA.get('masterLogCache', []);
-            masterLogInMemoryCache = currentMasterLog; // Update in-memory if fetched
+            try {
+                currentMasterLog = await window.DataStackULTRA.get('masterLogCache', []);
+                masterLogInMemoryCache = currentMasterLog; // Update in-memory if fetched
+            } catch (e) {
+                console.error("Error retrieving master log from DataStackULTRA:", e);
+                currentMasterLog = [];
+            }
         }
 
+        // Option 1: Use MasterLogUtil if available
+        if (canUseMasterLogUtil && currentMasterLog && currentMasterLog.length > 0) {
+            try {
+                console.log(`Using MasterLogUtil to process ${callsToProcess.length} calls with ${currentMasterLog.length} master log entries`);
+                
+                if (isReEnrichment) {
+                    // Re-enrichment of existing calls
+                    const enrichedCalls = window.MasterLogUtil.mergeMasterLog(parsedCalls, currentMasterLog);
+                    parsedCalls = enrichedCalls; // Update global variable
+                    
+                    // Apply additional analysis with CallAnalyzer if available
+                    if (canUseCallAnalyzer) {
+                        parsedCalls = parsedCalls.map(call => {
+                            const analysisResult = window.CallAnalyzer.analyzeCall(call);
+                            if (analysisResult) {
+                                return { ...call, ...analysisResult };
+                            }
+                            return call;
+                        });
+                    }
+                    
+                    await storeCallsToDataStackULTRA(parsedCalls);
+                } else {
+                    // Processing new calls
+                    const enrichedCalls = await window.MasterLogUtil.enrichAndUpdateCalls(callsToProcess, currentMasterLog);
+                    
+                    // Apply additional analysis with CallAnalyzer if available
+                    let analyzedCalls = enrichedCalls;
+                    if (canUseCallAnalyzer) {
+                        analyzedCalls = enrichedCalls.map(call => {
+                            const analysisResult = window.CallAnalyzer.analyzeCall(call);
+                            if (analysisResult) {
+                                return { ...call, ...analysisResult };
+                            }
+                            return call;
+                        });
+                    }
+                    
+                    // Update parsedCalls (remove any existing versions of these calls first)
+                    parsedCalls = [
+                        ...parsedCalls.filter(c => !analyzedCalls.some(ac => 
+                            ac.meta && c.meta && ac.meta["Contact ID"] === c.meta["Contact ID"])),
+                        ...analyzedCalls
+                    ];
+                    
+                    await storeCallsToDataStackULTRA(parsedCalls);
+                }
+                
+                console.log("✅ Successfully processed calls using MasterLogUtil");
+            } catch (e) {
+                console.error("Error using MasterLogUtil for enrichment:", e);
+                // Fall back to legacy enrichment process
+                await legacyEnrichmentProcess(callsToProcess, isReEnrichment, currentMasterLog, canUseCallAnalyzer);
+            }
+        } else {
+            // Option 2: Use legacy enrichment process
+            await legacyEnrichmentProcess(callsToProcess, isReEnrichment, currentMasterLog, canUseCallAnalyzer);
+        }
+
+        // Update active file tracking
+        try {
+            const currentActiveFile = await window.DataStackULTRA.get('activeAuditFile', 'File not set');
+            if (uploadedFiles.length > 0 && currentActiveFile !== uploadedFiles.join(', ')) {
+                await window.DataStackULTRA.set('activeAuditFile', uploadedFiles.join(', '));
+            } else if (uploadedFiles.length === 0 && !currentActiveFile) {
+                await window.DataStackULTRA.set('activeAuditFile', 'No files loaded');
+            }
+        } catch (e) {
+            console.error("Error updating active file tracking:", e);
+        }
+
+        // Update UI
+        if (parsedCalls.length > 0) {
+            renderCalls(parsedCalls);
+            updateAnalytics();
+            renderTopStatsBar(parsedCalls);
+            updateExportButtons();
+        }
+        
+        return parsedCalls;
+    }
+    
+    // Legacy enrichment process as a separate function
+    async function legacyEnrichmentProcess(callsToProcess, isReEnrichment, currentMasterLog, canUseCallAnalyzer) {
+        console.log(`Using legacy enrichment process for ${callsToProcess.length} calls`);
+        
         const processedAndEnrichedCalls = callsToProcess.map(call => {
             let enrichedCall = { ...call }; // Start with the existing call data
 
-            // 1. Perform core analysis using CallAnalyzer
-            if (window.CallAnalyzer && typeof window.CallAnalyzer.analyzeCall === 'function') {
+            // 1. Perform core analysis using CallAnalyzer if available
+            if (canUseCallAnalyzer) {
                 const analysisOptions = {
-                    // includeSentiment: true, // Default is true in CallAnalyzer
-                    // includeKeywordStats: true, // Default is true
-                    // ... other options if needed
+                    // Default options from CallAnalyzer
                 };
                 const analysisResult = window.CallAnalyzer.analyzeCall(call, analysisOptions);
                 if (analysisResult) {
@@ -3553,94 +3843,113 @@ if (Array.isArray(parsedContent) && parsedContent.some(row => row["Raw JSON Data
                 }
             }
 
-            // 2. Add/Update historySummary (Master Log integration)
-            const currentContactId = enrichedCall.meta?.["Contact ID"];
-            const customerIdentifier = enrichedCall.meta?.["Customer phone number / email address"] || enrichedCall.meta?.customerIdentifier || enrichedCall.meta?.customerId;
+            // 2. Add/Update historySummary with master log data if available
+            if (currentMasterLog && currentMasterLog.length > 0) {
+                const currentContactId = enrichedCall.meta?.["Contact ID"];
+                const customerIdentifier = enrichedCall.meta?.["Customer phone number / email address"] || 
+                                        enrichedCall.meta?.customerIdentifier || 
+                                        enrichedCall.meta?.customerId;
 
-            let historySummary = {
-                repeatCount: 0,
-                pastFlags: [],
-                avgHandleTimeText: null,
-                avgHandleTimeSeconds: null,
-                recentOutcomes: [], 
-                riskTags: [],
-                // Add any fields that CallAnalyzer might have already populated if history is part of its scope
-                ...(enrichedCall.historySummary || {}) // Preserve if CallAnalyzer added it
-            };
+                let historySummary = {
+                    repeatCount: 0,
+                    pastFlags: [],
+                    avgHandleTimeText: null,
+                    avgHandleTimeSeconds: null,
+                    recentOutcomes: [], 
+                    riskTags: [],
+                    // Preserve existing history summary if any
+                    ...(enrichedCall.historySummary || {})
+                };
 
-            if (customerIdentifier && customerIdentifier !== "Unknown" && customerIdentifier !== "N/A" && currentMasterLog && currentMasterLog.length > 0) {
-                const customerHistory = currentMasterLog.filter(logEntry => {
-                    const logContactId = logEntry.meta?.["Contact ID"];
-                    const logCustomerIdentifier = logEntry.meta?.["Customer phone number / email address"] || logEntry.meta?.customerIdentifier || logEntry.meta?.customerId;
-                    
-                    // Match by customerIdentifier and ensure it's not the current call itself
-                    return logCustomerIdentifier === customerIdentifier && logContactId !== currentContactId;
-                });
-
-                if (customerHistory.length > 0) {
-                    historySummary.repeatCount = customerHistory.length; // This now represents other contacts from the same customer
-                    let totalDurationSeconds = 0;
-                    let durationCount = 0;
-
-                    customerHistory.forEach(h => {
-                        if (h.flags && Array.isArray(h.flags)) historySummary.pastFlags.push(...h.flags);
-                        if (h.outcome) historySummary.recentOutcomes.push(h.outcome);
+                if (customerIdentifier && customerIdentifier !== "Unknown" && customerIdentifier !== "N/A") {
+                    const customerHistory = currentMasterLog.filter(logEntry => {
+                        const logContactId = logEntry.meta?.["Contact ID"];
+                        const logCustomerIdentifier = logEntry.meta?.["Customer phone number / email address"] || 
+                                                   logEntry.meta?.customerIdentifier || 
+                                                   logEntry.meta?.customerId;
                         
-                        const durationStr = h.duration || (h.meta && h.meta["Contact duration"]) || 
-                                          (window.CallAnalyzer && h.durationMinutes ? null : "0:00:00");
-                        let entryDurationMinutes = h.durationMinutes;
-
-                        if(entryDurationMinutes === undefined && window.CallAnalyzer && durationStr !== null) {
-                            entryDurationMinutes = window.CallAnalyzer.parseDuration(durationStr);
-                        }
-
-                        if (entryDurationMinutes !== null && entryDurationMinutes !== undefined) {
-                            totalDurationSeconds += entryDurationMinutes * 60;
-                            durationCount++;
-                        }
-                        
-                        // Basic risk tagging (example)
-                        if (h.flags && h.flags.some(f => ['supervisor', 'escalate', 'cancel'].includes(f.toLowerCase()))) {
-                            historySummary.riskTags.push("Escalation/Cancel Risk (Past)");
-                        }
-                        if (h.meta && h.meta["Disconnect reason"] && String(h.meta["Disconnect reason"]).toLowerCase().includes('customer_disconnect')){
-                            historySummary.riskTags.push("Customer Disconnect History (Past)");
-                        }
+                        // Match by customerIdentifier and ensure it's not the current call itself
+                        return logCustomerIdentifier === customerIdentifier && logContactId !== currentContactId;
                     });
-                    historySummary.pastFlags = [...new Set(historySummary.pastFlags)];
-                    historySummary.recentOutcomes = [...new Set(historySummary.recentOutcomes)].slice(-3); 
-                    historySummary.riskTags = [...new Set(historySummary.riskTags)];
 
-                    if (durationCount > 0) {
-                        const avgSeconds = Math.round(totalDurationSeconds / durationCount);
-                        historySummary.avgHandleTimeSeconds = avgSeconds;
-                        historySummary.avgHandleTimeText = formatDuration(avgSeconds); // formatDuration is local to index.html
+                    if (customerHistory.length > 0) {
+                        historySummary.repeatCount = customerHistory.length;
+                        let totalDurationSeconds = 0;
+                        let durationCount = 0;
+
+                        customerHistory.forEach(h => {
+                            if (h.flags && Array.isArray(h.flags)) historySummary.pastFlags.push(...h.flags);
+                            if (h.outcome) historySummary.recentOutcomes.push(h.outcome);
+                            
+                            const durationStr = h.duration || (h.meta && h.meta["Contact duration"]) || 
+                                              (canUseCallAnalyzer && h.durationMinutes ? null : "0:00:00");
+                            let entryDurationMinutes = h.durationMinutes;
+
+                            if (entryDurationMinutes === undefined && canUseCallAnalyzer && durationStr !== null) {
+                                entryDurationMinutes = window.CallAnalyzer.parseDuration(durationStr);
+                            }
+
+                            if (entryDurationMinutes !== null && entryDurationMinutes !== undefined) {
+                                totalDurationSeconds += entryDurationMinutes * 60;
+                                durationCount++;
+                            }
+                            
+                            // Add risk tagging based on flags and disconnect reasons
+                            if (h.flags && h.flags.some(f => ['supervisor', 'escalate', 'cancel'].includes(f.toLowerCase()))) {
+                                historySummary.riskTags.push("Escalation/Cancel Risk (Past)");
+                            }
+                            if (h.meta && h.meta["Disconnect reason"] && 
+                                String(h.meta["Disconnect reason"]).toLowerCase().includes('customer_disconnect')) {
+                                historySummary.riskTags.push("Customer Disconnect History (Past)");
+                            }
+                        });
+                        
+                        // Deduplicate arrays
+                        historySummary.pastFlags = [...new Set(historySummary.pastFlags)];
+                        historySummary.recentOutcomes = [...new Set(historySummary.recentOutcomes)].slice(-3); 
+                        historySummary.riskTags = [...new Set(historySummary.riskTags)];
+
+                        // Calculate average handle time
+                        if (durationCount > 0) {
+                            const avgSeconds = Math.round(totalDurationSeconds / durationCount);
+                            historySummary.avgHandleTimeSeconds = avgSeconds;
+                            historySummary.avgHandleTimeText = formatDuration(avgSeconds);
+                        }
                     }
                 }
+                
+                enrichedCall.historySummary = historySummary;
             }
-            enrichedCall.historySummary = historySummary;
 
-            // 3. Generate Coaching Note if CallAnalyzer is available
-            if (window.CallAnalyzer && typeof window.CallAnalyzer.generateCoachingNote === 'function') {
-                enrichedCall.coachingNote = window.CallAnalyzer.generateCoachingNote(enrichedCall); // Pass the fully enriched call
+            // 3. Generate coaching note if CallAnalyzer is available
+            if (canUseCallAnalyzer && typeof window.CallAnalyzer.generateCoachingNote === 'function') {
+                enrichedCall.coachingNote = window.CallAnalyzer.generateCoachingNote(enrichedCall);
             }
 
             return enrichedCall;
         });
 
+        // Update the parsedCalls array with enriched data
         if (isReEnrichment) {
+            // Replace existing calls with enriched versions
             processedAndEnrichedCalls.forEach(enrichedCall => {
-                const index = parsedCalls.findIndex(pCall => pCall.meta["Contact ID"] === enrichedCall.meta["Contact ID"]);
+                const index = parsedCalls.findIndex(pCall => 
+                    pCall.meta && enrichedCall.meta && 
+                    pCall.meta["Contact ID"] === enrichedCall.meta["Contact ID"]);
                 if (index !== -1) {
                     parsedCalls[index] = enrichedCall;
                 }
             });
         } else {
-            // For new calls, they were already pushed to parsedCalls. Now update those specific entries.
+            // For new calls, they were already pushed to parsedCalls. Now update with enriched versions.
             callsToProcess.forEach(originalCall => {
-                const enrichedVersion = processedAndEnrichedCalls.find(ec => ec.meta["Contact ID"] === originalCall.meta["Contact ID"]);
+                const enrichedVersion = processedAndEnrichedCalls.find(ec => 
+                    ec.meta && originalCall.meta && 
+                    ec.meta["Contact ID"] === originalCall.meta["Contact ID"]);
                 if (enrichedVersion) {
-                    const index = parsedCalls.findIndex(pCall => pCall.meta["Contact ID"] === originalCall.meta["Contact ID"]);
+                    const index = parsedCalls.findIndex(pCall => 
+                        pCall.meta && originalCall.meta && 
+                        pCall.meta["Contact ID"] === originalCall.meta["Contact ID"]);
                     if (index !== -1) {
                         parsedCalls[index] = enrichedVersion;
                     }
@@ -3648,30 +3957,11 @@ if (Array.isArray(parsedContent) && parsedContent.some(row => row["Raw JSON Data
             });
         }
 
-        try {
-          const sanitizedParsedCalls = JSON.parse(JSON.stringify(parsedCalls));
-          await window.DataStackULTRA.set('loadedCalls', sanitizedParsedCalls); 
-        } catch (e) {
-          console.error("Error sanitizing parsedCalls for DataStackULTRA in enrichAndStoreParsedCalls:", e);
-          // Potentially try to save non-sanitized if sanitization itself fails, or alert user.
-          // For now, log the error and proceed with in-memory changes. The next load might fail.
-          await window.DataStackULTRA.set('loadedCalls', parsedCalls).catch(finalErr => console.error("Final attempt to save non-sanitized parsedCalls also failed:", finalErr));
-        }
-
-        const currentActiveFile = await window.DataStackULTRA.get('activeAuditFile', 'File not set');
-        if(uploadedFiles.length > 0 && currentActiveFile !== uploadedFiles.join(', ')){
-             await window.DataStackULTRA.set('activeAuditFile', uploadedFiles.join(', '));
-        } else if (uploadedFiles.length === 0 && !currentActiveFile) {
-             await window.DataStackULTRA.set('activeAuditFile', 'No files loaded');
-        }
-        console.log("Enriched, analyzed, and stored/updated calls in DataStackULTRA.");
-
-        if (parsedCalls.length > 0) {
-            renderCalls(parsedCalls);
-            updateAnalytics();
-            renderTopStatsBar(parsedCalls);
-            updateExportButtons();
-        }
+        // Store to DataStackULTRA
+        await storeCallsToDataStackULTRA(parsedCalls);
+        
+        console.log("✅ Completed legacy enrichment process");
+        return processedAndEnrichedCalls;
     }
     // Initial load of Master Log from cache, if available
     
@@ -4064,12 +4354,18 @@ if (!window.DataStackULTRA) {
 </script>
 
 <script>
+  // Check for MasterLogUtil
+  if (!window.APP_LOAD_ERROR && typeof window.MasterLogUtil === 'undefined' || 
+      typeof window.MasterLogUtil?.mergeMasterLog !== 'function') {
+    console.error("FATAL: MasterLogUtil.js did not load correctly. window.MasterLogUtil or window.MasterLogUtil.mergeMasterLog is undefined.");
+    window.APP_LOAD_ERROR = true;
+  }
+  
   // audit-merge.js might define window.updateMasterLogCache, window.mergeAuditData etc.
-  // Add checks if these are critical for immediate startup, e.g.:
+  // These are less critical but still should be checked
   if (!window.APP_LOAD_ERROR && typeof window.updateMasterLogCache === 'undefined') {
     console.warn("WARNING: audit-merge.js or its window.updateMasterLogCache function seems to be missing or loaded incorrectly.");
-    // Decide if this is a fatal error for your app's core functionality
-    // window.APP_LOAD_ERROR = true;
+    // Not a fatal error, just log a warning
   }
 </script>
 
@@ -4096,20 +4392,87 @@ if (!window.DataStackULTRA) {
                 console.log("No pre-existing masterLogCache found in DataStackULTRA storage or cache is empty.");
             }
 
+            // Get loaded calls from DataStackULTRA
             const loadedCalls = await window.DataStackULTRA.get('loadedCalls', [], {persistent: true});
             if (loadedCalls && loadedCalls.length > 0) {
               console.log("Successfully loaded loadedCalls from DataStackULTRA storage on startup:", loadedCalls.length, "entries.");
-              // If index.html uses a global parsedCalls (it does):
+              
+              // Get master log data for potential enrichment
+              const masterLogCache = await window.DataStackULTRA.get('masterLogCache', [], {persistent: true});
+              
+              // Set global parsedCalls to the loaded calls
               if (window.parsedCalls !== undefined) window.parsedCalls = loadedCalls;
-              // If index.html has these functions for UI update (it does):
-              if (typeof renderSessionList === 'function' && typeof parsedCalls !== 'undefined') renderSessionList(parsedCalls);
-              if (typeof renderCalls === 'function' && typeof parsedCalls !== 'undefined') renderCalls(parsedCalls); // Assuming renderCalls might be the one for detailed view
-              if (typeof updateAnalytics === 'function') updateAnalytics();
-              if (typeof renderTopStatsBar === 'function' && typeof parsedCalls !== 'undefined') renderTopStatsBar(parsedCalls);
-
-
+              
+              // Initialize the contact ID set from loaded calls to prevent duplicates
+              if (typeof contactIdSet !== 'undefined') {
+                contactIdSet = new Set(loadedCalls
+                  .filter(call => call.meta && call.meta["Contact ID"])
+                  .map(call => call.meta["Contact ID"]));
+                console.log(`Initialized contactIdSet with ${contactIdSet.size} unique Contact IDs`);
+              }
+              
+              // Enrich with master log if available
+              if (masterLogCache && masterLogCache.length > 0 && 
+                  window.MasterLogUtil && typeof window.MasterLogUtil.mergeMasterLog === 'function') {
+                try {
+                  console.log(`Enriching ${loadedCalls.length} calls with ${masterLogCache.length} master log entries...`);
+                  const enrichedCalls = window.MasterLogUtil.mergeMasterLog(loadedCalls, masterLogCache);
+                  if (window.parsedCalls !== undefined) window.parsedCalls = enrichedCalls;
+                  console.log("✅ Successfully enriched calls with master log data");
+                } catch (err) {
+                  console.error("Error enriching calls with master log:", err);
+                  // Continue with the non-enriched calls
+                }
+              }
+              
+              // Update UI with loaded calls
+              if (typeof renderSessionList === 'function' && typeof parsedCalls !== 'undefined') {
+                renderSessionList(parsedCalls);
+              }
+              if (typeof renderCalls === 'function' && typeof parsedCalls !== 'undefined') {
+                renderCalls(parsedCalls);
+              }
+              if (typeof updateAnalytics === 'function') {
+                updateAnalytics();
+              }
+              if (typeof renderTopStatsBar === 'function' && typeof parsedCalls !== 'undefined') {
+                renderTopStatsBar(parsedCalls);
+              }
             } else {
               console.log("No pre-existing loadedCalls found in DataStackULTRA storage or cache is empty.");
+              
+              // Check for fallback in localStorage (for backward compatibility)
+              try {
+                const localStorageData = localStorage.getItem("inspiroCallData");
+                if (localStorageData) {
+                  const legacyParsedCalls = JSON.parse(localStorageData);
+                  if (Array.isArray(legacyParsedCalls) && legacyParsedCalls.length > 0) {
+                    console.log(`Found ${legacyParsedCalls.length} calls in localStorage. Migrating to DataStackULTRA...`);
+                    
+                    // Set to global parsedCalls
+                    if (window.parsedCalls !== undefined) window.parsedCalls = legacyParsedCalls;
+                    
+                    // Initialize contactIdSet
+                    if (typeof contactIdSet !== 'undefined') {
+                      contactIdSet = new Set(legacyParsedCalls
+                        .filter(call => call.meta && call.meta["Contact ID"])
+                        .map(call => call.meta["Contact ID"]));
+                    }
+                    
+                    // Store to DataStackULTRA
+                    await storeCallsToDataStackULTRA(legacyParsedCalls);
+                    
+                    // Update UI
+                    if (typeof renderCalls === 'function') renderCalls(legacyParsedCalls);
+                    if (typeof updateAnalytics === 'function') updateAnalytics();
+                    if (typeof renderTopStatsBar === 'function') renderTopStatsBar(legacyParsedCalls);
+                    
+                    console.log("✅ Successfully migrated calls from localStorage to DataStackULTRA");
+                  }
+                }
+              } catch (e) {
+                console.error("Error checking localStorage fallback:", e);
+              }
             }
 
             const activeAuditFile = await window.DataStackULTRA.get('activeAuditFile', null, {persistent: true});
