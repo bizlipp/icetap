@@ -1,6 +1,13 @@
 ![Proprietary Software](https://img.shields.io/badge/license-Proprietary%20Software-black?style=for-the-badge&logo=lock&logoColor=white)
 
 # ICETAP – Internal Compliance Evaluation & Training Audit Platform
+# ICETAP – Internal Compliance Evaluation & Training Audit Platform
+
+<p align="center">
+  <img src="https://img.shields.io/badge/License-Proprietary-black?style=for-the-badge&logo=lock&logoColor=FF5500" />
+  <img src="https://img.shields.io/badge/Access-Internal%20Use%20Only-2F2F2F?style=for-the-badge&logo=shield&logoColor=FF5500" />
+  <img src="https://img.shields.io/badge/Data-LocalStorage%20Only-0A0A0A?style=for-the-badge&logo=database&logoColor=FF5500" />
+</p>
 
 **ICETAP** (Internal Compliance Evaluation & Training Audit Platform) is a locally-hosted, browser-based tool for managing quality assurance, coaching, and compliance reviews in operational and call center environments.
 
