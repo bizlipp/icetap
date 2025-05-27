@@ -1,7 +1,6 @@
 ![Proprietary Software](https://img.shields.io/badge/license-Proprietary%20Software-black?style=for-the-badge&logo=lock&logoColor=white)
 
 # ICETAP – Internal Compliance Evaluation & Training Audit Platform
-# ICETAP – Internal Compliance Evaluation & Training Audit Platform
 
 <p align="center">
   <img src="https://img.shields.io/badge/License-Proprietary-black?style=for-the-badge&logo=lock&logoColor=FF5500" />
