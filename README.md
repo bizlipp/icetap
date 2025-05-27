@@ -1,71 +1,29 @@
-# 🔍 Rake & Shake: Transcript Intel Suite
+# ICETAP – Internal Compliance Evaluation & Training Audit Platform
 
-**Built for agents. Weaponized for auditors.**  
-Rake & Shake is a zero-footprint, browser-powered transcript parser + compliance dashboard. Drop your call logs. Pull your flags. Walk away with clean, ready-to-fire reports.
+**ICETAP** (Internal Compliance Evaluation & Training Audit Platform) is a locally-hosted, browser-based tool for managing quality assurance, coaching, and compliance reviews in operational and call center environments.
 
----
+This application runs entirely in the browser and stores data using LocalStorage. No data is sent to external servers or collected remotely.
 
-## 🚫 Zero Uploads. Zero Bull.
+## 🚀 Features
+- Audit dashboard for compliance evaluations
+- Call scoring, summaries, and flag tracking
+- Coaching tools with agent-level insights
+- Local-only storage for private, offline use
+- Manual import/export tools (coming soon)
 
-This isn't SaaS. It's a standalone local-first toolkit.
+## 🔐 Privacy & Data Security
+ICETAP is designed to keep all user data stored locally in the browser's storage environment. No external APIs or cloud sync services are used in the default version. You are responsible for backing up your data regularly.
 
-- 🛡 **All processing happens in-browser** – nothing leaves your machine.
-- 🔐 **Encrypted `.zip` files supported** – full client-side decryption.
-- 🔌 **No server. No cloud. No surveillance.**
-- 🔁 **Works online or offline** – drag `index.html` into any browser.
+> ⚠️ This tool is intended for **internal use only** and should not be used in a shared or public environment without appropriate security measures.
 
----
+## 📦 Project Status
+This tool is actively used and developed by AeroVista LLC.  
+The `visionary` branch is part of a private roadmap and subject to change.
 
-## 🧠 What It Does
+## 📄 License
+This project is proprietary. All rights reserved by AeroVista LLC.  
+See the [LICENSE.txt](./LICENSE.txt) for full terms.
 
-- Parses Amazon Connect exports (`.txt`, `.html`, `.zip`)
-- Auto-groups by Agent, Call ID, Risk, Flags, and Score
-- Generates visual dashboards:
-  - Agent performance
-  - Flag & positive indicator breakdowns
-  - Call time distribution
-  - Repeat caller insights
-  - Flag frequency heatmaps
-- Prepares Excel-ready audit logs for instant handoff
-
----
-
-## 🧰 How to Use It
-
-1. **Open the Tool**
-   - Hosted: `https://yourname.github.io/rake-and-shake`
-   - Offline: Open `index.html` directly in any browser
-
-2. **Load Your Data**
-   - Drag and drop transcripts or `.zip` bundles
-   - Enter password if prompted
-
-3. **Launch the Dashboard**
-   - Click **Load Data from Parser**
-   - Explore every metric. Slice every flag.
-
-4. **Export to Excel**
-   - Clean, structured data for direct audit input
-
----
-
-## 🧨 Designed for Ops Under Fire
-
-- BPO teams in real-world compliance environments
-- Audit & QA teams who need answers, not interfaces
-- Security-conscious orgs with locked-down networks
-- Data warriors who don't trust the cloud (we don't either)
-
----
-
-## ⚙️ Built by AeroVista LLC
-
-**Secure Tools. No Noise. Just Firepower.**  
-We build tactical software for analysts, agents, and frontline teams who move fast and stay accountable.  
-Contact us at: [aerovista.us](https://aerovista.us)
-
----
-
-## 📜 License
-
-MIT License. Use it. Clone it. Improve it. Just don't pretend you made it. 
+## 🙋 Support or Inquiries
+This tool is used internally and is not currently supported for public distribution.  
+For licensing or integration inquiries, contact the project owner directly.
