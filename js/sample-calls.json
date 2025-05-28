@@ -1,0 +1,92 @@
+[
+  {
+    "customerId": "C12345",
+    "meta": {
+      "Contact ID": "C12345",
+      "Channel": "Voice",
+      "Contact status": "Completed",
+      "Initiation timestamp": "2023-06-15T14:05:22Z",
+      "Agent": "Alex Johnson",
+      "Recording/Transcript": "Call_C12345_2023-06-15.txt",
+      "Customer phone number": "+1234567890",
+      "Disconnect timestamp": "2023-06-15T14:08:34Z",
+      "Contact duration": "00:03:12",
+      "Issue": "Booking confirmation",
+      "Outcome": "Resolved"
+    },
+    "transcript": "Call Transcript\nCustomer ID: C12345\nDate: 2023-06-15\n\n[00:00] System: Call initiated\n[00:05] System: Customer connected to queue\n\n[00:12] Agent: Hello, thank you for calling AeroCore support...",
+    "positiveScore": 0.85
+  },
+  {
+    "customerId": "C54321",
+    "meta": {
+      "Contact ID": "C54321",
+      "Channel": "Voice",
+      "Contact status": "Completed",
+      "Initiation timestamp": "2023-06-14T10:22:15Z",
+      "Agent": "Sarah Miller",
+      "Recording/Transcript": "Call_C54321_2023-06-14.txt",
+      "Customer phone number": "+1987654321",
+      "Disconnect timestamp": "2023-06-14T10:29:45Z",
+      "Contact duration": "00:07:30",
+      "Issue": "Flight change",
+      "Outcome": "Resolved"
+    },
+    "transcript": "Call Transcript\nCustomer ID: C54321\nDate: 2023-06-14\n\n[00:00] System: Call initiated\n[00:08] System: Customer connected to queue...",
+    "positiveScore": 0.72
+  },
+  {
+    "customerId": "C67890",
+    "meta": {
+      "Contact ID": "C67890",
+      "Channel": "Chat",
+      "Contact status": "Completed",
+      "Initiation timestamp": "2023-06-13T16:45:10Z",
+      "Agent": "Michael Brown",
+      "Recording/Transcript": "Chat_C67890_2023-06-13.txt",
+      "Customer email": "customer@example.com",
+      "Disconnect timestamp": "2023-06-13T17:02:33Z",
+      "Contact duration": "00:17:23",
+      "Issue": "Baggage allowance",
+      "Outcome": "Escalated"
+    },
+    "transcript": "Chat Transcript\nCustomer ID: C67890\nDate: 2023-06-13\n\n[16:45:10] System: Chat initiated\n[16:45:18] System: Customer connected\n\n[16:45:30] Agent: Hello, thank you for contacting AeroCore support...",
+    "positiveScore": 0.61
+  },
+  {
+    "customerId": "C12345",
+    "meta": {
+      "Contact ID": "C12345",
+      "Channel": "Voice",
+      "Contact status": "Completed",
+      "Initiation timestamp": "2023-05-20T09:12:05Z",
+      "Agent": "David Wilson",
+      "Recording/Transcript": "Call_C12345_2023-05-20.txt",
+      "Customer phone number": "+1234567890",
+      "Disconnect timestamp": "2023-05-20T09:18:22Z",
+      "Contact duration": "00:06:17",
+      "Issue": "Seat selection",
+      "Outcome": "Resolved"
+    },
+    "transcript": "Call Transcript\nCustomer ID: C12345\nDate: 2023-05-20\n\n[00:00] System: Call initiated\n[00:07] System: Customer connected to queue...",
+    "positiveScore": 0.91
+  },
+  {
+    "customerId": "C24680",
+    "meta": {
+      "Contact ID": "C24680",
+      "Channel": "Email",
+      "Contact status": "Completed",
+      "Initiation timestamp": "2023-06-12T08:30:45Z",
+      "Agent": "Emma Taylor",
+      "Recording/Transcript": "Email_C24680_2023-06-12.txt",
+      "Customer email": "another@example.com",
+      "Response timestamp": "2023-06-12T11:22:15Z",
+      "Contact duration": "02:51:30",
+      "Issue": "Refund request",
+      "Outcome": "Pending"
+    },
+    "transcript": "Email Correspondence\nCustomer ID: C24680\nDate: 2023-06-12\n\n[08:30:45] System: Email received\n[11:22:15] Agent: Dear customer, Thank you for your email regarding your refund request...",
+    "positiveScore": 0.55
+  }
+] 
