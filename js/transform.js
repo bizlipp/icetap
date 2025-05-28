@@ -343,6 +343,22 @@
     }
     
     /**
+     * Normalize customer ID for all call objects
+     * @param {Array} calls - Array of call objects to normalize
+     * @returns {Array} - Array with normalized customerId property added
+     */
+    normalizeCustomerIds(calls) {
+      if (!Array.isArray(calls)) return calls;
+      
+      return calls.map(call => {
+        if (!call) return call;
+        // Add customerId property consistently using customer phone/email
+        call.customerId = call.meta?.["Customer phone number / email address"]?.trim() || null;
+        return call;
+      });
+    }
+    
+    /**
      * Create a data mapper for a specific schema
      * @param {Object} schema - Schema to map to
      * @returns {Function} - Mapper function

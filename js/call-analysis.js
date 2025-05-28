@@ -79,13 +79,14 @@ function parseTimestamp(timestampStr) {
  * @returns {object} - A normalized metadata object.
  */
 function normalizeMeta(callObject) {
-    if (!callObject || typeof callObject !== 'object') {
-        console.warn("normalizeMeta: Invalid callObject provided.");
-        return {};
-    }
+    if (!callObject) return null;
     const meta = callObject.meta || {};
-    console.log("normalizeMeta INPUT callObject.meta:", JSON.stringify(meta, null, 2));
-
+    
+    // Normalize customerId first for consistent use across all functions
+    if (!callObject.customerId) {
+        callObject.customerId = meta["Customer phone number / email address"]?.trim() || null;
+    }
+    
     const initiationTimestampStr = meta["Initiation timestamp"] || meta.initiationTimestamp || meta.timestamp;
     const startTime = initiationTimestampStr ? new Date(initiationTimestampStr) : null;
     
@@ -111,7 +112,7 @@ function normalizeMeta(callObject) {
     const normalizedOutput = {
         contactId: meta["Contact ID"] || meta.contactId || `unknown-${Date.now()}`,
         agent: agentName,
-        customerId: meta["Customer phone number / email address"] || meta.customerIdentifier || meta.customerId || "Unknown",
+        customerId: callObject.customerId || meta["Customer phone number / email address"] || meta.customerIdentifier || meta.customerId || "Unknown",
         startTime: startTime,
         endTime: endTime,
         durationMinutes: durationMinutes,
@@ -144,18 +145,14 @@ function normalizeMeta(callObject) {
  * @returns {object|null} - An analysis result object or null if validation fails.
  */
 function analyzeCall(callObject, options = {}) {
+    if (!callObject) return null;
+    
     const finalOptions = { ...defaultAnalysisOptions, ...options };
-
-    // 1. Data Contract Validation
-    if (!callObject || typeof callObject !== 'object' || !callObject.meta || !callObject.transcript) {
-        console.warn("analyzeCall: Invalid call object structure. Missing meta or transcript.", JSON.stringify(callObject, null, 2));
-        return null;
-    }
-    // Added more detailed logging for missing timestamp
-    if (!callObject.meta["Initiation timestamp"] && !callObject.meta.initiationTimestamp && !callObject.meta.timestamp) {
-        console.warn("analyzeCall: Call object missing 'Initiation timestamp' (or variants). Contact ID:", callObject.meta["Contact ID"] || callObject.meta.contactId, "Full meta:", JSON.stringify(callObject.meta, null, 2));
-    }
-
+    const meta = callObject.meta || {};
+    
+    // Ensure customerId is set
+    callObject.customerId = callObject.customerId || meta["Customer phone number / email address"]?.trim() || null;
+    
     const normalized = normalizeMeta(callObject); // Start with normalized data
     const analysisResult = { ...normalized }; // Base result on normalized data
 
@@ -368,13 +365,135 @@ function groupByAgent(calls) {
  * @returns {object} - An object where keys are customer IDs and values are arrays of calls.
  */
 function groupByCustomer(calls) {
-     if (!Array.isArray(calls)) return {};
+    if (!Array.isArray(calls)) return {};
     return calls.reduce((acc, call) => {
+        // Always use customerId first, with fallback options
         const customerId = call.customerId || (call.meta && call.meta["Customer phone number / email address"]) || "Unknown Customer";
         if (!acc[customerId]) acc[customerId] = [];
         acc[customerId].push(call);
         return acc;
     }, {});
+}
+
+/**
+ * Marks calls from the same customer within a specified time window as repeat calls
+ * @param {Array<object>} calls - Array of call objects to process
+ * @param {number} windowHours - Number of hours to consider for repeat detection (default: 72)
+ * @returns {Array<object>} - The processed calls with repeat flags
+ */
+function markRepeatCalls(calls, windowHours = 72) {
+    if (!Array.isArray(calls) || calls.length === 0) return calls;
+    
+    // First ensure all calls have customerId set
+    calls.forEach(call => {
+        if (!call.customerId && call.meta) {
+            call.customerId = call.meta["Customer phone number / email address"]?.trim() || null;
+        }
+    });
+    
+    const grouped = groupByCustomer(calls);
+
+    for (const callsList of Object.values(grouped)) {
+        // Only process groups with more than one call
+        if (callsList.length <= 1) continue;
+        
+        const sorted = callsList
+            .filter(c => c.startTime || (c.meta && c.meta["Initiation timestamp"]))
+            .sort((a, b) => {
+                const aTime = a.startTime ? new Date(a.startTime) : new Date(a.meta["Initiation timestamp"]);
+                const bTime = b.startTime ? new Date(b.startTime) : new Date(b.meta["Initiation timestamp"]);
+                return aTime - bTime;
+            });
+
+        for (let i = 1; i < sorted.length; i++) {
+            const prevTime = sorted[i - 1].startTime 
+                ? new Date(sorted[i - 1].startTime) 
+                : new Date(sorted[i - 1].meta["Initiation timestamp"]);
+            
+            const currTime = sorted[i].startTime 
+                ? new Date(sorted[i].startTime) 
+                : new Date(sorted[i].meta["Initiation timestamp"]);
+            
+            const delta = (currTime - prevTime) / (1000 * 60 * 60);
+            if (delta <= windowHours) {
+                sorted[i - 1].repeat = true;
+                sorted[i].repeat = true;
+            }
+        }
+    }
+    
+    return calls;
+}
+
+/**
+ * Test function to validate customerId integration
+ * For development use only - can be removed in production
+ */
+function testCustomerIdIntegration(calls) {
+    console.log("=== Testing Customer ID Integration ===");
+    
+    // Test 1: Check if customerId field is set on all calls
+    const callsWithCustomerId = calls.filter(call => call.customerId);
+    console.log(`Test 1: ${callsWithCustomerId.length}/${calls.length} calls have customerId set`);
+    
+    // Test 2: Test markRepeatCalls functionality
+    const originalRepeatCount = calls.filter(call => call.repeat).length;
+    const testCalls = JSON.parse(JSON.stringify(calls)); // Deep clone for testing
+    
+    // Set identical customer ID on the first two calls to force them to be repeats
+    if (testCalls.length >= 2) {
+        testCalls[0].customerId = "test-customer-1"; 
+        testCalls[1].customerId = "test-customer-1";
+        
+        // Set timestamps 1 hour apart
+        const baseTime = new Date();
+        testCalls[0].startTime = new Date(baseTime.getTime() - 3600000).toISOString(); // 1 hour ago
+        testCalls[1].startTime = baseTime.toISOString(); // now
+        
+        // Apply markRepeatCalls
+        if (typeof markRepeatCalls === 'function') {
+            const markedCalls = markRepeatCalls(testCalls);
+            console.log(`Test 2: markRepeatCalls function ${markedCalls[0].repeat && markedCalls[1].repeat ? "PASSED ✓" : "FAILED ✗"}`);
+            
+            // Show which calls were marked
+            markedCalls.forEach((call, i) => {
+                console.log(`Call ${i+1}: ${call.meta?.["Contact ID"] || 'unknown'} - Customer: ${call.customerId} - Repeat: ${call.repeat ? "YES" : "NO"}`);
+            });
+        } else {
+            console.log("❌ markRepeatCalls function not found");
+        }
+    } else {
+        console.log("Test 2: Skipped - not enough calls for testing markRepeatCalls");
+    }
+    
+    // Test 3: Test groupByCustomer function
+    if (typeof groupByCustomer === 'function') {
+        const grouped = groupByCustomer(testCalls);
+        const customerKeys = Object.keys(grouped);
+        console.log(`Test 3: groupByCustomer function returned ${customerKeys.length} unique customers`);
+        
+        // Show first few customer groups
+        customerKeys.slice(0, 3).forEach(key => {
+            console.log(`  - Customer "${key}": ${grouped[key].length} calls`);
+        });
+    } else {
+        console.log("❌ groupByCustomer function not found");
+    }
+    
+    // Test 4: AI.summarizeRepeatDrivers 
+    console.log("\nTest 4: AI.summarizeRepeatDrivers");
+    if (window.AI && typeof window.AI.summarizeRepeatDrivers === 'function') {
+        try {
+            const summary = window.AI.summarizeRepeatDrivers(testCalls);
+            console.log(`Result: ${summary.substring(0, 100)}...`);
+        } catch (e) {
+            console.error(`Error in summarizeRepeatDrivers: ${e.message}`);
+        }
+    } else {
+        console.log("❌ AI.summarizeRepeatDrivers not found");
+    }
+    
+    return testCalls;
 }
 
 // --- Expose to Window ---
@@ -387,7 +506,9 @@ if (typeof window !== 'undefined') {
         generateCoachingNote,
         groupByAgent,
         groupByCustomer,
-        keywordGroups // Expose config for potential dynamic use
+        markRepeatCalls,
+        keywordGroups, // Expose config for potential dynamic use
+        testCustomerIdIntegration
     };
 }
 
@@ -401,6 +522,8 @@ if (typeof module !== 'undefined' && module.exports) {
         generateCoachingNote,
         groupByAgent,
         groupByCustomer,
-        keywordGroups
+        markRepeatCalls,
+        keywordGroups,
+        testCustomerIdIntegration
     };
 } 

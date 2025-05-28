@@ -16,6 +16,9 @@
   --inspiro-button-secondary-bg: var(--inspiro-orange-primary);
   --inspiro-button-secondary-text: white;
   --inspiro-button-secondary-hover-bg: var(--inspiro-orange-secondary);
+  --inspiro-positive-color: #4caf50;
+  --inspiro-warning-color: #f1c40f;
+  --inspiro-negative-color: #ff4d4d;
 }
 
 body {
@@ -151,6 +154,139 @@ body {
   background-color: var(--inspiro-button-secondary-hover-bg);
 }
 
+/* Phrase Analysis & Timing Analysis Styles */
+.phrase-analysis-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.phrase-columns-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.phrase-column {
+  background-color: var(--inspiro-bg-tertiary);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.phrase-column h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--inspiro-border-color);
+}
+
+.customer-phrases h3 {
+  color: var(--inspiro-warning-color);
+}
+
+.agent-phrases h3 {
+  color: var(--inspiro-positive-color);
+}
+
+.phrase-list {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+
+.phrase-list li {
+  margin-bottom: 0.5rem;
+  display: flex;
+  justify-content: space-between;
+}
+
+.phrase-text {
+  font-weight: 500;
+}
+
+.phrase-count {
+  color: var(--inspiro-text-secondary);
+  font-size: 0.9rem;
+}
+
+.timing-metrics-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.timing-metric-card {
+  background-color: var(--inspiro-bg-tertiary);
+  border-radius: 8px;
+  padding: 1.2rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.timing-metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+}
+
+.dead-air-card::before {
+  background-color: var(--inspiro-negative-color);
+}
+
+.delayed-response-card::before {
+  background-color: var(--inspiro-warning-color);
+}
+
+.longest-silence-card::before {
+  background-color: var(--inspiro-positive-color);
+}
+
+.timing-metric-label {
+  font-size: 0.9rem;
+  color: var(--inspiro-text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.timing-metric-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--inspiro-text-primary);
+}
+
+.timing-metric-unit {
+  font-size: 0.9rem;
+  color: var(--inspiro-text-secondary);
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.timing-detail-table {
+  margin-top: 1.5rem;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.timing-detail-table th, 
+.timing-detail-table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--inspiro-border-color);
+}
+
+.timing-detail-table th {
+  color: var(--inspiro-text-secondary);
+  font-weight: 600;
+  background-color: var(--inspiro-bg-tertiary);
+}
+
+.timing-detail-table tr:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
 /* Fallback for Tailwind classes */
 .mb-4 { margin-bottom: 1rem; }
 .p-4 { padding: 1rem; }
@@ -275,4 +411,54 @@ button {
 #reportSummary p {
     font-size: 1.1em;
     color: #c0c0c0;
+}
+
+/* Site Status Report Styling */
+.site-highlight-red {
+  color: #ff6b6b;
+  font-weight: bold;
+}
+
+.site-highlight-green {
+  color: #4caf50;
+  font-weight: bold;
+}
+
+.site-highlight-yellow {
+  color: #f1c40f;
+  font-weight: bold;
+}
+
+.site-highlight-purple {
+  color: #a43ec9;
+  font-weight: bold;
+}
+
+#siteStatusInsights ul {
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+#siteStatusInsights h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 0.3rem;
+}
+
+#siteStatusInsights .highlight-section {
+  background-color: rgba(164, 62, 201, 0.1);
+  border-left: 3px solid #a43ec9;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 0 3px 3px 0;
+}
+
+#siteStatusInsights .card {
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  background-color: rgba(30, 30, 30, 0.7);
 }

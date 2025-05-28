@@ -105,6 +105,23 @@
         return;
     }
     
+    // Ensure all calls have customerId field using TransformManager if available
+    if (window.TransformManager && typeof window.TransformManager.normalizeCustomerIds === 'function') {
+      console.log("Normalizing customerId fields for callback dashboard...");
+      callsToRender = window.TransformManager.normalizeCustomerIds(callsToRender);
+    } else {
+      // Fall back to manual normalization if TransformManager is not available
+      callsToRender.forEach(call => {
+        call.customerId = call.customerId || call.meta?.["Customer phone number / email address"]?.trim() || null;
+      });
+    }
+    
+    // Mark repeat calls if the CallAnalyzer is available
+    if (window.CallAnalyzer && typeof window.CallAnalyzer.markRepeatCalls === 'function') {
+      console.log("Marking repeat calls for callback dashboard...");
+      window.CallAnalyzer.markRepeatCalls(callsToRender);
+    }
+    
     totalCallsEl.textContent = callsToRender.length;
     traceBodyEl.innerHTML = ""; 
 
@@ -191,6 +208,12 @@
         if (diffHrs > 0) repeatSpan += `${diffHrs}h `;
         if (diffMins > 0 || (diffDays === 0 && diffHrs === 0)) repeatSpan += `${diffMins}m`;
         
+        // Count how many calls are marked as repeats (have the repeat flag)
+        const repeatMarkedCount = customerCalls.filter(call => call.repeat).length;
+        // Create a visual indicator for marked repeat calls
+        const repeatIndicator = repeatMarkedCount > 0 
+          ? `<span title="${repeatMarkedCount} calls marked by system as repeats" class="repeat-badge">${repeatMarkedCount}</span>` 
+          : '';
 
         const uniqueFlags = [...new Set(customerCalls.flatMap(c => c.flags || []))];
         if (uniqueFlags.length > 0) {
@@ -200,13 +223,13 @@
           });
         }
         
-        // customerId should be consistent from the grouping key
+        // Use the consistent customerId field directly instead of extracting it from meta
         const displayCustomerId = firstCall.customerId || (firstCall.meta && firstCall.meta["Customer phone number / email address"]) || "Unknown Customer";
 
         const row = traceBodyEl.insertRow();
         row.innerHTML = `
           <td class="p-2">${displayCustomerId}</td>
-          <td class="p-2 text-center">${customerCalls.length}</td>
+          <td class="p-2 text-center">${customerCalls.length} ${repeatIndicator}</td>
           <td class="p-2">${agentsInvolvedDisplay}</td>
           <td class="p-2">${repeatSpan.trim() || "0m"}</td>
           <td class="p-2">${uniqueFlags.length > 0 ? `<span class="flag-indicator">${uniqueFlags.join(", ")}</span>` : "-"}</td>
@@ -219,21 +242,11 @@
           const storedCallsData = this.getAttribute('data-customer-calls');
           if (storedCallsData && modal && modalCustomerIdentifierEl && modalCallSequenceDetailsEl) {
             const sequenceData = JSON.parse(storedCallsData);
+            // Use customerId directly for the modal title
             modalCustomerIdentifierEl.textContent = `Callback Sequence for: ${sequenceData[0].customerId || (sequenceData[0].meta && sequenceData[0].meta["Customer phone number / email address"]) || "Unknown Customer"}`;
             
-            let detailsHtml = '<ul class="list-disc pl-5">';
-            sequenceData.forEach((call, index) => {
-              const callTime = call.startTime ? new Date(call.startTime).toLocaleString() : (call.meta && call.meta["Initiation timestamp"] ? new Date(call.meta["Initiation timestamp"]).toLocaleString() : 'N/A');
-              detailsHtml += `<li>`;
-              detailsHtml += `<strong>Call ${index + 1}:</strong> ${callTime}<br/>`;
-              detailsHtml += `  Agent: ${call.agent || (call.meta && (call.meta["Agent name"] || call.meta.Agent)) || "Unknown"}<br/>`;
-              detailsHtml += `  Duration: ${call.durationText || 'N/A'}<br/>`;
-              detailsHtml += `  Flags: ${(call.flags && call.flags.length > 0) ? call.flags.join(', ') : 'None'}<br/>`;
-              detailsHtml += `  Summary: ${call.summary || 'N/A'}<br/>`;
-              detailsHtml += `</li>`;
-            });
-            detailsHtml += '</ul>';
-            modalCallSequenceDetailsEl.innerHTML = detailsHtml;
+            // Generate enhanced call sequence display with timeline
+            modalCallSequenceDetailsEl.innerHTML = generateCallTimelineDisplay(sequenceData);
             modal.classList.remove("hidden");
           }
         };
@@ -272,5 +285,80 @@
     if (traceBodyEl.rows.length === 0 && callsToRender.length > 0) { 
         traceBodyEl.innerHTML = "<tr><td colspan='5' class='no-data-message p-4 text-center'>No repeat call traces found in the current data.</td></tr>";
     } 
+  }
+
+  /**
+   * Generate an enhanced timeline visualization for call sequences
+   * @param {Array} calls - Array of call objects for the same customer
+   * @returns {string} - HTML for timeline visualization
+   */
+  function generateCallTimelineDisplay(calls) {
+    if (!calls || !Array.isArray(calls) || calls.length === 0) {
+      return '<p>No call data available</p>';
+    }
+
+    // Sort calls by timestamp
+    const sortedCalls = [...calls].sort((a, b) => {
+      const aTime = a.startTime || new Date(a.meta?.["Initiation timestamp"]);
+      const bTime = b.startTime || new Date(b.meta?.["Initiation timestamp"]); 
+      return new Date(aTime) - new Date(bTime);
+    });
+
+    // Determine timeline range
+    const firstCallTime = new Date(sortedCalls[0].startTime || sortedCalls[0].meta?.["Initiation timestamp"]);
+    const lastCallTime = new Date(sortedCalls[sortedCalls.length-1].startTime || sortedCalls[sortedCalls.length-1].meta?.["Initiation timestamp"]);
+    const timeSpanMs = lastCallTime - firstCallTime;
+    
+    let html = '<div class="call-timeline-container">';
+    
+    // Add timeline visualization
+    html += '<div class="timeline-visualization">';
+    html += '<div class="timeline-axis"></div>';
+    
+    sortedCalls.forEach((call, index) => {
+      const callTime = new Date(call.startTime || call.meta?.["Initiation timestamp"]);
+      const position = ((callTime - firstCallTime) / timeSpanMs) * 100;
+      const repeatClass = call.repeat ? 'repeat-call' : '';
+      
+      html += `<div class="timeline-marker ${repeatClass}" style="left: ${position}%">
+        <div class="timeline-point" title="Call ${index + 1}"></div>
+        <div class="timeline-label">${callTime.toLocaleDateString()}</div>
+      </div>`;
+    });
+    
+    html += '</div>'; // End timeline-visualization
+    
+    // Add detailed call list
+    html += '<div class="call-details-list">';
+    html += '<ul>';
+    
+    sortedCalls.forEach((call, index) => {
+      const callTime = new Date(call.startTime || call.meta?.["Initiation timestamp"]);
+      const agentName = call.agent || (call.meta && (call.meta["Agent name"] || call.meta.Agent)) || "Unknown";
+      const repeatClass = call.repeat ? 'repeat-call' : '';
+      
+      html += `<li class="${repeatClass}">
+        <div class="call-header">
+          <span class="call-number">Call ${index + 1}</span> - 
+          <span class="call-time">${callTime.toLocaleString()}</span>
+          ${call.repeat ? '<span class="repeat-badge">Repeat</span>' : ''}
+        </div>
+        <div class="call-body">
+          <div><strong>Agent:</strong> ${agentName}</div>
+          <div><strong>Duration:</strong> ${call.durationText || call.meta?.["Contact duration"] || 'N/A'}</div>
+          <div><strong>Issue:</strong> ${call.issue || 'N/A'}</div>
+          <div><strong>Outcome:</strong> ${call.outcome || 'N/A'}</div>
+          <div><strong>Flags:</strong> ${(call.flags && call.flags.length > 0) ? call.flags.join(', ') : 'None'}</div>
+          <div><strong>Summary:</strong> ${call.summary || 'N/A'}</div>
+        </div>
+      </li>`;
+    });
+    
+    html += '</ul>';
+    html += '</div>'; // End call-details-list
+    
+    html += '</div>'; // End call-timeline-container
+    
+    return html;
   }
 })();

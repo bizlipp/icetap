@@ -125,6 +125,9 @@
     document.getElementById('exportFilteredListButton')?.addEventListener('click', () => exportCurrentReport('filteredCallList'));
     document.getElementById('exportAgentPerformanceButton')?.addEventListener('click', () => exportCurrentReport('agentPerformance'));
     document.getElementById('exportFlagFrequencyButton')?.addEventListener('click', () => exportCurrentReport('flagFrequency'));
+    document.getElementById('exportPhraseAnalysisButton')?.addEventListener('click', () => exportCurrentReport('phraseAnalysis'));
+    document.getElementById('exportTimingAnalysisButton')?.addEventListener('click', () => exportCurrentReport('timingAnalysis'));
+    // The Site Status export button is handled by sitestatus.js
   }
   
   function resetFiltersAndRender() {
@@ -211,6 +214,23 @@
         break;
       case 'flagFrequency':
         renderFlagFrequencyReport(filteredCalls, currentFilters.flag); // Pass all filtered calls and the specific flag if one is selected
+        break;
+      case 'phraseAnalysis':
+        renderPhraseAnalysisReport(filteredCalls);
+        break;
+      case 'timingAnalysis':
+        renderTimingAnalysisReport(filteredCalls);
+        break;
+      case 'siteStatus':
+        if (typeof window.renderSiteStatusReport === 'function') {
+          window.renderSiteStatusReport(filteredCalls);
+        } else {
+          console.error("renderSiteStatusReport function not found. Make sure sitestatus.js is loaded properly.");
+          const siteStatusContainer = document.getElementById("siteStatusInsights");
+          if (siteStatusContainer) {
+            siteStatusContainer.innerHTML = '<p class="no-data-message p-4 text-center">Error: Site Status report module not loaded correctly.</p>';
+          }
+        }
         break;
       default:
         console.error("Unknown report type:", activeReportType);
@@ -403,6 +423,411 @@
     });
   }
   
+  function renderPhraseAnalysisReport(calls) {
+    const container = document.getElementById('phraseAnalysisContainer');
+    
+    if (!container) {
+      console.error("Phrase analysis container not found in DOM");
+      return;
+    }
+    
+    // Clear previous content
+    container.innerHTML = '';
+    
+    if (calls.length === 0) {
+      container.innerHTML = '<p class="no-data-message p-4 text-center">No calls match the current filters for phrase analysis.</p>';
+      return;
+    }
+    
+    // Check if we have transcripts to analyze
+    const callsWithTranscripts = calls.filter(call => call.transcript && call.transcript.length > 0);
+    if (callsWithTranscripts.length === 0) {
+      container.innerHTML = '<p class="no-data-message p-4 text-center">No transcripts found in the filtered calls. Phrase analysis requires transcript data.</p>';
+      return;
+    }
+    
+    // Use the AI utility to extract phrases
+    if (!window.AI || typeof window.AI.extractFrequentPhrasesBySpeaker !== 'function') {
+      container.innerHTML = '<p class="no-data-message p-4 text-center">The AI.extractFrequentPhrasesBySpeaker function is not available. Make sure AI.js is loaded correctly.</p>';
+      return;
+    }
+    
+    try {
+      // Create the main container
+      const phraseAnalysisDiv = document.createElement('div');
+      phraseAnalysisDiv.className = 'phrase-analysis-container';
+      
+      // Add summary info
+      const summaryDiv = document.createElement('div');
+      summaryDiv.className = 'summary-info mb-4';
+      summaryDiv.innerHTML = `
+        <p>Analyzed ${callsWithTranscripts.length} calls with transcripts out of ${calls.length} total filtered calls.</p>
+        <p class="text-sm text-gray-400 mt-2">The analysis identifies frequently used two-word phrases (bigrams) by both customers and agents across all calls.</p>
+      `;
+      phraseAnalysisDiv.appendChild(summaryDiv);
+      
+      // Extract phrases using the AI utility
+      const { customer, agent } = window.AI.extractFrequentPhrasesBySpeaker(calls);
+      
+      // Create columns wrapper
+      const columnsWrapper = document.createElement('div');
+      columnsWrapper.className = 'phrase-columns-wrapper';
+      
+      // Customer phrases column
+      const customerColumn = document.createElement('div');
+      customerColumn.className = 'phrase-column customer-phrases';
+      customerColumn.innerHTML = `<h3><i class="fas fa-user mr-2"></i>Top Customer Phrases</h3>`;
+      
+      if (customer.length === 0) {
+        customerColumn.innerHTML += `<p class="text-sm text-gray-400">No frequent customer phrases detected in the transcripts.</p>`;
+      } else {
+        const customerList = document.createElement('ul');
+        customerList.className = 'phrase-list';
+        
+        customer.forEach(([phrase, count]) => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+            <span class="phrase-text">${phrase}</span>
+            <span class="phrase-count">${count}x</span>
+          `;
+          customerList.appendChild(li);
+        });
+        
+        customerColumn.appendChild(customerList);
+      }
+      
+      // Agent phrases column
+      const agentColumn = document.createElement('div');
+      agentColumn.className = 'phrase-column agent-phrases';
+      agentColumn.innerHTML = `<h3><i class="fas fa-headset mr-2"></i>Top Agent Phrases</h3>`;
+      
+      if (agent.length === 0) {
+        agentColumn.innerHTML += `<p class="text-sm text-gray-400">No frequent agent phrases detected in the transcripts.</p>`;
+      } else {
+        const agentList = document.createElement('ul');
+        agentList.className = 'phrase-list';
+        
+        agent.forEach(([phrase, count]) => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+            <span class="phrase-text">${phrase}</span>
+            <span class="phrase-count">${count}x</span>
+          `;
+          agentList.appendChild(li);
+        });
+        
+        agentColumn.appendChild(agentList);
+      }
+      
+      // Add columns to wrapper
+      columnsWrapper.appendChild(customerColumn);
+      columnsWrapper.appendChild(agentColumn);
+      
+      // Add wrapper to main container
+      phraseAnalysisDiv.appendChild(columnsWrapper);
+      
+      // Add insights section if we have enough data
+      if (customer.length > 0 || agent.length > 0) {
+        const insightsDiv = document.createElement('div');
+        insightsDiv.className = 'phrase-insights mt-4 p-4 rounded';
+        insightsDiv.style.backgroundColor = 'rgba(159, 112, 253, 0.1)';
+        insightsDiv.style.borderLeft = '4px solid var(--inspiro-purple-primary)';
+        
+        // Generate basic insights
+        let insightsHtml = '<h3 class="text-lg font-semibold mb-2">Potential Insights</h3><ul class="list-disc ml-5">';
+        
+        if (customer.length > 0) {
+          // Look for question patterns in customer phrases
+          const questionPhrases = customer.filter(([phrase]) => 
+            phrase.includes('how') || phrase.includes('what') || 
+            phrase.includes('why') || phrase.includes('when') || 
+            phrase.includes('where') || phrase.includes('can') || 
+            phrase.includes('will')
+          );
+          
+          if (questionPhrases.length > 0) {
+            insightsHtml += `<li>Customers frequently ask questions containing: ${questionPhrases.slice(0, 3).map(([p]) => `"${p}"`).join(', ')}</li>`;
+          }
+          
+          // Look for problem indicators
+          const problemPhrases = customer.filter(([phrase]) => 
+            phrase.includes('problem') || phrase.includes('issue') || 
+            phrase.includes('error') || phrase.includes('wrong') || 
+            phrase.includes('not working') || phrase.includes('doesn\'t work')
+          );
+          
+          if (problemPhrases.length > 0) {
+            insightsHtml += `<li>Customers frequently mention problems using: ${problemPhrases.slice(0, 3).map(([p]) => `"${p}"`).join(', ')}</li>`;
+          }
+        }
+        
+        if (agent.length > 0) {
+          // Look for service phrases in agent responses
+          const servicePhrases = agent.filter(([phrase]) => 
+            phrase.includes('help') || phrase.includes('assist') || 
+            phrase.includes('support') || phrase.includes('service') || 
+            phrase.includes('resolve')
+          );
+          
+          if (servicePhrases.length > 0) {
+            insightsHtml += `<li>Agents frequently use service-oriented language: ${servicePhrases.slice(0, 3).map(([p]) => `"${p}"`).join(', ')}</li>`;
+          }
+          
+          // Look for reassurance phrases
+          const reassurancePhrases = agent.filter(([phrase]) => 
+            phrase.includes('understand') || phrase.includes('sorry') || 
+            phrase.includes('apologize') || phrase.includes('definitely') || 
+            phrase.includes('absolutely')
+          );
+          
+          if (reassurancePhrases.length > 0) {
+            insightsHtml += `<li>Agents use reassurance language: ${reassurancePhrases.slice(0, 3).map(([p]) => `"${p}"`).join(', ')}</li>`;
+          }
+        }
+        
+        insightsHtml += '</ul>';
+        insightsDiv.innerHTML = insightsHtml;
+        
+        phraseAnalysisDiv.appendChild(insightsDiv);
+      }
+      
+      // Add the entire phrase analysis to the container
+      container.appendChild(phraseAnalysisDiv);
+      
+      // Add event listener to the export button
+      document.getElementById('exportPhraseAnalysisButton')?.addEventListener('click', () => exportCurrentReport('phraseAnalysis'));
+      
+    } catch (error) {
+      console.error("Error rendering phrase analysis:", error);
+      container.innerHTML = `<p class="no-data-message p-4 text-center">Error generating phrase analysis: ${error.message}</p>`;
+    }
+  }
+
+  function renderTimingAnalysisReport(calls) {
+    const container = document.getElementById('timingAnalysisContainer');
+    
+    if (!container) {
+      console.error("Timing analysis container not found in DOM");
+      return;
+    }
+    
+    // Clear previous content
+    container.innerHTML = '';
+    
+    if (calls.length === 0) {
+      container.innerHTML = '<p class="no-data-message p-4 text-center">No calls match the current filters for timing analysis.</p>';
+      return;
+    }
+    
+    // Check if we have transcripts with timing info to analyze
+    const callsWithTimingInfo = calls.filter(call => 
+      call.transcript && 
+      call.transcript.length > 1 && 
+      call.transcript.some(line => line.start && line.end)
+    );
+    
+    if (callsWithTimingInfo.length === 0) {
+      container.innerHTML = '<p class="no-data-message p-4 text-center">No transcript timing data found in the filtered calls. Timing analysis requires transcript data with timestamps.</p>';
+      return;
+    }
+    
+    // Use the AI utility to analyze transcript gaps
+    if (!window.AI || typeof window.AI.analyzeTranscriptGaps !== 'function') {
+      container.innerHTML = '<p class="no-data-message p-4 text-center">The AI.analyzeTranscriptGaps function is not available. Make sure AI.js is loaded correctly.</p>';
+      return;
+    }
+    
+    try {
+      // Create the main container
+      const timingAnalysisDiv = document.createElement('div');
+      timingAnalysisDiv.className = 'timing-analysis-container';
+      
+      // Add summary info
+      const summaryDiv = document.createElement('div');
+      summaryDiv.className = 'summary-info mb-4';
+      summaryDiv.innerHTML = `
+        <p>Analyzed ${callsWithTimingInfo.length} calls with transcript timing data out of ${calls.length} total filtered calls.</p>
+        <p class="text-sm text-gray-400 mt-2">This analysis identifies silences, delays, and timing patterns in conversations that may affect customer experience.</p>
+      `;
+      timingAnalysisDiv.appendChild(summaryDiv);
+      
+      // Analyze each call and compile metrics
+      let totalDeadAir = 0;
+      let totalDelayedResponses = 0;
+      let longestSilence = 0;
+      let callsWithSilence = 0;
+      let callsWithDelays = 0;
+      
+      // Store per-call details for the detailed table
+      const callDetails = [];
+      
+      callsWithTimingInfo.forEach(call => {
+        const timing = window.AI.analyzeTranscriptGaps(call);
+        if (!timing) return;
+        
+        // Add to totals
+        totalDeadAir += timing.deadAirInstances;
+        totalDelayedResponses += timing.delayedAgentResponses;
+        if (timing.deadAirInstances > 0) callsWithSilence++;
+        if (timing.delayedAgentResponses > 0) callsWithDelays++;
+        if (timing.longestSilence > longestSilence) longestSilence = timing.longestSilence;
+        
+        // Store details for table
+        callDetails.push({
+          id: call.meta?.["Contact ID"] || 'Unknown',
+          agent: call.agent || (call.meta && (call.meta["Agent name"] || call.meta["Agent"])) || "Unknown",
+          startTime: call.startTime instanceof Date ? call.startTime : new Date(call.meta["Initiation timestamp"]),
+          deadAir: timing.deadAirInstances,
+          delayedResponses: timing.delayedAgentResponses,
+          longestSilence: timing.longestSilence
+        });
+      });
+      
+      // Create metrics cards
+      const metricsContainer = document.createElement('div');
+      metricsContainer.className = 'timing-metrics-container';
+      
+      // Dead air card
+      const deadAirCard = document.createElement('div');
+      deadAirCard.className = 'timing-metric-card dead-air-card';
+      deadAirCard.innerHTML = `
+        <div class="timing-metric-label">Dead Air Instances</div>
+        <div class="timing-metric-value">${totalDeadAir}</div>
+        <div class="timing-metric-unit">across ${callsWithSilence} calls</div>
+      `;
+      metricsContainer.appendChild(deadAirCard);
+      
+      // Delayed response card
+      const delayedResponseCard = document.createElement('div');
+      delayedResponseCard.className = 'timing-metric-card delayed-response-card';
+      delayedResponseCard.innerHTML = `
+        <div class="timing-metric-label">Delayed Agent Responses</div>
+        <div class="timing-metric-value">${totalDelayedResponses}</div>
+        <div class="timing-metric-unit">across ${callsWithDelays} calls</div>
+      `;
+      metricsContainer.appendChild(delayedResponseCard);
+      
+      // Longest silence card
+      const longestSilenceCard = document.createElement('div');
+      longestSilenceCard.className = 'timing-metric-card longest-silence-card';
+      longestSilenceCard.innerHTML = `
+        <div class="timing-metric-label">Longest Silence</div>
+        <div class="timing-metric-value">${longestSilence.toFixed(1)}</div>
+        <div class="timing-metric-unit">seconds</div>
+      `;
+      metricsContainer.appendChild(longestSilenceCard);
+      
+      // Add metrics container to main container
+      timingAnalysisDiv.appendChild(metricsContainer);
+      
+      // Add detailed table
+      if (callDetails.length > 0) {
+        const tableContainer = document.createElement('div');
+        tableContainer.className = 'timing-table-container mt-4';
+        
+        const table = document.createElement('table');
+        table.className = 'timing-detail-table';
+        
+        // Table header
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+          <tr>
+            <th>Contact ID</th>
+            <th>Agent</th>
+            <th>Date & Time</th>
+            <th>Dead Air</th>
+            <th>Delayed Responses</th>
+            <th>Longest Silence (s)</th>
+          </tr>
+        `;
+        table.appendChild(thead);
+        
+        // Table body
+        const tbody = document.createElement('tbody');
+        
+        // Sort by most problematic calls first (most silences + delays)
+        callDetails.sort((a, b) => (b.deadAir + b.delayedResponses) - (a.deadAir + a.delayedResponses));
+        
+        callDetails.forEach(detail => {
+          const row = document.createElement('tr');
+          
+          // Highlight rows with significant timing issues
+          if (detail.deadAir > 3 || detail.delayedResponses > 3) {
+            row.style.backgroundColor = 'rgba(255, 77, 77, 0.1)';
+          }
+          
+          row.innerHTML = `
+            <td>${detail.id}</td>
+            <td>${detail.agent}</td>
+            <td>${detail.startTime ? detail.startTime.toLocaleString() : 'N/A'}</td>
+            <td>${detail.deadAir}</td>
+            <td>${detail.delayedResponses}</td>
+            <td>${detail.longestSilence.toFixed(1)}</td>
+          `;
+          
+          tbody.appendChild(row);
+        });
+        
+        table.appendChild(tbody);
+        tableContainer.appendChild(table);
+        
+        // Add insights about the results
+        const insightsDiv = document.createElement('div');
+        insightsDiv.className = 'timing-insights mt-4 p-4 rounded';
+        insightsDiv.style.backgroundColor = 'rgba(159, 112, 253, 0.1)';
+        insightsDiv.style.borderLeft = '4px solid var(--inspiro-purple-primary)';
+        
+        let insightContent = '<h3 class="text-lg font-semibold mb-2">Timing Insights</h3><ul class="list-disc ml-5">';
+        
+        // Generate insights based on the data
+        const avgDeadAirPerCall = totalDeadAir / callsWithTimingInfo.length;
+        const avgDelayedResponsesPerCall = totalDelayedResponses / callsWithTimingInfo.length;
+        
+        // Insights about dead air
+        if (avgDeadAirPerCall > 2) {
+          insightContent += `<li>High frequency of dead air instances (${avgDeadAirPerCall.toFixed(1)} per call average) may indicate agent uncertainty or system issues</li>`;
+        } else if (avgDeadAirPerCall > 0) {
+          insightContent += `<li>Moderate level of dead air instances (${avgDeadAirPerCall.toFixed(1)} per call average)</li>`;
+        } else {
+          insightContent += `<li>No significant dead air detected in analyzed calls</li>`;
+        }
+        
+        // Insights about delayed responses
+        if (avgDelayedResponsesPerCall > 2) {
+          insightContent += `<li>High frequency of delayed agent responses (${avgDelayedResponsesPerCall.toFixed(1)} per call average) suggests potential agent training or tool access issues</li>`;
+        } else if (avgDelayedResponsesPerCall > 0) {
+          insightContent += `<li>Some delayed agent responses detected (${avgDelayedResponsesPerCall.toFixed(1)} per call average)</li>`;
+        } else {
+          insightContent += `<li>No significant agent response delays detected in analyzed calls</li>`;
+        }
+        
+        // Insights about longest silence
+        if (longestSilence > 30) {
+          insightContent += `<li>Very long silence detected (${longestSilence.toFixed(1)}s) may indicate substantial system issues or call transfers</li>`;
+        } else if (longestSilence > 15) {
+          insightContent += `<li>Moderate silence peaks (${longestSilence.toFixed(1)}s) suggest occasional system lookups or research needs</li>`;
+        }
+        
+        insightContent += '</ul>';
+        insightsDiv.innerHTML = insightContent;
+        
+        // Add table and insights
+        timingAnalysisDiv.appendChild(tableContainer);
+        timingAnalysisDiv.appendChild(insightsDiv);
+      }
+      
+      // Add the entire timing analysis to the container
+      container.appendChild(timingAnalysisDiv);
+      
+      // Add event listener to the export button
+      document.getElementById('exportTimingAnalysisButton')?.addEventListener('click', () => exportCurrentReport('timingAnalysis'));
+      
+    } catch (error) {
+      console.error("Error rendering timing analysis:", error);
+      container.innerHTML = `<p class="no-data-message p-4 text-center">Error generating timing analysis: ${error.message}</p>`;
+    }
+  }
+  
   function exportCurrentReport(reportType) {
     // This function will need to be expanded to handle different report types.
     // For now, it just calls the original exportReport function which exports the filtered list.
@@ -471,6 +896,59 @@
             const sortedFlags = Object.entries(flagCounts).sort(([,a],[,b]) => b-a);
             reportData = sortedFlags.map(([flag, count]) => ({ "Flag": flag, "Frequency": count }));
             sheetName = "Flag_Frequency";
+            break;
+        case 'phraseAnalysis':
+            reportData = callsToExport.map(call => {
+                const callTime = call.startTime instanceof Date ? call.startTime : new Date(call.meta["Initiation timestamp"]);
+                return {
+                    "Contact ID": call.meta?.["Contact ID"] || 'N/A',
+                    "Date & Time": callTime ? callTime.toLocaleString() : 'N/A',
+                    "Agent": call.agent || (call.meta && (call.meta["Agent name"] || call.meta["Agent"])) || "Unknown",
+                    "Duration (min)": call.durationMinutes ? call.durationMinutes.toFixed(1) : 'N/A',
+                    "Flags": (call.flags && call.flags.length > 0) ? call.flags.join('; ') : '-',
+                    "Positive Flags": (call.positiveFlags && call.positiveFlags.length > 0) ? call.positiveFlags.join('; ') : '-',
+                    "Issue": call.issue || '-',
+                    "Summary": call.summary || '-',
+                };
+            });
+            sheetName = "Phrase_Analysis";
+            break;
+        case 'timingAnalysis':
+            if (!window.AI || typeof window.AI.analyzeTranscriptGaps !== 'function') {
+                alert("Timing analysis function not available. Cannot export data.");
+                return;
+            }
+            
+            // Find calls with transcript timing data
+            const callsWithTiming = callsToExport.filter(call => 
+                call.transcript && 
+                call.transcript.length > 1 && 
+                call.transcript.some(line => line.start && line.end)
+            );
+            
+            if (callsWithTiming.length === 0) {
+                alert("No transcript timing data found in filtered calls. Cannot export timing analysis.");
+                return;
+            }
+            
+            // Analyze each call and create report rows
+            reportData = callsWithTiming.map(call => {
+                const callTime = call.startTime instanceof Date ? call.startTime : new Date(call.meta["Initiation timestamp"]);
+                const timing = window.AI.analyzeTranscriptGaps(call);
+                
+                return {
+                    "Contact ID": call.meta?.["Contact ID"] || 'N/A',
+                    "Date & Time": callTime ? callTime.toLocaleString() : 'N/A',
+                    "Agent": call.agent || (call.meta && (call.meta["Agent name"] || call.meta["Agent"])) || "Unknown",
+                    "Dead Air Instances": timing ? timing.deadAirInstances : 'N/A',
+                    "Delayed Agent Responses": timing ? timing.delayedAgentResponses : 'N/A',
+                    "Longest Silence (s)": timing ? timing.longestSilence.toFixed(1) : 'N/A',
+                    "Customer ID": call.customerId || call.meta?.["Customer phone number / email address"] || 'N/A',
+                    "Issue": call.issue || '-',
+                    "Summary": call.summary || '-'
+                };
+            });
+            sheetName = "Timing_Analysis";
             break;
         default:
             alert("Unknown report type for export.");

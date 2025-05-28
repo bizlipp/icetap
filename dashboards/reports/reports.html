@@ -26,6 +26,9 @@
         <button class="button report-type-button active" data-report-type="filteredCallList"><i class="fas fa-list-alt mr-1"></i>Filtered Call List</button>
         <button class="button report-type-button" data-report-type="agentPerformance"><i class="fas fa-user-chart mr-1"></i>Agent Performance</button>
         <button class="button report-type-button" data-report-type="flagFrequency"><i class="fas fa-flag-checkered mr-1"></i>Flag Frequency</button>
+        <button class="button report-type-button" data-report-type="phraseAnalysis"><i class="fas fa-brain mr-1"></i>Phrase Analysis</button>
+        <button class="button report-type-button" data-report-type="timingAnalysis"><i class="fas fa-clock mr-1"></i>Timing Analysis</button>
+        <button class="button report-type-button" data-report-type="siteStatus"><i class="fas fa-sitemap mr-1"></i>Site Status</button>
       </div>
     </section>
 
@@ -114,6 +117,38 @@
              <button id="exportFlagFrequencyButton" class="button success"><i class="fas fa-file-excel mr-2"></i>Export Flag Report</button>
         </div>
       </section>
+      
+      <section id="phraseAnalysisReport" class="report-output-section dashboard-section card mt-4" style="display: none;">
+        <h2 class="section-title"><i class="fas fa-brain mr-2"></i>Phrase Analysis</h2>
+        <div id="phraseAnalysisContainer" class="report-content">
+          <p class="no-data-message p-4 text-center">Apply filters to generate the phrase analysis report.</p>
+        </div>
+        <div class="report-actions mt-3">
+          <button id="exportPhraseAnalysisButton" class="button success"><i class="fas fa-file-excel mr-2"></i>Export Phrase Report</button>
+        </div>
+      </section>
+      
+      <section id="timingAnalysisReport" class="report-output-section dashboard-section card mt-4" style="display: none;">
+        <h2 class="section-title"><i class="fas fa-clock mr-2"></i>Timing Analysis</h2>
+        <div id="timingAnalysisContainer" class="report-content">
+          <p class="no-data-message p-4 text-center">Apply filters to generate the timing analysis report.</p>
+        </div>
+        <div class="report-actions mt-3">
+          <button id="exportTimingAnalysisButton" class="button success"><i class="fas fa-file-excel mr-2"></i>Export Timing Report</button>
+        </div>
+      </section>
+      
+      <section id="siteStatusReport" class="report-output-section dashboard-section card mt-4" style="display: none;">
+        <h2 class="section-title"><i class="fas fa-sitemap mr-2"></i>Site Status Summary</h2>
+        <div id="siteStatusInsights" class="text-sm text-gray-400">
+          <p>Loading summary report...</p>
+        </div>
+        <div class="report-actions mt-3">
+          <button id="exportSiteStatusHTML" class="button success">
+            <i class="fas fa-envelope mr-1"></i>Export Outlook Summary
+          </button>
+        </div>
+      </section>
     </div>
     
     <div class="no-data-message-container dashboard-section">
@@ -164,6 +199,8 @@
 
   <script src="../../js/audit-merge.js"></script> 
   <script src="../../js/call-analysis.js"></script>
+  <script src="../../js/AI.js"></script>
+  <script src="../../js/sitestatus.js"></script>
   <script src="reports.js"></script>
 </body>
 </html>

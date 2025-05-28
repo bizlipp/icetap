@@ -16,12 +16,12 @@
     mergeMasterLog(sessionData, masterData) {
       const masterIndex = {};
       masterData.forEach(entry => {
-        const id = entry["Contact ID"] || entry.contactId;
+        const id = entry.customerId || entry["Contact ID"] || entry.contactId;
         if (id) masterIndex[id] = entry;
       });
 
       return sessionData.map(call => {
-        const id = call["Contact ID"] || call.meta?.["Contact ID"];
+        const id = call.customerId || call["Contact ID"] || call.meta?.["Contact ID"];
         if (!id || !masterIndex[id]) return call;
 
         const master = masterIndex[id];
