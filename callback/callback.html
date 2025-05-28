@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Callback Tracer Dashboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="callback.css">
+  <script src="../../js/config.js"></script>
+  <script src="../../js/storage.js"></script>
+  <script src="../../js/schema.js"></script>
+  <script src="../../js/transform.js"></script>
+  <script src="../../js/index.js"></script>
+  
+  <!-- Initialize DataStackULTRA -->
+  <script>
+    (async () => {
+  try {
+    if (!window.DataStackULTRA) {
+      window.DataStackULTRA = new AppStorageManager({ encryptionEnabled: false });
+      console.log(`DataStackULTRA initialized for ${document.title} (encryption disabled).`);
+    } else {
+      console.log(`DataStackULTRA already exists for ${document.title}.`);
+    }
+
+    const existingCalls = await window.DataStackULTRA.get('loadedCalls');
+    if (Array.isArray(existingCalls) && existingCalls.length > 0) {
+      console.log(`✅ ${existingCalls.length} calls loaded from DataStackULTRA memory for ${document.title}.`);
+    } else {
+      console.warn(`⚠️ No calls found in 'loadedCalls'. Dashboard may be empty until a file is loaded.`);
+    }
+
+  } catch (e) {
+    console.error(`❌ Failed to initialize/load DataStackULTRA in ${document.title}:`, e);
+    const mainDashboardArea = document.getElementById('analyticsDashboard'); 
+    if(mainDashboardArea) {
+      mainDashboardArea.innerHTML = `
+        <p class="no-data-message card p-4 text-center">
+          <i class="fas fa-exclamation-triangle mr-2"></i>
+          FATAL: DataStackULTRA could not be initialized/loaded. Dashboard cannot load.
+        </p>`;
+    }
+  }
+})();
+
+  </script>
+
+  <script src="../../js/audit-merge.js"></script>
+  <script src="../../js/call-analysis.js"></script>
+  <script src="../../js/MasterLogUtil.js"></script>
+  <script src="../../js/AI.js"></script>
+  <script src="../../js/TimingAnalysis.js"></script>
+  <script src="../../js/ai-integration.js"></script>
+  <script src="callback.js"></script>
+  <script src="../../js/test-customer-id.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <style>
+    body {
+      margin: 0;
+      padding: 1rem;
+      font-family: sans-serif;
+      background: #111;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <section id="callbackDashboard" class="p-4">
+    <h2 class="text-xl font-bold mb-6"><i class="fas fa-phone-volume mr-2"></i>Callback Analysis Dashboard</h2>
+    <div id="callbackFilenameDisplay" class="text-sm text-gray-400 mb-2">Loading file info...</div>
+    
+    <div class="stats-grid dashboard-section">
+      <div class="stat-card">
+        <div class="label"><i class="fas fa-headset mr-1"></i>Total Calls</div>
+        <div id="cbTotalCalls" class="value">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label"><i class="fas fa-redo-alt mr-1"></i>Repeat Contacts</div>
+        <div id="cbRepeatContactsValue" class="value">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label"><i class="fas fa-exclamation-triangle mr-1"></i>Flagged Risks</div>
+        <div id="cbFlaggedRisksValue" class="value">0</div>
+      </div>
+      <!-- New Stat Cards -->
+      <div class="stat-card">
+        <div class="label"><i class="fas fa-phone-slash mr-1"></i>Avg. Calls/Repeat Cust.</div>
+        <div id="cbAvgCallsPerRepeater" class="value">0.0</div>
+      </div>
+      <div class="stat-card">
+        <div class="label"><i class="fas fa-percentage mr-1"></i>% Callbacks of Total</div>
+        <div id="cbPercentCallbacks" class="value">0%</div>
+      </div>
+      <div class="stat-card">
+        <div class="label"><i class="fas fa-random mr-1"></i>Avg. Agent Hops/Sequence</div>
+        <div id="cbAvgAgentHops" class="value">0.0</div>
+      </div>
+    </div>
+
+    <!-- New AI Insight Section -->
+    <div class="ai-insights-section dashboard-section mt-6">
+      <h3><i class="fas fa-brain mr-2"></i>AI-Powered Insights</h3>
+      <div id="cbAIInsights" class="ai-insights-container">
+        <div class="insight-card">
+          <h4><i class="fas fa-comment-dots mr-1"></i>Callback Driver Analysis</h4>
+          <div id="cbDriverAnalysis" class="insight-content">Loading analysis...</div>
+        </div>
+        <div class="insight-card">
+          <h4><i class="fas fa-route mr-1"></i>Customer Journey Patterns</h4>
+          <div id="cbJourneyPatterns" class="insight-content">Loading patterns...</div>
+        </div>
+        <div class="insight-card">
+          <h4><i class="fas fa-chart-line mr-1"></i>Resolution Efficiency</h4>
+          <div id="cbResolutionEfficiency" class="insight-content">Calculating efficiency...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-section dashboard-section mt-6">
+      <h3><i class="fas fa-search-location mr-2"></i>Repeat Call Traces</h3>
+      <div class="table-container">
+        <table id="cbTraceTable" class="w-full text-sm">
+          <thead class="text-left">
+            <tr>
+              <th class="p-2">Customer</th>
+              <th class="p-2">Call Count</th>
+              <th class="p-2">Agents Involved</th>
+              <th class="p-2">Repeat Span</th>
+              <th class="p-2">Flags Present</th>
+            </tr>
+          </thead>
+          <tbody id="cbTraceBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- New Language & Timing Analysis Section -->
+    <div class="phrase-timing-section dashboard-section mt-6">
+      <h3><i class="fas fa-clock mr-2"></i>Language & Timing Analysis</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div id="cbPhraseAnalysis" class="phrase-analysis-container">
+          <h4 class="text-lg font-semibold mb-2"><i class="fas fa-comments mr-2"></i>Common Phrases in Callbacks</h4>
+          <div class="phrase-columns-wrapper">Loading phrase analysis...</div>
+        </div>
+        <div id="cbTimingAnalysis" class="timing-analysis-container">
+          <h4 class="text-lg font-semibold mb-2"><i class="fas fa-hourglass-half mr-2"></i>Callback Timing Metrics</h4>
+          <div class="timing-metrics-container">Loading timing analysis...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callback-flags-section dashboard-section mt-6 card p-4">
+      <h3 class="text-lg font-semibold mb-2"><i class="fas fa-tags mr-2"></i>Most Common Flags in Callback Sequences</h3>
+      <ul id="cbCommonFlagsInCallbacks">
+        <li class="text-sm text-gray-400">Data will load here...</li>
+      </ul>
+    </div>
+
+    <div class="customer-id-section dashboard-section mt-6 card p-4">
+      <h3 class="text-lg font-semibold mb-2"><i class="fas fa-id-card mr-2"></i>Customer ID Integration</h3>
+      <p class="text-sm mb-2">This dashboard uses the customerId field for tracking repeat contacts.</p>
+      <button id="runCustomerIdTest" class="bg-purple-700 hover:bg-purple-800 text-white font-bold py-2 px-4 rounded">
+        Run Customer ID Tests
+      </button>
+      <div id="customerIdTestResults" class="mt-4 p-3 bg-gray-800 rounded hidden">
+        <pre class="text-xs overflow-auto max-h-60"></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal for Deep Dive -->
+  <div id="callbackDeepDiveModal" class="modal hidden">
+    <div class="modal-content card">
+      <span class="close-button">&times;</span>
+      <h4 id="modalCustomerIdentifier" class="text-lg font-semibold mb-2">Callback Sequence for: </h4>
+      <div id="modalCallSequenceDetails">
+        <!-- Detailed call list will be injected here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Script to run customer ID tests -->
+  <script>
+    document.getElementById('runCustomerIdTest').addEventListener('click', function() {
+      if (typeof window.runCustomerIdTests === 'function') {
+        // Clear previous results
+        const resultsEl = document.getElementById('customerIdTestResults');
+        const preEl = resultsEl.querySelector('pre');
+        if (preEl) preEl.textContent = '';
+        resultsEl.classList.remove('hidden');
+        
+        // Capture console.log output
+        const originalLog = console.log;
+        const logs = [];
+        console.log = function() {
+          logs.push(Array.from(arguments).join(' '));
+          originalLog.apply(console, arguments);
+        };
+        
+        // Run tests
+        window.runCustomerIdTests().then(() => {
+          // Restore console.log
+          console.log = originalLog;
+          
+          // Display results
+          if (preEl) preEl.textContent = logs.join('\n');
+        }).catch(err => {
+          console.log = originalLog;
+          if (preEl) preEl.textContent = `Error running tests: ${err.message}`;
+        });
+      } else {
+        alert('Test function not available. Make sure test-customer-id.js is loaded.');
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,193 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coaching Dashboard</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="coaching.css">
+<style>
+  body {
+    margin: 0;
+    padding: 1rem;
+    font-family: sans-serif;
+    background: #111; /* Base dark background */
+    color: white;
+  }
+  /* Ensure Tailwind-like utility classes if not using Tailwind directly */
+  .p-4 { padding: 1rem; }
+  .mb-4 { margin-bottom: 1rem; }
+  .mb-6 { margin-bottom: 1.5rem; }
+  .mt-8 { margin-top: 2rem; }
+  .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+  .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+  .font-bold { font-weight: 700; }
+  .font-semibold { font-weight: 600; }
+  .w-full { width: 100%; }
+  .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+  .text-gray-400 { color: #9ca3af; }
+  .bg-gray-800 { background-color: #1f2937; }
+  .bg-gray-900 { background-color: #111827; }
+  .bg-gray-700 { background-color: #374151; }
+  .text-gray-300 { color: #d1d5db; }
+  .text-gray-200 { color: #e5e7eb; }
+  .rounded { border-radius: 0.25rem; }
+  .overflow-hidden { overflow: hidden; }
+  .border { border-width: 1px; }
+  .p-3 { padding: 0.75rem; }
+  .p-2 { padding: 0.5rem; }
+  .gap-2 { gap: 0.5rem; }
+  .flex { display: flex; }
+  .hover\\:bg-blue-700:hover { background-color: #1d4ed8; }
+  .bg-blue-600 { background-color: #2563eb; }
+  .text-white { color: #ffffff; }
+  .px-4 { padding-left: 1rem; padding-right: 1rem; }
+  .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+</style>
+</head>
+<body>
+  <section id="coachingDashboard" class="p-4">
+    <header class="mb-6 flex justify-between items-center">
+      <h2 class="text-xl font-bold"><i class="fas fa-chalkboard-teacher mr-2"></i>Coaching Dashboard</h2>
+      <div class="controls-container flex items-center gap-4">
+        <input type="text" id="agentSearchInput" placeholder="Search Agents..." class="search-input p-2 border rounded bg-gray-700 text-white">
+        <button id="viewToggleBtn" class="button secondary-button"><i class="fas fa-th-list mr-1"></i> Toggle View</button>
+      </div>
+    </header>
+
+    <!-- AI-Powered Team Insights Section -->
+    <div class="mb-6 dashboard-section" id="teamInsightsContainer">
+      <h3 class="text-lg font-semibold mb-2"><i class="fas fa-brain mr-2"></i>AI-Powered Team Insights</h3>
+      <div class="team-insights-grid">
+        <div class="insight-card">
+          <h4><i class="fas fa-chart-line mr-1"></i>Team Performance Trend</h4>
+          <div id="teamPerformanceTrend" class="insight-content">Loading trend analysis...</div>
+        </div>
+        <div class="insight-card">
+          <h4><i class="fas fa-clipboard-check mr-1"></i>Top Coaching Themes</h4>
+          <div id="topCoachingThemes" class="insight-content">Loading coaching themes...</div>
+        </div>
+        <div class="insight-card">
+          <h4><i class="fas fa-comments mr-1"></i>Conversation Patterns</h4>
+          <div id="conversationPatterns" class="insight-content">Loading patterns...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-6 dashboard-section" id="agentTableViewContainer">
+      <h3 class="text-lg font-semibold mb-2"><i class="fas fa-users mr-2"></i>Agent Coaching Overview</h3>
+      <div class="table-container">
+        <table id="coachAgentTable" class="w-full text-sm bg-gray-900 rounded overflow-hidden">
+          <thead class="bg-gray-700 text-gray-300">
+            <tr>
+              <th class="p-2"><input type="checkbox" id="selectAllAgents" title="Select all agents"></th>
+              <th class="p-2 sortable" data-sort-key="agent">Agent <i class="fas fa-sort"></i></th>
+              <th class="p-2 sortable text-center" data-sort-key="count">Calls <i class="fas fa-sort"></i></th>
+              <th class="p-2 sortable text-center" data-sort-key="avgDurationMinutes">Avg Duration <i class="fas fa-sort"></i></th>
+              <th class="p-2 sortable text-center" data-sort-key="totalPositiveInteractions">Positive <i class="fas fa-sort"></i></th>
+              <th class="p-2 sortable text-center" data-sort-key="totalFlags">Flags <i class="fas fa-sort"></i></th>
+              <th class="p-2">Key Notes</th>
+            </tr>
+          </thead>
+          <tbody id="coachAgentBody" class="text-gray-200">
+            <!-- Agent rows will be injected here by coaching.js -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="mb-6 dashboard-section hidden" id="agentCardViewContainer">
+      <h3 class="text-lg font-semibold mb-2"><i class="fas fa-address-card mr-2"></i>Agent Detail Cards</h3>
+      <div id="coachGrid" class="card-grid">
+        <!-- Agent cards will be injected here by coaching.js -->
+      </div>
+    </div>
+  
+    <!-- Language & Timing Analysis Section -->
+    <div class="mb-6 dashboard-section" id="languageTimingContainer">
+      <h3 class="text-lg font-semibold mb-2"><i class="fas fa-clock mr-2"></i>Language & Timing Analysis</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div id="coachPhraseAnalysis" class="phrase-analysis-container">
+          <h4 class="text-lg font-semibold mb-2"><i class="fas fa-comments mr-2"></i>Common Agent Phrases</h4>
+          <div class="phrase-columns-wrapper">Loading phrase analysis...</div>
+        </div>
+        <div id="coachTimingAnalysis" class="timing-analysis-container">
+          <h4 class="text-lg font-semibold mb-2"><i class="fas fa-hourglass-half mr-2"></i>Call Timing Metrics</h4>
+          <div class="timing-metrics-container">Loading timing analysis...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-8 dashboard-section">
+      <h3 class="text-lg font-semibold mb-2"><i class="fas fa-brain mr-2"></i>Coach the Coach</h3>
+      <p class="text-sm text-gray-400 mb-2">Select agents from the table above and generate a coaching summary for their supervisor.</p>
+      <textarea id="coachSummary" class="w-full p-3 border rounded text-sm mb-2 bg-gray-800 text-white" rows="8" placeholder="Select agents and click 'Generate Summary' to see insights here..."></textarea>
+      <div class="flex gap-2">
+        <button id="btnGenerateCoachMessage" class="button primary-button"><i class="fas fa-file-alt mr-1"></i>Generate Summary</button>
+        <button id="btnCopyCoachSummary" class="button secondary-button"><i class="fas fa-copy mr-1"></i>Copy Summary</button>
+      </div>
+    </div>
+
+    <!-- Agent Call Details Modal -->
+    <div id="agentCallDetailsModal" class="modal hidden">
+      <div class="modal-content card">
+        <div class="modal-header flex justify-between items-center">
+          <h3 id="modalAgentName" class="text-lg font-semibold">Call Details for Agent</h3>
+          <button class="modal-close-button">&times;</button>
+        </div>
+        <div id="modalAgentCallList" class="modal-body p-4" style="max-height: 60vh; overflow-y: auto;">
+          <!-- Call details will be populated here by JS -->
+          <p>Loading call details...</p>
+        </div>
+      </div>
+    </div>
+    <!-- End Agent Call Details Modal -->
+
+  </section>
+
+  <!-- Common ICETAP JS libraries -->
+  <script src="../../js/config.js"></script>
+  <script src="../../js/storage.js"></script>
+  <script src="../../js/schema.js"></script>
+  <script src="../../js/transform.js"></script>
+  <script src="../../js/index.js"></script>
+
+  <!-- Initialize DataStackULTRA for standalone use -->
+  <script>
+   (async () => {
+  try {
+    if (!window.DataStackULTRA) {
+      window.DataStackULTRA = new AppStorageManager({ encryptionEnabled: false });
+      console.log(`DataStackULTRA initialized for ${document.title} (encryption disabled).`);
+    } else {
+      console.log(`DataStackULTRA already exists for ${document.title}.`);
+    }
+
+    const existingCalls = await window.DataStackULTRA.get('loadedCalls');
+    if (Array.isArray(existingCalls) && existingCalls.length > 0) {
+      console.log(`✅ ${existingCalls.length} calls loaded from DataStackULTRA memory for ${document.title}.`);
+    } else {
+      console.warn(`⚠️ No calls found in 'loadedCalls'. Dashboard may be empty until a file is loaded.`);
+    }
+
+  } catch (e) {
+    console.error(`❌ Failed to initialize/load DataStackULTRA in ${document.title}:`, e);
+    const mainDashboardArea = document.getElementById('analyticsDashboard'); 
+    if(mainDashboardArea) {
+      mainDashboardArea.innerHTML = `
+        <p class="no-data-message card p-4 text-center">
+          <i class="fas fa-exclamation-triangle mr-2"></i>
+          FATAL: DataStackULTRA could not be initialized/loaded. Dashboard cannot load.
+        </p>`;
+    }
+  }
+})();
+
+  </script>
+
+  <script src="../../js/audit-merge.js"></script> <!-- audit-merge might depend on DataStackULTRA -->
+  <script src="../../js/call-analysis.js"></script>
+  <script src="../../js/MasterLogUtil.js"></script>
+  <script src="../../js/AI.js"></script>
+  <script src="../../js/TimingAnalysis.js"></script>
+  <script src="../../js/ai-integration.js"></script>
+  <script src="coaching.js"></script>
+</body>
+</html>

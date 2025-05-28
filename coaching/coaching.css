@@ -1,0 +1,735 @@
+:root {
+  --inspiro-bg-dark: #161a25; /* Deep dark blue/gray */
+  --inspiro-bg-secondary: #202634; /* Cards, sections */
+  --inspiro-bg-tertiary: #2f384c; /* Hover, active elements */
+  --inspiro-purple-primary: #9F70FD; /* Vibrant purple */
+  --inspiro-purple-secondary: #7a52cc; /* Darker purple for hover/accents */
+  --inspiro-orange-primary: #FF8C00; /* Vibrant orange */
+  --inspiro-orange-secondary: #cc7000; /* Darker orange for hover/accents */
+  --inspiro-text-primary: #E8E8FB; /* Light lavender/off-white */
+  --inspiro-text-secondary: #A8A8C8; /* Muted lavender/gray */
+  --inspiro-border-color: #384259; /* Subtle border */
+  --inspiro-positive-color: #34D399; /* Green for positive, can adjust if needed */
+  --inspiro-negative-color: #F87171; /* Red for negative/flags */
+
+  /* Button specific variables */
+  --inspiro-button-primary-bg: var(--inspiro-purple-primary); 
+  --inspiro-button-primary-text: white; 
+  --inspiro-button-primary-hover-bg: var(--inspiro-purple-secondary);
+  --inspiro-button-secondary-bg: var(--inspiro-orange-primary);
+  --inspiro-button-secondary-text: white; /* Changed for better contrast */
+  --inspiro-button-secondary-hover-bg: var(--inspiro-orange-secondary);
+}
+
+/* Coaching dashboard styles */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--inspiro-bg-dark);
+  color: var(--inspiro-text-primary);
+  padding: 0;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Main dashboard container */
+#coachingDashboard {
+  padding: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Section styling */
+.dashboard-section {
+  background-color: var(--inspiro-bg-secondary);
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Headers */
+#coachingDashboard header h2,
+.dashboard-section h3 {
+  color: var(--inspiro-purple-primary);
+  border-bottom: 2px solid var(--inspiro-border-color);
+  padding-bottom: 0.75rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+}
+
+#coachingDashboard header h2 .fas,
+.dashboard-section h3 .fas {
+  margin-right: 0.75rem;
+  color: var(--inspiro-purple-primary); /* Icons match header text */
+}
+
+/* Team Insights Section */
+.team-insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.25rem;
+}
+
+.insight-card {
+  background-color: var(--inspiro-bg-tertiary);
+  border-radius: 6px;
+  padding: 1.25rem;
+  border: 1px solid var(--inspiro-border-color);
+}
+
+.insight-card h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: var(--inspiro-purple-primary);
+  display: flex;
+  align-items: center;
+}
+
+.insight-card h4 i.fas {
+  margin-right: 0.5rem;
+}
+
+.insight-content {
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.insight-highlight {
+  display: inline-block;
+  background-color: rgba(159, 112, 253, 0.2);
+  padding: 0 0.25rem;
+  border-radius: 3px;
+}
+
+/* Phrase & Timing Analysis */
+.phrase-analysis-container,
+.timing-analysis-container {
+  background-color: var(--inspiro-bg-tertiary);
+  border-radius: 6px;
+  padding: 1.25rem;
+  border: 1px solid var(--inspiro-border-color);
+}
+
+.phrase-columns-wrapper {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.phrase-column {
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  padding: 0.75rem;
+}
+
+.phrase-column h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--inspiro-border-color);
+  text-align: center;
+}
+
+.customer-phrases h3 {
+  color: var(--inspiro-warning-color);
+}
+
+.agent-phrases h3 {
+  color: var(--inspiro-positive-color);
+}
+
+.phrase-list {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.phrase-list li {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.phrase-text {
+  flex-grow: 1;
+}
+
+.phrase-count {
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+  color: var(--inspiro-text-secondary);
+}
+
+.timing-metrics-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.timing-metric-card {
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  padding: 1rem;
+  position: relative;
+  padding-left: 3rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.timing-metric-card::before {
+  content: '';
+  font-family: 'Font Awesome 5 Free';
+  font-weight: 900;
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.5rem;
+  opacity: 0.7;
+}
+
+.dead-air-card::before {
+  content: '\f4d8'; /* microphone-slash */
+  color: var(--inspiro-negative-color);
+}
+
+.delayed-response-card::before {
+  content: '\f254'; /* hourglass */
+  color: var(--inspiro-orange-primary);
+}
+
+.longest-silence-card::before {
+  content: '\f017'; /* clock */
+  color: var(--inspiro-orange-primary);
+}
+
+.timing-metric-label {
+  font-size: 0.85rem;
+  color: var(--inspiro-text-secondary);
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.timing-metric-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--inspiro-text-primary);
+  line-height: 1;
+}
+
+.timing-metric-unit {
+  font-size: 0.75rem;
+  color: var(--inspiro-text-secondary);
+  margin-top: 0.25rem;
+}
+
+.timing-detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  font-size: 0.85rem;
+}
+
+.timing-detail-table th, 
+.timing-detail-table td {
+  padding: 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--inspiro-border-color);
+}
+
+.timing-detail-table th {
+  font-weight: 600;
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.timing-detail-table tr:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* Table Styling */
+.table-container {
+  overflow-x: auto;
+}
+
+#coachAgentTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  background-color: var(--inspiro-bg-dark); /* Table itself can be darker */
+}
+
+#coachAgentTable th, 
+#coachAgentTable td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--inspiro-border-color);
+  vertical-align: middle;
+}
+
+#coachAgentTable th {
+  background-color: var(--inspiro-bg-tertiary);
+  color: var(--inspiro-text-primary);
+  font-weight: 600;
+}
+
+#coachAgentTable tbody tr:hover {
+  background-color: var(--inspiro-bg-tertiary);
+}
+
+#coachAgentTable .agent-name {
+  font-weight: 500;
+  color: var(--inspiro-purple-primary); /* Highlight agent names with purple */
+}
+
+#coachAgentTable .positive-count {
+  color: var(--inspiro-positive-color);
+  font-weight: bold;
+}
+
+#coachAgentTable .flag-count {
+  color: var(--inspiro-negative-color);
+  font-weight: bold;
+}
+
+#coachAgentTable .notes-cell {
+  font-size: 0.8rem;
+  color: var(--inspiro-text-secondary);
+  max-width: 250px;
+  white-space: normal;
+}
+
+#coachAgentTable input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--inspiro-purple-primary);
+}
+
+/* Agent Card Grid */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.agent-card {
+  background-color: var(--inspiro-bg-secondary);
+  border-radius: 6px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  border: 1px solid var(--inspiro-border-color);
+}
+
+.agent-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+    border-color: var(--inspiro-purple-primary);
+}
+
+.agent-card .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--inspiro-border-color);
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.agent-card .card-header h3 {
+  font-size: 1.1rem;
+  color: var(--inspiro-text-primary);
+  margin: 0;
+  border: none;
+  padding: 0;
+}
+
+.agent-card .card-header .fas {
+    margin-right: 0.5rem;
+    color: var(--inspiro-purple-primary);
+}
+
+.agent-card .call-count-badge {
+  background-color: var(--inspiro-orange-primary);
+  color: var(--inspiro-bg-dark);
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.agent-card .card-body p {
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--inspiro-text-secondary);
+  display: flex;
+  align-items: center;
+}
+.agent-card .card-body .fas {
+    margin-right: 0.5rem;
+    width: 16px;
+    text-align: center;
+    color: var(--inspiro-text-secondary);
+}
+.agent-card .card-body .metric {
+  font-weight: 600;
+  color: var(--inspiro-text-primary);
+  margin-left: 0.3rem;
+}
+.agent-card .positive-icon { color: var(--inspiro-positive-color); }
+.agent-card .flag-icon { color: var(--inspiro-negative-color); }
+
+.agent-card .coaching-notes-summary {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+.agent-card .coaching-notes-summary h4 {
+  font-weight: 600;
+  color: var(--inspiro-text-secondary);
+  margin-bottom: 0.3rem;
+  display: flex;
+  align-items: center;
+}
+.agent-card .coaching-notes-summary ul {
+  list-style-type: none;
+  padding-left: 0;
+  margin: 0;
+}
+.agent-card .coaching-notes-summary li {
+  padding: 0.2rem 0;
+  border-bottom: 1px dashed var(--inspiro-border-color);
+  color: var(--inspiro-text-secondary);
+}
+.agent-card .coaching-notes-summary li:last-child {
+  border-bottom: none;
+}
+
+.agent-card .card-footer {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--inspiro-border-color);
+  text-align: right;
+}
+
+/* Coaching themes */
+.theme-tag {
+  display: inline-block;
+  background-color: var(--inspiro-bg-tertiary);
+  border: 1px solid var(--inspiro-border-color);
+  border-radius: 20px;
+  padding: 0.3rem 0.8rem;
+  margin: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--inspiro-text-primary);
+}
+
+.theme-tag.high {
+  background-color: rgba(248, 113, 113, 0.2);
+  border-color: var(--inspiro-negative-color);
+}
+
+.theme-tag.medium {
+  background-color: rgba(255, 140, 0, 0.2);
+  border-color: var(--inspiro-orange-primary);
+}
+
+.theme-tag.low {
+  background-color: rgba(52, 211, 153, 0.2);
+  border-color: var(--inspiro-positive-color);
+}
+
+.agent-trend-indicator {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.5rem;
+  font-weight: normal;
+  font-size: 0.9em;
+}
+
+.trend-up {
+  color: var(--inspiro-positive-color);
+}
+
+.trend-down {
+  color: var(--inspiro-negative-color);
+}
+
+.trend-stable {
+  color: var(--inspiro-orange-primary);
+}
+
+/* Buttons */
+.button {
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--inspiro-text-primary);
+}
+
+.button .fas {
+  margin-right: 0.5rem;
+}
+
+.button:active {
+  transform: translateY(1px);
+}
+
+.button.primary-button {
+  background-color: var(--inspiro-button-primary-bg);
+  color: var(--inspiro-button-primary-text);
+}
+
+.button.primary-button:hover {
+  background-color: var(--inspiro-button-primary-hover-bg);
+}
+
+.button.secondary-button {
+  background-color: var(--inspiro-button-secondary-bg);
+  color: var(--inspiro-button-secondary-text);
+}
+
+.button.secondary-button:hover {
+  background-color: var(--inspiro-button-secondary-hover-bg);
+}
+
+.button.view-details-btn {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  background-color: var(--inspiro-bg-tertiary);
+  color: var(--inspiro-text-primary);
+  border: 1px solid var(--inspiro-border-color);
+}
+
+.button.view-details-btn:hover {
+  background-color: var(--inspiro-purple-primary);
+  color: white;
+  border-color: var(--inspiro-purple-primary);
+}
+
+/* Textarea styling */
+#coachSummary {
+  background-color: var(--inspiro-bg-tertiary);
+  border: 1px solid var(--inspiro-border-color);
+  color: var(--inspiro-text-primary);
+  resize: vertical;
+  line-height: 1.6;
+  transition: border-color 0.2s ease;
+}
+
+#coachSummary:focus {
+  border-color: var(--inspiro-purple-primary);
+  outline: none;
+}
+
+.no-data-message {
+  color: var(--inspiro-text-secondary);
+  text-align: center;
+  padding: 2rem;
+  font-style: italic;
+  background-color: var(--inspiro-bg-tertiary);
+  border-radius: 6px;
+}
+
+.mr-1 { margin-right: 0.25rem; }
+.mr-2 { margin-right: 0.5rem; }
+.ml-1 { margin-left: 0.25rem; }
+
+.controls-container {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.search-input {
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  border: 1px solid var(--inspiro-border-color);
+  background-color: var(--inspiro-bg-tertiary);
+  color: var(--inspiro-text-primary);
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease;
+  width: 200px;
+}
+
+.search-input:focus {
+  border-color: var(--inspiro-purple-primary);
+  outline: none;
+}
+
+/* Sorting indicators */
+#coachAgentTable th.sortable {
+  cursor: pointer;
+  position: relative;
+}
+
+#coachAgentTable th.sortable i.fas {
+  opacity: 0.3;
+  margin-left: 0.35rem;
+  font-size: 0.8rem;
+}
+
+#coachAgentTable th.sortable:hover i.fas {
+  opacity: 0.8;
+}
+
+#coachAgentTable th.sortable.sort-asc i.fas,
+#coachAgentTable th.sortable.sort-desc i.fas {
+  opacity: 1;
+  color: var(--inspiro-purple-primary);
+}
+
+/* View toggle button */
+#viewToggleBtn {
+  padding: 0.4rem 0.8rem;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#coachingDashboard header.flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Modal styles */
+#agentCallDetailsModal.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+#agentCallDetailsModal.modal.hidden {
+  display: none;
+}
+
+#agentCallDetailsModal.modal:not(.hidden) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#agentCallDetailsModal .modal-content {
+  background-color: var(--inspiro-bg-secondary);
+  border-radius: 8px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  position: relative;
+  border: 1px solid var(--inspiro-border-color);
+}
+
+#agentCallDetailsModal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--inspiro-border-color);
+}
+
+#agentCallDetailsModal .modal-header h3 {
+  margin: 0;
+  padding: 0;
+  color: var(--inspiro-purple-primary);
+  font-size: 1.25rem;
+  border: none;
+}
+
+#agentCallDetailsModal .modal-close-button {
+  background: none;
+  border: none;
+  color: var(--inspiro-text-secondary);
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+#agentCallDetailsModal .modal-close-button:hover,
+#agentCallDetailsModal .modal-close-button:focus {
+  color: var(--inspiro-text-primary);
+  outline: none;
+}
+
+#agentCallDetailsModal .modal-body ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+#agentCallDetailsModal .modal-body li {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background-color: var(--inspiro-bg-tertiary);
+  border-radius: 6px;
+  border-left: 3px solid var(--inspiro-purple-primary);
+}
+
+#agentCallDetailsModal .modal-body li strong {
+  display: inline-block;
+  min-width: 80px;
+  color: var(--inspiro-text-secondary);
+}
+
+/* Hide elements with the hidden class */
+.hidden {
+  display: none !important;
+}
+
+#coachingDashboard header.flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Grid utility classes */
+.grid {
+  display: grid;
+}
+
+.grid-cols-1 {
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+@media (min-width: 768px) {
+  .md\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.gap-4 {
+  gap: 1rem;
+}

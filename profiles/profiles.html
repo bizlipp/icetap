@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ICETAP - Agent Profiles</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    :root {
+      --inspiro-bg-dark: #171923;
+      --inspiro-bg-secondary: #23263a;
+      --inspiro-bg-tertiary: #2f384c;
+      --inspiro-purple-primary: #805ad5;
+      --inspiro-purple-secondary: #553c9a;
+      --inspiro-orange-primary: #FF8C00;
+      --inspiro-orange-secondary: #cc7000; /* Not directly used in this refactor but good to have */
+      --inspiro-text-primary: #f7fafc;
+      --inspiro-text-secondary: #A8A8C8;
+      --inspiro-border-color: #384259;
+      --inspiro-positive-color: #48bb78;
+      --inspiro-negative-color: #f56565;
+      --inspiro-warning-color: #ecc94b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--inspiro-bg-dark); color: var(--inspiro-text-primary); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0;
+    }
+    .container { 
+      max-width: 900px; 
+      margin: 2rem auto; 
+      background: var(--inspiro-bg-secondary); 
+      border-radius: 12px; 
+      border: 1px solid var(--inspiro-border-color);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+      padding: 2rem; 
+    }
+    h1, h2, h3, h4 { 
+      font-weight: 700; 
+      color: var(--inspiro-text-primary); 
+      margin-top: 1em;
+      margin-bottom: 0.6em; 
+      padding-bottom: 0.3em;
+    }
+    h1 {
+      border-bottom: 2px solid var(--inspiro-purple-primary);
+      font-size: 1.8em;
+    }
+    h1 .fas {
+      color: var(--inspiro-purple-primary);
+      margin-right: 0.5em;
+    }
+    h2 {
+      border-bottom: 1px solid var(--inspiro-border-color);
+      font-size: 1.5em;
+    }
+    h3 {
+       border-bottom: 1px solid var(--inspiro-border-color);
+       font-size: 1.25em;
+    }
+    .search-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+    .search-input { 
+      padding: 0.7em; 
+      border-radius: 6px; 
+      border: 1px solid var(--inspiro-border-color); 
+      width: 250px; 
+      background: var(--inspiro-bg-tertiary); 
+      color: var(--inspiro-text-primary); 
+    }
+    .search-input:focus {
+      border-color: var(--inspiro-purple-primary);
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(128, 90, 213, 0.25);
+    }
+    .card { 
+      background: var(--inspiro-bg-secondary); 
+      border: 1px solid var(--inspiro-border-color);
+      border-radius: 8px; 
+      padding: 1.5rem; 
+      margin-bottom: 1.5rem; 
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+    }
+    .flex { display: flex; align-items: center; }
+    .gap-2 { gap: 0.5rem; }
+    .gap-4 { gap: 1rem; }
+    .rounded { border-radius: 8px; }
+    
+    .badge { 
+      background-color: var(--inspiro-bg-tertiary); 
+      color: var(--inspiro-text-primary); 
+      border: 1px solid var(--inspiro-border-color);
+      padding: 0.3em 0.7em; 
+      margin-right: 0.5em; 
+      border-radius: 14px; 
+      font-size: 0.85em; 
+      font-weight: 500;
+      display: inline-block; /* Ensure proper spacing */
+      margin-bottom: 0.3em; /* Spacing if they wrap */
+    }
+    .badge.status-green { background: transparent; color: var(--inspiro-positive-color); border: 1px solid var(--inspiro-positive-color); }
+    .badge.status-red { background: transparent; color: var(--inspiro-negative-color); border: 1px solid var(--inspiro-negative-color); }
+    .badge.status-yellow { background: transparent; color: var(--inspiro-warning-color); border: 1px solid var(--inspiro-warning-color); }
+    
+    .profile-header { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 2rem; }
+    .avatar { 
+      width: 72px; height: 72px; 
+      background: var(--inspiro-purple-primary); 
+      color: var(--inspiro-text-primary);
+      border-radius: 50%; 
+      display: flex; align-items: center; justify-content: center; 
+      font-size: 2.2rem; font-weight: bold;
+      flex-shrink: 0;
+    }
+    .profile-header h2 { margin-bottom: 0.2em; border-bottom: none; padding-bottom: 0;}
+    .profile-header .text-sm { color: var(--inspiro-text-secondary); }
+
+    .section-title { 
+      margin: 1.5em 0 0.8em 0; 
+      color: var(--inspiro-purple-secondary); 
+      border-bottom: 1px solid var(--inspiro-border-color); 
+      padding-bottom: 0.4em; 
+      font-size: 1.15em; 
+      font-weight: 600;
+      text-transform: uppercase; 
+      letter-spacing: 0.5px; 
+    }
+    .section-title .fas {
+        margin-right: 0.5em;
+    }
+
+    .table { 
+      width: 100%; 
+      background: var(--inspiro-bg-secondary); 
+      color: var(--inspiro-text-primary); 
+      border-radius: 8px; 
+      margin: 1em 0; 
+      border-collapse: collapse;
+    }
+    .table th, .table td { 
+      padding: 0.75em 0.8em; 
+      text-align: left;
+      border-bottom: 1px solid var(--inspiro-border-color);
+    }
+    .table th { 
+      color: var(--inspiro-text-primary); 
+      background: var(--inspiro-bg-tertiary); 
+      font-weight: 600;
+      border-bottom: 2px solid var(--inspiro-purple-primary);
+    }
+    .table tr:nth-child(even) td { background: var(--inspiro-bg-dark); } /* For rows inside cards */
+    .table tr:hover td { background-color: rgba(128, 90, 213, 0.1); }
+
+
+    .btn { 
+      background: var(--inspiro-purple-primary); 
+      color: var(--inspiro-text-primary); 
+      padding: 0.6em 1.2em; 
+      border: none; 
+      border-radius: 6px; 
+      cursor: pointer; 
+      font-weight: 600; 
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4em;
+      transition: background-color 0.2s ease, transform 0.1s ease;
+    }
+    .btn:hover { 
+      background: var(--inspiro-purple-secondary); 
+      transform: translateY(-1px);
+    }
+    .btn:focus {
+      outline: 2px solid var(--inspiro-purple-primary);
+      outline-offset: 2px;
+      box-shadow: 0 0 0 3px rgba(128, 90, 213, 0.25);
+    }
+    .btn .fas {
+        margin-right: 0.2em; /* Fine tune icon spacing in buttons */
+    }
+
+
+    .input-note, textarea.input-note { 
+      width: 100%; 
+      background: var(--inspiro-bg-tertiary); 
+      color: var(--inspiro-text-primary); 
+      border: 1px solid var(--inspiro-border-color); 
+      border-radius: 4px; 
+      padding: 0.6em 0.8em; 
+      margin-top: 0.3em;
+      margin-bottom: 0.8em;
+    }
+    .input-note:focus, textarea.input-note:focus {
+      border-color: var(--inspiro-purple-primary);
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(128, 90, 213, 0.25);
+    }
+    label {
+      font-weight: 500;
+      color: var(--inspiro-text-secondary);
+      font-size: 0.9em;
+      display: block;
+      margin-bottom: 0.2em;
+    }
+    #complianceChecklistTable label { /* More specific for radio button labels */
+      display: inline-block;
+      margin-right: 0.8em;
+      font-weight: normal;
+      color: var(--inspiro-text-primary);
+    }
+    #complianceChecklistTable input[type="radio"] {
+      margin-right: 0.3em;
+      accent-color: var(--inspiro-purple-primary);
+    }
+
+
+    .info-banner { 
+      background: var(--inspiro-bg-tertiary); 
+      color: var(--inspiro-text-secondary); 
+      padding: 0.8em 1.2em; 
+      border-radius: 8px; 
+      margin-bottom: 1.5em; 
+      font-weight: 500; 
+      border-left: 4px solid var(--inspiro-warning-color);
+      display: flex;
+      align-items: center;
+    }
+    .info-banner .fas {
+      color: var(--inspiro-warning-color);
+      margin-right: 0.7em;
+      font-size: 1.2em;
+    }
+    .info-banner strong {
+        color: var(--inspiro-text-primary);
+        margin-right: 0.3em;
+    }
+
+    .badge-row { display: flex; flex-wrap: wrap; gap: 0.5em; margin-top: 0.8em; margin-bottom: 0.8em; }
+    
+    .progress-bar { 
+      background: var(--inspiro-bg-tertiary); 
+      border-radius: 6px; 
+      height: 20px; 
+      margin-bottom: 0.3em; 
+      margin-top: 0.3em;
+      width: 100%; 
+      border: 1px solid var(--inspiro-border-color);
+      padding: 2px;
+    }
+    .progress-bar-inner { 
+      height: 100%; 
+      border-radius: 4px; 
+      background: var(--inspiro-positive-color); 
+      transition: width 0.5s ease-in-out;
+    }
+    
+    .text-sm { font-size: 0.9em; } /* Adjusted for consistency */
+    .text-xs { font-size: 0.8em; } /* Adjusted for consistency */
+    
+    .call-table { 
+      width: 100%; 
+      font-size: 0.9em; 
+      margin-bottom: 1em;
+      border-collapse: collapse;
+    }
+    .call-table th, .call-table td { 
+      padding: 0.5em 0.6em;
+      border-bottom: 1px solid var(--inspiro-border-color);
+      text-align: left;
+    }
+    .call-table th { 
+      background: var(--inspiro-bg-tertiary);
+      color: var(--inspiro-text-primary);
+      font-weight: 600;
+      border-bottom-width: 2px;
+      border-bottom-color: var(--inspiro-purple-primary);
+    }
+    .call-table tr:nth-child(even) td { background: var(--inspiro-bg-dark); }
+    .call-table tr:hover td { background-color: rgba(128, 90, 213, 0.1); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1><i class="fas fa-user-tie"></i> Agent Profile Dashboard</h1>
+
+    <div class="card" id="empDataManagementCard">
+      <h3 class="section-title"><i class="fas fa-database"></i> Employee Data Management</h3>
+      <div class="search-row">
+        <label for="empDataImportInput" class="btn" style="margin-right: 10px; cursor: pointer;"><i class="fas fa-file-excel"></i> Select Emp Data File</label>
+        <input type="file" id="empDataImportInput" accept=".xlsx,.xls" style="display: none;"> 
+        <button id="empDataImportBtn" class="btn"><i class="fas fa-file-import"></i> Import Employee Data</button>
+      </div>
+      <div id="empDataImportStatus" class="text-xs" style="margin-top: 0.5em;"></div>
+      <div style="margin-top: 1em;">
+        <button id="enrichCallsBtn" class="btn" style="display:none;"><i class="fas fa-user-plus"></i> Enrich Calls with Emp Data</button>
+      </div>
+    </div>
+
+    <div class="info-banner">
+      <i class="fas fa-exclamation-triangle"></i>
+      <strong>Note:</strong> This profile only includes <u>calls loaded for review</u>, not the agent's total call history.
+    </div>
+    <div class="search-row">
+      <input id="agentSearchInput" class="search-input" placeholder="Type agent name..." autocomplete="off">
+      <button id="agentSearchBtn" class="btn">Search</button>
+      <span id="agentProfileQuickInfo" class="text-xs"></span>
+    </div>
+    <div id="profileArea"></div>
+  </div>
+  <script>
+    // ----- Configurable (edit as needed) -----
+    const COMPLIANCE_ITEMS = [
+      "ID Verification",
+      "NDA Signed",
+      "Annual Security Training",
+      "PCI Compliance",
+      "Attendance Policy Acknowledged"
+    ];
+    const BADGE_LIBRARY = [
+      { id: "flagfree7", label: "Flag Free 7 Days", icon: "🏅", desc: "No flags for a week!" },
+      { id: "kudos5", label: "5-Star Kudos", icon: "⭐", desc: "Received 5 customer kudos" },
+      { id: "audit_hero", label: "Audit Hero", icon: "🎯", desc: "Perfect audit session" }
+    ];
+    const GAME_LIBRARY = [
+      { name: "Audit Bingo", goal: 5, prize: "Extra Break" },
+      { name: "Kudos Race", goal: 3, prize: "Lunch Coupon" }
+    ];
+
+    // ----- Utility -----
+    const today = () => new Date().toISOString().slice(0,10);
+
+    function getInitials(name) {
+      if (!name) return "??";
+      return name.split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase();
+    }
+
+    // ----- Main Logic -----
+    let allAgents = [];
+    let allCalls = [];
+    let masterLog = [];
+    let loadedProfiles = {}; // { agentName: { ...profileData } }
+    let empDataStore = []; // To hold imported employee data
+
+    async function loadData() {
+      // Simulate/replace with actual DataStackULTRA gets
+      if (window.DataStackULTRA) {
+        allCalls = await window.DataStackULTRA.get('loadedCalls', []);
+        try {
+          masterLog = await window.DataStackULTRA.get('masterLogCache', []);
+          empDataStore = await window.DataStackULTRA.get('empData', []); // Load empData on startup
+          if (empDataStore && empDataStore.length > 0) {
+            document.getElementById('empDataImportStatus').textContent = `${empDataStore.length} employee records loaded from storage.`;
+            document.getElementById('enrichCallsBtn').style.display = 'inline-flex';
+          }
+        } catch (e) {
+            console.warn("Could not load masterLogCache or empData from DataStackULTRA", e);
+        }
+      } else {
+        // Fallback demo data for offline/proto use
+        allCalls = window.demoCalls || [];
+        masterLog = window.demoMasterLog || [];
+      }
+      // Compile agent list
+      const agentNames = new Set();
+      allCalls.forEach(c => {
+        const name = c.agent || c.meta?.["Agent name"] || c.meta?.Agent;
+        if (name) agentNames.add(name);
+      });
+      allAgents = Array.from(agentNames).sort();
+    }
+
+    function filterAgentCalls(agentName) {
+      let agentCalls = allCalls.filter(c => 
+        c.agent === agentName ||
+        c.meta?.["Agent name"] === agentName ||
+        c.meta?.Agent === agentName
+      );
+      // Optionally merge in master log:
+      if (window.MasterLogUtil && masterLog.length > 0) {
+        agentCalls = window.MasterLogUtil.mergeMasterLog(agentCalls, masterLog);
+      }
+      return agentCalls;
+    }
+
+    function aggregateProfile(agentName, calls) {
+      // Stats (from reviewed calls only)
+      const totalCalls = calls.length;
+      const avgDuration = totalCalls ? (calls.map(c=>c.durationMinutes||0).reduce((a,b)=>a+b,0) / totalCalls) : 0;
+      const flags = {};
+      const positiveFlags = {};
+      let kudosCount = 0;
+      let flagFreeStreak = 0;
+      let currentStreak = 0;
+      calls.forEach(call => {
+        (call.flags||[]).forEach(f => { flags[f]= (flags[f]||0)+1; });
+        (call.positiveFlags||[]).forEach(f => { positiveFlags[f]= (positiveFlags[f]||0)+1; });
+        if ((call.positiveFlags||[]).includes("kudos")) kudosCount++;
+        if ((call.flags||[]).length===0) currentStreak++; else currentStreak=0;
+        if (currentStreak>flagFreeStreak) flagFreeStreak=currentStreak;
+      });
+      // Violations (simplified: calls w/ "violation" in flags)
+      const violations = calls.filter(c=> (c.flags||[]).some(f=>f.toLowerCase().includes("violation")));
+      // Badges/Progress
+      const badges = [];
+      if (flagFreeStreak>=7) badges.push(BADGE_LIBRARY.find(b=>b.id==="flagfree7"));
+      if (kudosCount>=5) badges.push(BADGE_LIBRARY.find(b=>b.id==="kudos5"));
+      // Games (demo logic, expand as you track more!)
+      const games = [
+        { ...GAME_LIBRARY[0], progress: Math.min(flagFreeStreak, GAME_LIBRARY[0].goal), status: flagFreeStreak>=GAME_LIBRARY[0].goal ? "completed":"in-progress" },
+        { ...GAME_LIBRARY[1], progress: Math.min(kudosCount, GAME_LIBRARY[1].goal), status: kudosCount>=GAME_LIBRARY[1].goal ? "completed":"in-progress" }
+      ];
+      return {
+        totalCalls, avgDuration, flags, positiveFlags, violations, badges, games, flagFreeStreak, kudosCount
+      }
+    }
+
+    function loadAgentProfile(agentName) {
+      // Persist checklist and notes per agentName
+      let profile = loadedProfiles[agentName];
+      if (!profile) {
+        profile = {
+          coachingNotes: "",
+          complianceChecklist: COMPLIANCE_ITEMS.map(item=>({
+            item, status: "not audited", lastReviewed: null, notes: ""
+          })),
+          violationLog: [],
+          privateNotes: "",
+        };
+        loadedProfiles[agentName] = profile;
+      }
+      return profile;
+    }
+
+    function renderProfile(agentName) {
+      const calls = filterAgentCalls(agentName);
+      const stats = aggregateProfile(agentName, calls);
+      const profile = loadAgentProfile(agentName);
+
+      // Try to find employee details for this agent
+      const agentEmpData = empDataStore.find(emp => emp.name && emp.name.toLowerCase() === agentName.toLowerCase());
+
+      document.getElementById("agentProfileQuickInfo").textContent =
+        `Showing: ${agentName} (${stats.totalCalls} calls reviewed)`;
+
+      let html = `
+      <div class="profile-header">
+        <div class="avatar">${getInitials(agentName)}</div>
+        <div>
+          <h2>${agentName}</h2>
+          <div class="text-sm">
+            Calls Reviewed: <span class="badge">${stats.totalCalls}</span>
+            Avg. Duration: <span class="badge">${stats.avgDuration.toFixed(2)} min</span>
+            <span class="badge status-green">${stats.flagFreeStreak} Flag-Free Streak</span>
+            <span class="badge status-yellow">${stats.kudosCount} Kudos</span>
+          </div>
+        </div>
+      </div>
+      `;
+
+      // Employee Details Card (if data found)
+      if (agentEmpData) {
+        html += `
+          <div class="card">
+            <h3 class="section-title"><i class="fas fa-id-card"></i> Employee Details</h3>
+            <table class="table">
+              <tbody>
+                ${agentEmpData.eid ? `<tr><td><strong>Employee ID:</strong></td><td>${agentEmpData.eid}</td></tr>` : ''}
+                ${agentEmpData.startDate ? `<tr><td><strong>Start Date:</strong></td><td>${agentEmpData.startDate}</td></tr>` : ''}
+                ${agentEmpData.coach ? `<tr><td><strong>Coach/Supervisor:</strong></td><td>${agentEmpData.coach}</td></tr>` : ''}
+                ${agentEmpData.jobTitle ? `<tr><td><strong>Job Title:</strong></td><td>${agentEmpData.jobTitle}</td></tr>` : ''}
+                ${agentEmpData.department ? `<tr><td><strong>Department:</strong></td><td>${agentEmpData.department}</td></tr>` : ''}
+                ${agentEmpData.site ? `<tr><td><strong>Site:</strong></td><td>${agentEmpData.site}</td></tr>` : ''}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      // Compliance Checklist
+      html += `
+        <div class="card">
+          <h3 class="section-title"><i class="fas fa-clipboard-check"></i> Compliance Checklist</h3>
+          <table class="table" id="complianceChecklistTable">
+            <thead>
+              <tr><th>Item</th><th>Status</th><th>Last Reviewed</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+              ${profile.complianceChecklist.map((ci,i)=>`
+                <tr>
+                  <td>${ci.item}</td>
+                  <td>
+                    <label><input type="radio" name="cc_status_${i}" value="yes" ${ci.status==="yes"?"checked":""}> Yes</label>
+                    <label><input type="radio" name="cc_status_${i}" value="no" ${ci.status==="no"?"checked":""}> No</label>
+                    <label><input type="radio" name="cc_status_${i}" value="not audited" ${ci.status==="not audited"?"checked":""}> Not Audited</label>
+                  </td>
+                  <td>${ci.lastReviewed||"-"}</td>
+                  <td><input type="text" class="input-note" id="cc_note_${i}" value="${ci.notes||""}"></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      // Violations/Follow-up
+      html += `
+        <div class="card">
+          <h3 class="section-title"><i class="fas fa-exclamation-circle"></i> Violations & Follow-Up</h3>
+          <table class="table" id="violationTable">
+            <thead><tr><th>Date</th><th>Type</th><th>Summary</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody>
+            ${stats.violations.map((v,i)=>`
+              <tr>
+                <td>${v.meta?.["Initiation timestamp"]?.slice(0,10) || "-"}</td>
+                <td>Violation</td>
+                <td>${v.flags.join(", ")}</td>
+                <td>Open</td>
+                <td><button class="btn btn-sm" data-violation-idx="${i}">Follow Up</button></td>
+              </tr>
+            `).join('') || '<tr><td colspan="5">No violations found.</td></tr>'}
+            </tbody>
+          </table>
+          <button class="btn" id="addViolationBtn"><i class="fas fa-plus-circle"></i> Add Violation</button>
+        </div>
+      `;
+
+      // Coaching & Notes
+      html += `
+        <div class="card">
+          <h3 class="section-title"><i class="fas fa-chalkboard-teacher"></i> Coaching & Progress</h3>
+          <label>Coaching Notes:</label>
+          <textarea id="coachingNotes" class="input-note" rows="3" style="width:100%;">${profile.coachingNotes||""}</textarea>
+          <label>Private Notes:</label>
+          <textarea id="privateNotes" class="input-note" rows="2" style="width:100%;">${profile.privateNotes||""}</textarea>
+        </div>
+      `;
+
+      // Gamification
+      html += `
+        <div class="card">
+          <h3 class="section-title"><i class="fas fa-trophy"></i> Gamification & Recognition</h3>
+          <div><b>Games Progress:</b></div>
+          ${stats.games.map(g=>
+            `<div style="margin-bottom:0.5em;"><span>${g.name}</span> <span class="badge">${g.progress}/${g.goal}</span> 
+            <span class="badge">${g.status==="completed"?"Completed":"In Progress"}</span><br>
+              <div class="progress-bar"><div class="progress-bar-inner" style="width:${(g.progress/g.goal*100).toFixed(1)}%"></div></div>
+              <span class="text-xs">Prize: ${g.prize}</span>
+            </div>`
+          ).join('')}
+          <div class="badge-row">
+            ${stats.badges.map(b=>
+              `<div class="badge">${b.icon||"🏅"} ${b.label}</div>`
+            ).join('') || '<span class="text-sm">No badges yet.</span>'}
+          </div>
+        </div>
+      `;
+
+      // Calls Table
+      html += `
+        <div class="card">
+          <h3 class="section-title"><i class="fas fa-phone"></i> Reviewed Calls</h3>
+          <table class="call-table">
+            <thead><tr>
+              <th>Date</th><th>Duration</th><th>Flags</th><th>Positives</th><th>Issue</th><th>Outcome</th>
+            </tr></thead>
+            <tbody>
+              ${calls.map(call=>
+                `<tr>
+                  <td>${call.meta?.["Initiation timestamp"]?.slice(0,10) || "-"}</td>
+                  <td>${(call.durationMinutes||0).toFixed(1)}m</td>
+                  <td>${(call.flags||[]).join(", ")||"-"}</td>
+                  <td>${(call.positiveFlags||[]).join(", ")||"-"}</td>
+                  <td>${call.issue||"-"}</td>
+                  <td>${call.outcome||"-"}</td>
+                </tr>`
+              ).join('') || '<tr><td colspan="6">No calls found.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      document.getElementById("profileArea").innerHTML = html;
+
+      // --- Event Listeners for Checklist/Notes ---
+      profile.complianceChecklist.forEach((ci,i)=>{
+        ["yes","no","not audited"].forEach(statusValue=>{
+          const radio = document.querySelector(`input[name="cc_status_${i}"][value="${statusValue}"]`);
+          if(radio) {
+            radio.addEventListener('change', (e) => {
+              if (e.target.checked) {
+                ci.status = statusValue;
+                ci.lastReviewed = today(); // Update lastReviewed date
+                // Re-render or update specific parts if needed, for now, data is updated
+                console.log(`Compliance item '${ci.item}' status changed to: ${statusValue}`);
+                // Potentially save loadedProfiles to DataStackULTRA here if you want persistence across sessions for these changes
+              }
+            });
+          }
+        });
+        const noteInput = document.getElementById(`cc_note_${i}`);
+        if(noteInput) {
+          noteInput.addEventListener('change', (e) => {
+            ci.notes = e.target.value;
+            console.log(`Compliance item '${ci.item}' note updated to: ${ci.notes}`);
+            // Potentially save loadedProfiles to DataStackULTRA
+          });
+        }
+      });
+
+      // Placeholder: Event listener for "Add Violation" button
+      const addViolationBtn = document.getElementById('addViolationBtn');
+      if(addViolationBtn) {
+        addViolationBtn.addEventListener('click', () => {
+          // Logic to add a new violation to profile.violationLog and re-render table or part of it
+          console.log(`Add Violation clicked for ${agentName}`);
+          alert("Add violation functionality not fully implemented yet.");
+        });
+      }
+
+      // Placeholder: Event listeners for "Follow Up" buttons in violation table
+      document.querySelectorAll('#violationTable .btn[data-violation-idx]').forEach(button => {
+        button.addEventListener('click', (e) => {
+          const violationIndex = e.target.dataset.violationIdx;
+          console.log(`Follow up on violation index ${violationIndex} for ${agentName}`);
+          alert(`Follow up on violation index ${violationIndex} (not fully implemented).`);
+          // Add logic for follow-up action
+        });
+      });
+      
+      // Event listener for coaching notes
+      const coachingNotesTextarea = document.getElementById('coachingNotes');
+      if(coachingNotesTextarea) {
+        coachingNotesTextarea.addEventListener('change', (e) => {
+          profile.coachingNotes = e.target.value;
+          console.log(`Coaching notes for ${agentName} updated.`);
+          // Potentially save loadedProfiles to DataStackULTRA
+        });
+      }
+
+      // Event listener for private notes
+      const privateNotesTextarea = document.getElementById('privateNotes');
+      if(privateNotesTextarea) {
+        privateNotesTextarea.addEventListener('change', (e) => {
+          profile.privateNotes = e.target.value;
+          console.log(`Private notes for ${agentName} updated.`);
+          // Potentially save loadedProfiles to DataStackULTRA
+        });
+      }
+    }
+
+    // Initialize after DOM is loaded
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadData();
+      const searchInput = document.getElementById('agentSearchInput');
+      const searchBtn = document.getElementById('agentSearchBtn');
+      const empDataImportInput = document.getElementById('empDataImportInput');
+      const empDataImportBtn = document.getElementById('empDataImportBtn');
+      const enrichCallsBtn = document.getElementById('enrichCallsBtn');
+
+      if (empDataImportBtn && empDataImportInput) {
+        empDataImportBtn.addEventListener('click', async () => {
+          const file = empDataImportInput.files[0];
+          if (file) {
+            await handleEmpDataImport(file);
+          } else {
+            document.getElementById('empDataImportStatus').textContent = 'Please select an Excel file first.';
+          }
+        });
+      }
+
+      if (enrichCallsBtn) {
+        enrichCallsBtn.addEventListener('click', async () => {
+          await enrichCallsWithEmpData();
+        });
+      }
+
+      if (searchBtn && searchInput) {
+        searchBtn.addEventListener('click', () => {
+          const agentName = searchInput.value.trim();
+          if (agentName && allAgents.includes(agentName)) {
+            renderProfile(agentName);
+          } else if (agentName) {
+            document.getElementById("profileArea").innerHTML = `<p class="info-banner">Agent "${agentName}" not found in reviewed calls.</p>`;
+            document.getElementById("agentProfileQuickInfo").textContent = "";
+          } else {
+            document.getElementById("profileArea").innerHTML = ""; // Clear if search is empty
+            document.getElementById("agentProfileQuickInfo").textContent = "";
+          }
+        });
+        // Optional: search on enter key
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                searchBtn.click();
+            }
+        });
+      }
+      
+      // Auto-suggest for agent search (basic example)
+      if(searchInput && allAgents.length > 0) {
+        searchInput.setAttribute('list', 'agentDatalist');
+        const datalist = document.createElement('datalist');
+        datalist.id = 'agentDatalist';
+        allAgents.forEach(agent => {
+            const option = document.createElement('option');
+            option.value = agent;
+            datalist.appendChild(option);
+        });
+        searchInput.parentNode.insertBefore(datalist, searchInput.nextSibling);
+      }
+
+      // Attempt to load profile for first agent if any exist
+      if(allAgents.length > 0) {
+          searchInput.value = allAgents[0]; // Pre-fill with the first agent
+          renderProfile(allAgents[0]); // And render their profile
+      } else {
+          document.getElementById("profileArea").innerHTML = '<p class="info-banner">No agent data loaded. Please process call data on the main page.</p>';
+      }
+    });
+
+    async function handleEmpDataImport(file) {
+      const statusEl = document.getElementById('empDataImportStatus');
+      statusEl.textContent = '⏳ Processing Excel file...';
+      try {
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const data = event.target.result;
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+          console.log("Raw imported Excel data:", jsonData);
+          statusEl.textContent = 'Expected headers: Agent Name, Employee ID, Start Date, Coach, Job Title, Department, Site (case-insensitive, spaces are ok). Only Agent Name is strictly required.';
+
+          if (jsonData.length === 0) {
+            statusEl.textContent = '⚠️ Excel sheet is empty or unreadable.';
+            return;
+          }
+
+          // Normalize header keys (convert to lowercase and remove spaces for robust matching)
+          const normalizeKey = (key) => key.toLowerCase().replace(/\s+/g, '');
+
+          const requiredHeaders = ['agentname'];
+          const excelHeaders = Object.keys(jsonData[0]).map(normalizeKey);
+          const hasRequiredHeaders = requiredHeaders.every(header => excelHeaders.includes(header));
+
+          if (!hasRequiredHeaders) {
+            statusEl.innerHTML = `⚠️ Missing required header: 'Agent Name'. Found headers: ${Object.keys(jsonData[0]).join(', ')}. <br/>Please ensure your Excel file has an 'Agent Name' column (or similar, e.g., 'agent name', 'AgentName').`;
+            return;
+          }
+
+          empDataStore = jsonData.map(row => {
+            // Find keys in a case-insensitive way and allowing for spaces
+            const findValue = (possibleKeys) => {
+              for (const key of Object.keys(row)) {
+                if (possibleKeys.includes(normalizeKey(key))) {
+                  return row[key];
+                }
+              }
+              return undefined;
+            };
+
+            return {
+              name: findValue(['agentname', 'agent name', 'agent']),
+              eid: findValue(['employeeid', 'employee id', 'eid']),
+              startDate: findValue(['startdate', 'start date']),
+              coach: findValue(['coach', 'supervisor']),
+              jobTitle: findValue(['jobtitle', 'job title', 'title']),
+              department: findValue(['department', 'dept']),
+              site: findValue(['site', 'location'])
+            };
+          }).filter(emp => emp.name); // Ensure agent name is present
+
+          if (empDataStore.length > 0) {
+            await window.DataStackULTRA.set('empData', empDataStore);
+            statusEl.textContent = `✅ Successfully imported ${empDataStore.length} employee records.`;
+            document.getElementById('enrichCallsBtn').style.display = 'inline-flex';
+            // If a profile is currently displayed and it's for one of the imported agents, re-render it
+            const currentAgentName = document.getElementById('agentSearchInput').value.trim();
+            if (currentAgentName && empDataStore.some(emp => emp.name && emp.name.toLowerCase() === currentAgentName.toLowerCase())) {
+              renderProfile(currentAgentName);
+            }
+          } else {
+            statusEl.textContent = '⚠️ No valid employee records found in the Excel file (ensure Agent Name is present).';
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      } catch (error) {
+        console.error("Error importing employee data:", error);
+        statusEl.textContent = `❌ Error importing data: ${error.message}`;
+      }
+    }
+
+    async function enrichCallsWithEmpData() {
+      const statusEl = document.getElementById('empDataImportStatus'); 
+      statusEl.textContent = '⏳ Enriching call data...';
+      try {
+        let callsToUpdate = await window.DataStackULTRA.get('loadedCalls', []);
+        const empRecords = await window.DataStackULTRA.get('empData', []);
+
+        if (!callsToUpdate || callsToUpdate.length === 0) {
+          statusEl.textContent = '🤷 No calls loaded to enrich.';
+          return;
+        }
+        if (!empRecords || empRecords.length === 0) {
+          statusEl.textContent = '🤷 No employee data available to enrich calls with.';
+          return;
+        }
+
+        let enrichedCount = 0;
+        callsToUpdate = callsToUpdate.map(call => {
+          const agentName = call.agent || call.meta?.["Agent name"] || call.meta?.Agent;
+          if (agentName) {
+            const empDetail = empRecords.find(emp => emp.name && emp.name.toLowerCase() === agentName.toLowerCase());
+            if (empDetail) {
+              call.meta = call.meta || {};
+              if(empDetail.eid) call.meta.EID = empDetail.eid;
+              if(empDetail.startDate) call.meta.StartDate = empDetail.startDate;
+              if(empDetail.coach) call.meta.Coach = empDetail.coach;
+              if(empDetail.jobTitle) call.meta.JobTitle = empDetail.jobTitle;
+              if(empDetail.department) call.meta.Department = empDetail.department;
+              if(empDetail.site) call.meta.Site = empDetail.site;
+              enrichedCount++;
+            }
+          }
+          return call;
+        });
+
+        await window.DataStackULTRA.set('loadedCalls', callsToUpdate);
+        allCalls = callsToUpdate; // Update the local cache as well
+
+        statusEl.textContent = `✅ ${enrichedCount} calls enriched with employee data.`;
+
+        // If a profile is currently displayed and it's for one of the enriched agents, re-render it
+        const currentAgentName = document.getElementById('agentSearchInput').value.trim();
+        if (currentAgentName && empRecords.some(emp => emp.name && emp.name.toLowerCase() === currentAgentName.toLowerCase())) {
+            // Check if this agent's data could have been enriched
+           renderProfile(currentAgentName);
+        }
+
+      } catch (error) {
+        console.error("Error enriching call data:", error);
+        statusEl.textContent = `❌ Error enriching calls: ${error.message}`;
+      }
+    }
+
+  </script>
+
+  <!-- Common ICETAP JS libraries -->
+  <script src="../../js/config.js"></script>
+  <script src="../../js/storage.js"></script>
+  <script src="../../js/schema.js"></script>
+  <script src="../../js/transform.js"></script>
+  <script src="../../js/index.js"></script>
+
+  <!-- Initialize DataStackULTRA for standalone use -->
+  <script>
+   (async () => {
+  try {
+    if (!window.DataStackULTRA) {
+      window.DataStackULTRA = new AppStorageManager({ encryptionEnabled: false });
+      console.log(`DataStackULTRA initialized for ${document.title} (encryption disabled).`);
+    } else {
+      console.log(`DataStackULTRA already exists for ${document.title}.`);
+    }
+
+    const existingCalls = await window.DataStackULTRA.get('loadedCalls');
+    if (Array.isArray(existingCalls) && existingCalls.length > 0) {
+      console.log(`✅ ${existingCalls.length} calls loaded from DataStackULTRA memory for ${document.title}.`);
+    } else {
+      console.warn(`⚠️ No calls found in 'loadedCalls'. Dashboard may be empty until a file is loaded.`);
+    }
+
+  } catch (e) {
+    console.error(`❌ Failed to initialize/load DataStackULTRA in ${document.title}:`, e);
+    const mainDashboardArea = document.getElementById('profileArea'); 
+    if(mainDashboardArea) {
+      mainDashboardArea.innerHTML = `
+        <p class="no-data-message card p-4 text-center">
+          <i class="fas fa-exclamation-triangle mr-2"></i>
+          FATAL: DataStackULTRA could not be initialized/loaded. Profile dashboard cannot function. Ensure core scripts (config.js, storage.js, index.js) are loaded before this page.
+        </p>`;
+    }
+  }
+})();
+  </script>
+
+  <script src="../../js/audit-merge.js"></script> <!-- audit-merge might depend on DataStackULTRA -->
+  <script src="../../js/call-analysis.js"></script> 
+
+</body>
+</html>
